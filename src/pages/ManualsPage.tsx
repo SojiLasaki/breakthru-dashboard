@@ -1,24 +1,42 @@
 import { useEffect, useState, useMemo } from 'react';
 import { manualApi, Manual } from '@/services/manualApi';
+import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Search, BookOpen, Download, ExternalLink } from 'lucide-react';
+import { Loader2, Search, BookOpen, Download, ExternalLink, Plus, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Engine: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-  Electrical: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
-  'Fuel System': 'text-orange-400 bg-orange-400/10 border-orange-400/20',
-  Cooling: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
-  Generator: 'text-green-400 bg-green-400/10 border-green-400/20',
+  Engine:       'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  Electrical:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  'Fuel System':'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  Cooling:      'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
+  Generator:    'text-green-400 bg-green-400/10 border-green-400/20',
+  General:      'text-purple-400 bg-purple-400/10 border-purple-400/20',
 };
 
+const CATEGORIES = ['Engine', 'Electrical', 'Fuel System', 'Cooling', 'Generator', 'General'];
+
+const BLANK_FORM = { title: '', description: '', category: '', engine_model: '', version: 'Rev. 1' };
+
 export default function ManualsPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [manuals, setManuals] = useState<Manual[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(BLANK_FORM);
+  const [submitting, setSubmitting] = useState(false);
+
+  const canCreate = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -37,11 +55,39 @@ export default function ManualsPage() {
     [manuals, categoryFilter]
   );
 
+  const handleSubmit = async () => {
+    if (!form.title.trim() || !form.description.trim() || !form.category || !form.engine_model.trim()) {
+      toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const authorName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || 'Technician';
+      const created = await manualApi.create(form, authorName);
+      setManuals(prev => [created, ...prev]);
+      setShowForm(false);
+      setForm(BLANK_FORM);
+      toast({ title: 'Manual added', description: `"${created.title}" has been added to the knowledge base.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save the manual.', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Manuals</h1>
-        <p className="text-muted-foreground text-sm">Technical documentation and service manuals</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Manuals</h1>
+          <p className="text-muted-foreground text-sm">Technical documentation and service manuals</p>
+        </div>
+        {canCreate && (
+          <Button size="sm" className="gap-2 btn-primary" onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" />
+            Add Manual
+          </Button>
+        )}
       </div>
 
       <div className="relative">
@@ -89,6 +135,10 @@ export default function ManualsPage() {
                     <span className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border">{manual.version}</span>
                   </div>
 
+                  {manual.author && (
+                    <p className="text-[10px] text-muted-foreground mt-2">By {manual.author}</p>
+                  )}
+
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                     <span className="text-[10px] text-muted-foreground">Updated {new Date(manual.updated_at).toLocaleDateString()}</span>
                     <div className="flex gap-1">
@@ -106,6 +156,82 @@ export default function ManualsPage() {
           })}
         </div>
       )}
+
+      {/* Add Manual Dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              Add to Knowledge Base
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">Title *</Label>
+              <Input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. ISX15 Turbo Boost Fault Procedure"
+                className="bg-background mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground">Description *</Label>
+              <Textarea
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Brief description of what this manual covers..."
+                rows={3}
+                className="bg-background mt-1 resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Category *</Label>
+                <Select value={form.category} onValueChange={val => setForm(f => ({ ...f, category: val }))}>
+                  <SelectTrigger className="bg-background mt-1">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground">Engine Model *</Label>
+                <Input
+                  value={form.engine_model}
+                  onChange={e => setForm(f => ({ ...f, engine_model: e.target.value }))}
+                  placeholder="e.g. ISX15"
+                  className="bg-background mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground">Version</Label>
+              <Input
+                value={form.version}
+                onChange={e => setForm(f => ({ ...f, version: e.target.value }))}
+                placeholder="e.g. Rev. 1"
+                className="bg-background mt-1"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button className="flex-1 btn-primary" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Manual'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

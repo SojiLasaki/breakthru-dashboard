@@ -20,6 +20,7 @@ import CustomersPage from "@/pages/CustomersPage";
 import ComponentsPage from "@/pages/ComponentsPage";
 import PartsPage from "@/pages/PartsPage";
 import AiAgentsPage from "@/pages/AiAgentsPage";
+import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -62,6 +63,7 @@ function ProtectedRoutes() {
         <Route path="/manuals"     element={<ManualsPage />} />
         <Route path="/ai-agents"   element={techOrStaff     ? <AiAgentsPage />     : <Navigate to="/" replace />} />
         <Route path="/logs"        element={adminOrStaff    ? <LogsPage />         : <Navigate to="/" replace />} />
+        <Route path="/profile"     element={<ProfilePage />} />
 
         <Route path="*"            element={<NotFound />} />
       </Route>
