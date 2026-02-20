@@ -42,19 +42,15 @@ export default function TechnicianProfilePage() {
   useEffect(() => {
     if (!id) return;
     const techId = parseInt(id, 10);
-    technicianApi.getAll().then(all => {
-      const found = all.find(t => t.id === techId) ?? null;
-      setTech(found);
-      setLoading(false);
-      if (found) {
-        technicianApi.getTaskHistory(techId).then(t => {
-          setTasks(t);
-          setTasksLoading(false);
-        });
-      } else {
-        setTasksLoading(false);
-      }
-    });
+    // Use getById to call GET /technicians/{id}/ directly
+    technicianApi.getById(techId)
+      .then(found => {
+        setTech(found);
+        return technicianApi.getTaskHistory(techId);
+      })
+      .then(t => setTasks(t))
+      .catch(() => setTech(null))
+      .finally(() => { setLoading(false); setTasksLoading(false); });
   }, [id]);
 
   if (loading) {

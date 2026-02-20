@@ -35,9 +35,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <span className="text-primary-foreground font-bold text-2xl">C</span>
+            <span className="text-primary-foreground font-bold text-2xl italic">b</span>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">Cummins Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Breakthru</h1>
           <p className="text-muted-foreground text-sm mt-1">Sign in to your account</p>
         </div>
 
