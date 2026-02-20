@@ -1,7 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useAiTutor } from '@/context/AiTutorContext';
-import { Bell, Bot, Menu, LogOut, User, ChevronDown } from 'lucide-react';
+import { Bell, Bot, Menu, LogOut, User, ChevronDown, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import NotificationPanel from './NotificationPanel';
 
 interface HeaderProps {
@@ -28,6 +29,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { unreadCount } = useNotifications();
   const { openTutor, isOpen, closeTutor } = useAiTutor();
   const [notifOpen, setNotifOpen] = useState(false);
+  const navigate = useNavigate();
   const canUseAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
   return (
@@ -57,6 +59,21 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <span className="text-xs">AI Tutor</span>
           </Button>
           )}
+
+          {/* Felix AI button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/ask-ai')}
+            className="gap-2 text-muted-foreground hover:text-primary hidden sm:flex relative"
+            title="Ask Felix"
+          >
+            <div className="relative">
+              <Sparkles className="h-4 w-4" />
+              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[hsl(142,70%,55%)]" />
+            </div>
+            <span className="text-xs">Felix</span>
+          </Button>
 
           <Button
             variant="ghost"
