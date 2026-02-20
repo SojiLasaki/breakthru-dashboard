@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { customerApi, Customer } from '@/services/customerApi';
 import { ticketApi, Ticket } from '@/services/ticketApi';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Loader2, Search, User, MapPin, Phone, Mail, Building2, Ticket as TicketIcon,
-  Calendar, Hash, ExternalLink,
+  Calendar, Hash, ExternalLink, Plus,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -18,7 +22,11 @@ const STATUS_CLASSES: Record<string, string> = {
   urgent:      'status-urgent',
 };
 
+const BLANK_CUSTOMER = { name: '', email: '', phone: '', company: '', location: '' };
+
 export default function CustomersPage() {
+  const { isRole } = useAuth();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,6 +34,11 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState<Customer | null>(null);
   const [relatedTickets, setRelatedTickets] = useState<Ticket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState(BLANK_CUSTOMER);
+  const [creating, setCreating] = useState(false);
+
+  const isAdmin = isRole('admin', 'office_staff');
 
   useEffect(() => { customerApi.getAll().then(setCustomers).finally(() => setLoading(false)); }, []);
 
@@ -37,6 +50,22 @@ export default function CustomersPage() {
       setRelatedTickets(all.filter(t => t.created_by?.toLowerCase().includes(c.name.split(' ')[0].toLowerCase())));
     } finally {
       setLoadingTickets(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newCustomer.name.trim() || !newCustomer.email.trim()) return;
+    setCreating(true);
+    try {
+      const created = await customerApi.create(newCustomer);
+      setCustomers(prev => [created, ...prev]);
+      setAddOpen(false);
+      setNewCustomer(BLANK_CUSTOMER);
+      toast({ title: 'Customer added', description: `${created.name} has been registered.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add customer.', variant: 'destructive' });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -57,6 +86,11 @@ export default function CustomersPage() {
           <p className="text-muted-foreground text-sm">{active} active customers</p>
         </div>
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" /> New Customer
+            </Button>
+          )}
           <button onClick={() => setView('table')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${view === 'table' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>Table</button>
           <button onClick={() => setView('cards')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${view === 'cards' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>Cards</button>
         </div>
@@ -260,6 +294,51 @@ export default function CustomersPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* New Customer Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" /> Add New Customer
+            </DialogTitle>
+            <DialogDescription>Register a new customer in the system.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Full Name *</Label>
+                <Input placeholder="James Porter" value={newCustomer.name} onChange={e => setNewCustomer(f => ({ ...f, name: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email *</Label>
+                <Input type="email" placeholder="james@company.com" value={newCustomer.email} onChange={e => setNewCustomer(f => ({ ...f, email: e.target.value }))} className="bg-background" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone</Label>
+                <Input placeholder="+1-555-0000" value={newCustomer.phone} onChange={e => setNewCustomer(f => ({ ...f, phone: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Company</Label>
+                <Input placeholder="Acme Corp" value={newCustomer.company} onChange={e => setNewCustomer(f => ({ ...f, company: e.target.value }))} className="bg-background" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Location</Label>
+              <Input placeholder="City, State" value={newCustomer.location} onChange={e => setNewCustomer(f => ({ ...f, location: e.target.value }))} className="bg-background" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newCustomer.name.trim() || !newCustomer.email.trim()}>
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Add Customer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

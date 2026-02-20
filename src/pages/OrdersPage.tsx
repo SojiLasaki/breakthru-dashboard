@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { orderApi, Order } from '@/services/orderApi';
-import { Loader2, Package, Search, ExternalLink, Hash, Calendar, User, ShoppingCart } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Package, Search, ExternalLink, Hash, Calendar, User, ShoppingCart, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   pending:   { label: 'Pending',   class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20' },
@@ -15,14 +20,39 @@ const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
 
 const TIMELINE_STEPS = ['pending', 'approved', 'shipped', 'delivered'];
 
+const BLANK_ORDER = { item_name: '', quantity: 1, assigned_ticket: '', total_price: 0 };
+
 export default function OrdersPage() {
+  const { isRole } = useAuth();
+  const { toast } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState<Order | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newOrder, setNewOrder] = useState(BLANK_ORDER);
+  const [creating, setCreating] = useState(false);
+
+  const isAdmin = isRole('admin', 'office_staff');
 
   useEffect(() => { orderApi.getAll().then(setOrders).finally(() => setLoading(false)); }, []);
+
+  const handleCreate = async () => {
+    if (!newOrder.item_name.trim()) return;
+    setCreating(true);
+    try {
+      const created = await orderApi.create({ ...newOrder, requested_by: 'Office Staff', status: 'pending' });
+      setOrders(prev => [created, ...prev]);
+      setAddOpen(false);
+      setNewOrder(BLANK_ORDER);
+      toast({ title: 'Order created', description: `${created.order_number} has been submitted.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to create order.', variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const filtered = orders.filter(o => {
     const matchSearch = !search || o.order_number.toLowerCase().includes(search.toLowerCase()) || o.item_name.toLowerCase().includes(search.toLowerCase()) || o.requested_by.toLowerCase().includes(search.toLowerCase());
@@ -35,9 +65,16 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Orders</h1>
-        <p className="text-muted-foreground text-sm">Parts and supply orders tracking</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Orders</h1>
+          <p className="text-muted-foreground text-sm">Parts and supply orders tracking</p>
+        </div>
+        {isAdmin && (
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> New Order
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -204,6 +241,43 @@ export default function OrdersPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* New Order Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> New Order</DialogTitle>
+            <DialogDescription>Submit a new parts or supply order.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Item Name *</Label>
+              <Input placeholder="e.g. Fuel Injector 6.7L" value={newOrder.item_name} onChange={e => setNewOrder(f => ({ ...f, item_name: e.target.value }))} className="bg-background" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Quantity</Label>
+                <Input type="number" min={1} value={newOrder.quantity} onChange={e => setNewOrder(f => ({ ...f, quantity: Number(e.target.value) }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Total Price ($)</Label>
+                <Input type="number" min={0} step={0.01} value={newOrder.total_price} onChange={e => setNewOrder(f => ({ ...f, total_price: Number(e.target.value) }))} className="bg-background" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Linked Ticket (optional)</Label>
+              <Input placeholder="e.g. TK-001" value={newOrder.assigned_ticket} onChange={e => setNewOrder(f => ({ ...f, assigned_ticket: e.target.value }))} className="bg-background" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newOrder.item_name.trim()}>
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Submit Order
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

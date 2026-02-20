@@ -22,13 +22,58 @@ const MOCK_COMPONENTS: Component[] = [
   { id: 7, name: 'Starter & Alternator',      code: 'SAA-4400',  category: 'Electrical',    description: 'Starter motor, alternator, and battery charging system assembly',      engine_model: 'All',     part_count: 4,  status: 'discontinued', created_at: '2021-11-05' },
 ];
 
+let mockComponents = [...MOCK_COMPONENTS];
+
 export const componentApi = {
   getAll: async (): Promise<Component[]> => {
     try {
       const { data } = await api.get('/components/');
       return data.results || data;
     } catch {
-      return MOCK_COMPONENTS;
+      return mockComponents;
+    }
+  },
+  getById: async (id: number): Promise<Component> => {
+    try {
+      const { data } = await api.get(`/components/${id}/`);
+      return data;
+    } catch {
+      const c = mockComponents.find(c => c.id === id);
+      if (!c) throw new Error('Component not found');
+      return c;
+    }
+  },
+  create: async (payload: Partial<Component>): Promise<Component> => {
+    try {
+      const { data } = await api.post('/components/', payload);
+      return data;
+    } catch {
+      const newComp: Component = {
+        id: Date.now(),
+        name: payload.name ?? '',
+        code: payload.code ?? '',
+        category: payload.category ?? '',
+        description: payload.description ?? '',
+        engine_model: payload.engine_model ?? '',
+        part_count: 0,
+        status: 'active',
+        created_at: new Date().toISOString().split('T')[0],
+      };
+      mockComponents = [newComp, ...mockComponents];
+      return newComp;
+    }
+  },
+  update: async (id: number, payload: Partial<Component>): Promise<Component> => {
+    try {
+      const { data } = await api.patch(`/components/${id}/`, payload);
+      return data;
+    } catch {
+      const idx = mockComponents.findIndex(c => c.id === id);
+      if (idx !== -1) {
+        mockComponents[idx] = { ...mockComponents[idx], ...payload };
+        return mockComponents[idx];
+      }
+      throw new Error('Component not found');
     }
   },
 };

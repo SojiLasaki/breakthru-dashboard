@@ -13,12 +13,14 @@ export interface Order {
 }
 
 const MOCK_ORDERS: Order[] = [
-  { id: 1, order_number: 'ORD-019', item_name: 'Fuel Injector 6.7L', quantity: 2, status: 'approved', assigned_ticket: 'TK-002', created_at: '2024-02-14T10:00:00Z', total_price: 490.00, requested_by: 'Office Staff' },
-  { id: 2, order_number: 'ORD-020', item_name: 'Oil Filter Assembly', quantity: 10, status: 'pending', assigned_ticket: '', created_at: '2024-02-15T09:00:00Z', total_price: 285.00, requested_by: 'Warehouse' },
-  { id: 3, order_number: 'ORD-021', item_name: 'Thermostat Kit', quantity: 3, status: 'shipped', assigned_ticket: 'TK-001', created_at: '2024-02-13T14:00:00Z', total_price: 267.00, requested_by: 'Office Staff' },
-  { id: 4, order_number: 'ORD-022', item_name: 'Coolant Hose Kit', quantity: 5, status: 'pending', assigned_ticket: '', created_at: '2024-02-15T11:00:00Z', total_price: 325.00, requested_by: 'Warehouse' },
-  { id: 5, order_number: 'ORD-023', item_name: 'Belt & Pulley Set', quantity: 1, status: 'delivered', assigned_ticket: 'TK-005', created_at: '2024-02-10T08:00:00Z', total_price: 156.00, requested_by: 'Office Staff' },
+  { id: 1, order_number: 'ORD-019', item_name: 'Fuel Injector 6.7L',  quantity: 2,  status: 'approved',  assigned_ticket: 'TK-002', created_at: '2024-02-14T10:00:00Z', total_price: 490.00,  requested_by: 'Office Staff' },
+  { id: 2, order_number: 'ORD-020', item_name: 'Oil Filter Assembly',  quantity: 10, status: 'pending',   assigned_ticket: '',       created_at: '2024-02-15T09:00:00Z', total_price: 285.00,  requested_by: 'Warehouse' },
+  { id: 3, order_number: 'ORD-021', item_name: 'Thermostat Kit',       quantity: 3,  status: 'shipped',   assigned_ticket: 'TK-001', created_at: '2024-02-13T14:00:00Z', total_price: 267.00,  requested_by: 'Office Staff' },
+  { id: 4, order_number: 'ORD-022', item_name: 'Coolant Hose Kit',     quantity: 5,  status: 'pending',   assigned_ticket: '',       created_at: '2024-02-15T11:00:00Z', total_price: 325.00,  requested_by: 'Warehouse' },
+  { id: 5, order_number: 'ORD-023', item_name: 'Belt & Pulley Set',    quantity: 1,  status: 'delivered', assigned_ticket: 'TK-005', created_at: '2024-02-10T08:00:00Z', total_price: 156.00,  requested_by: 'Office Staff' },
 ];
+
+let mockOrders = [...MOCK_ORDERS];
 
 export const orderApi = {
   getAll: async (): Promise<Order[]> => {
@@ -26,7 +28,50 @@ export const orderApi = {
       const { data } = await api.get('/orders/');
       return data.results || data;
     } catch {
-      return MOCK_ORDERS;
+      return mockOrders;
+    }
+  },
+  getById: async (id: number): Promise<Order> => {
+    try {
+      const { data } = await api.get(`/orders/${id}/`);
+      return data;
+    } catch {
+      const o = mockOrders.find(o => o.id === id);
+      if (!o) throw new Error('Order not found');
+      return o;
+    }
+  },
+  create: async (payload: Partial<Order>): Promise<Order> => {
+    try {
+      const { data } = await api.post('/orders/', payload);
+      return data;
+    } catch {
+      const newOrder: Order = {
+        id: Date.now(),
+        order_number: `ORD-${String(Date.now()).slice(-3)}`,
+        item_name: payload.item_name ?? '',
+        quantity: payload.quantity ?? 1,
+        status: 'pending',
+        assigned_ticket: payload.assigned_ticket ?? '',
+        created_at: new Date().toISOString(),
+        total_price: payload.total_price ?? 0,
+        requested_by: payload.requested_by ?? '',
+      };
+      mockOrders = [newOrder, ...mockOrders];
+      return newOrder;
+    }
+  },
+  update: async (id: number, payload: Partial<Order>): Promise<Order> => {
+    try {
+      const { data } = await api.patch(`/orders/${id}/`, payload);
+      return data;
+    } catch {
+      const idx = mockOrders.findIndex(o => o.id === id);
+      if (idx !== -1) {
+        mockOrders[idx] = { ...mockOrders[idx], ...payload };
+        return mockOrders[idx];
+      }
+      throw new Error('Order not found');
     }
   },
 };
