@@ -13,13 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DataTable, Column } from '@/components/DataTable';
 import { Loader2, Search, Layers, Package, Plus, Tag, Calendar, Pencil, Save, X } from 'lucide-react';
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   active:       { label: 'Active',       class: 'text-green-400 bg-green-400/10 border border-green-400/20' },
   discontinued: { label: 'Discontinued', class: 'text-muted-foreground bg-muted/50 border border-border' },
   pending:      { label: 'Pending',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20' },
 };
 
-const PART_STATUS_CONFIG = {
+const PART_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   in_stock:     { label: 'In Stock',     class: 'text-green-400 bg-green-400/10 border border-green-400/20' },
   low_stock:    { label: 'Low Stock',    class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20' },
   out_of_stock: { label: 'Out of Stock', class: 'text-primary bg-primary/10 border border-primary/20' },
@@ -47,7 +47,10 @@ export default function ComponentsPage() {
   const isAdmin = isRole('admin', 'office_staff');
 
   useEffect(() => {
-    componentApi.getAll().then(setComponents).finally(() => setLoading(false));
+    componentApi.getAll()
+      .then(data => setComponents(Array.isArray(data) ? data : []))
+      .catch(() => setComponents([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const openDetail = async (comp: Component) => {
@@ -55,9 +58,12 @@ export default function ComponentsPage() {
     setEditing(false);
     setEditForm({ status: comp.status, description: comp.description });
     setLoadingParts(true);
+    setParts([]);
     try {
       const p = await partApi.getByComponent(comp.id);
-      setParts(p);
+      setParts(Array.isArray(p) ? p : []);
+    } catch {
+      setParts([]);
     } finally {
       setLoadingParts(false);
     }
@@ -99,10 +105,10 @@ export default function ComponentsPage() {
   const filtered = useMemo(() =>
     components.filter(c =>
       !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.category.toLowerCase().includes(search.toLowerCase()) ||
-      c.engine_model.toLowerCase().includes(search.toLowerCase())
+      c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.code?.toLowerCase().includes(search.toLowerCase()) ||
+      c.category?.toLowerCase().includes(search.toLowerCase()) ||
+      c.engine_model?.toLowerCase().includes(search.toLowerCase())
     ),
     [components, search]
   );
@@ -130,14 +136,14 @@ export default function ComponentsPage() {
       render: row => (
         <div className="flex items-center gap-1 text-xs">
           <Package className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{row.part_count}</span>
+          <span className="font-medium">{row.part_count ?? 0}</span>
         </div>
       ),
     },
     {
       label: 'Status',
       render: row => {
-        const cfg = STATUS_CONFIG[row.status];
+        const cfg = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.active;
         return <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
       },
     },
@@ -167,7 +173,7 @@ export default function ComponentsPage() {
           <p className="text-xs text-muted-foreground">Active</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-2xl font-bold">{components.reduce((s, c) => s + c.part_count, 0)}</p>
+          <p className="text-2xl font-bold">{components.reduce((s, c) => s + (c.part_count ?? 0), 0)}</p>
           <p className="text-xs text-muted-foreground">Total Parts</p>
         </div>
       </div>
@@ -201,8 +207,8 @@ export default function ComponentsPage() {
                     <div>
                       <SheetTitle className="text-base leading-tight">{selected.name}</SheetTitle>
                       <p className="text-xs font-mono text-muted-foreground">{selected.code} · {selected.engine_model}</p>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${STATUS_CONFIG[selected.status].class}`}>
-                        {STATUS_CONFIG[selected.status].label}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.active).class}`}>
+                        {(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.active).label}
                       </span>
                     </div>
                   </div>
@@ -219,8 +225,26 @@ export default function ComponentsPage() {
                   <div className="space-y-4">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Editing Component</p>
                     <div className="space-y-1.5">
+                      <Label className="text-xs">Name</Label>
+                      <Input value={editForm.name ?? selected.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="bg-background" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Code</Label>
+                        <Input value={editForm.code ?? selected.code} onChange={e => setEditForm(f => ({ ...f, code: e.target.value }))} className="bg-background" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Category</Label>
+                        <Input value={editForm.category ?? selected.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Engine Model</Label>
+                      <Input value={editForm.engine_model ?? selected.engine_model} onChange={e => setEditForm(f => ({ ...f, engine_model: e.target.value }))} className="bg-background" />
+                    </div>
+                    <div className="space-y-1.5">
                       <Label className="text-xs">Status</Label>
-                      <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Component['status'] }))}>
+                      <Select value={editForm.status ?? selected.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Component['status'] }))}>
                         <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="active">Active</SelectItem>
@@ -231,7 +255,7 @@ export default function ComponentsPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Description</Label>
-                      <Textarea value={editForm.description ?? ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3} className="bg-background resize-none" />
+                      <Textarea value={editForm.description ?? selected.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3} className="bg-background resize-none" />
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" className="flex-1 gap-1.5" onClick={() => setEditing(false)}>
@@ -250,7 +274,7 @@ export default function ComponentsPage() {
                         { icon: Tag,      label: 'Code',         value: selected.code },
                         { icon: Layers,   label: 'Category',     value: selected.category },
                         { icon: Package,  label: 'Engine Model', value: selected.engine_model },
-                        { icon: Calendar, label: 'Created',      value: new Date(selected.created_at).toLocaleDateString() },
+                        { icon: Calendar, label: 'Created',      value: selected.created_at ? new Date(selected.created_at).toLocaleDateString() : '—' },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-3 text-xs">
                           <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -277,7 +301,7 @@ export default function ComponentsPage() {
                   ) : (
                     <div className="space-y-1.5 max-h-60 overflow-y-auto">
                       {parts.map(p => {
-                        const cfg = PART_STATUS_CONFIG[p.status];
+                        const cfg = PART_STATUS_CONFIG[p.status] ?? PART_STATUS_CONFIG.in_stock;
                         return (
                           <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/20 hover:bg-accent/30 transition-colors">
                             <div>

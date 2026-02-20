@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/context/AuthContext';
 import { useAiTutor } from '@/context/AiTutorContext';
+import { transactionApi, Transaction } from '@/services/transactionApi';
 import {
   Ticket, Users, Package, ShoppingCart, BookOpen, X, Bot,
   User, Layers, Wrench, FileText, ChevronDown, ChevronRight,
-  Activity, Cpu,
+  Activity, Cpu, ArrowLeftRight, Clock, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,40 +21,40 @@ interface NavItem {
   label: string;
   icon: React.FC<{ className?: string }>;
   roles: string[];
-  children?: NavItem[];
 }
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Operations',
     items: [
-      { to: '/customers',    label: 'Customers',    icon: User,         roles: ['admin', 'office_staff'] },
-      { to: '/tickets',      label: 'Tickets',      icon: Ticket,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
-      { to: '/orders',       label: 'Orders',       icon: ShoppingCart, roles: ['admin', 'office_staff'] },
-      { to: '/technicians',  label: 'Technicians',  icon: Users,        roles: ['admin', 'office_staff'] },
+      { to: '/customers',    label: 'Customers',    icon: User,           roles: ['admin', 'office_staff'] },
+      { to: '/tickets',      label: 'Tickets',      icon: Ticket,         roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+      { to: '/orders',       label: 'Orders',       icon: ShoppingCart,   roles: ['admin', 'office_staff'] },
+      { to: '/technicians',  label: 'Technicians',  icon: Users,          roles: ['admin', 'office_staff'] },
+      { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight, roles: ['admin', 'office_staff'] },
     ],
   },
   {
     label: 'Equipment',
     items: [
-      { to: '/assets',       label: 'Assets',       icon: Cpu,          roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/diagnostics',  label: 'Diagnostics',  icon: Activity,     roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/assets',      label: 'Assets',      icon: Cpu,      roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/diagnostics', label: 'Diagnostics', icon: Activity, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
     ],
   },
   {
     label: 'Inventory & Parts',
     items: [
-      { to: '/inventory',    label: 'Inventory',    icon: Package,      roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/components',   label: 'Components',   icon: Layers,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/parts',        label: 'Parts',        icon: Wrench,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/inventory',  label: 'Inventory',  icon: Package, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/components', label: 'Components', icon: Layers,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/parts',      label: 'Parts',      icon: Wrench,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
     ],
   },
   {
     label: 'Resources',
     items: [
-      { to: '/manuals',      label: 'Manuals',      icon: BookOpen,     roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
-      { to: '/ai-agents',    label: 'AI Agents',    icon: Bot,          roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/logs',         label: 'Logs',         icon: FileText,     roles: ['admin', 'office_staff'] },
+      { to: '/manuals',   label: 'Manuals',    icon: BookOpen,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+      { to: '/ai-agents', label: 'AI Agents',  icon: Bot,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/logs',      label: 'Logs',       icon: FileText,  roles: ['admin', 'office_staff'] },
     ],
   },
 ];
@@ -103,9 +104,23 @@ function SidebarGroup({ label, items, role, onClose }: { label: string; items: N
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
   const { openTutor, isOpen, closeTutor } = useAiTutor();
+  const [recentTx, setRecentTx] = useState<Transaction[]>([]);
 
   const role = user?.role ?? 'customer';
   const showAiTutor = role !== 'customer';
+  const isAdminOrStaff = role === 'admin' || role === 'office_staff';
+
+  useEffect(() => {
+    if (isAdminOrStaff) {
+      transactionApi.getRecent(4).then(setRecentTx).catch(() => setRecentTx([]));
+    }
+  }, [isAdminOrStaff]);
+
+  const txStatusIcon = (status: Transaction['status']) => {
+    if (status === 'approved' || status === 'fulfilled') return <CheckCircle2 className="h-3 w-3 text-green-400 flex-shrink-0" />;
+    if (status === 'rejected') return <XCircle className="h-3 w-3 text-primary flex-shrink-0" />;
+    return <Clock className="h-3 w-3 text-yellow-400 flex-shrink-0" />;
+  };
 
   return (
     <>
@@ -144,6 +159,44 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             />
           ))}
         </nav>
+
+        {/* Recent Transactions mini-panel */}
+        {isAdminOrStaff && recentTx.length > 0 && (
+          <div className="mx-3 mb-2 border border-sidebar-border rounded-lg overflow-hidden flex-shrink-0">
+            <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-b border-sidebar-border">
+              <div className="flex items-center gap-1.5">
+                <ArrowLeftRight className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recent Transactions</span>
+              </div>
+              {recentTx.some(t => t.status === 'pending') && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-400 border border-yellow-400/30">
+                  {recentTx.filter(t => t.status === 'pending').length} pending
+                </span>
+              )}
+            </div>
+            <div className="divide-y divide-sidebar-border">
+              {recentTx.map(tx => (
+                <NavLink
+                  key={tx.id}
+                  to="/transactions"
+                  onClick={onClose}
+                  className="flex items-start gap-2 px-3 py-2 hover:bg-sidebar-accent transition-colors"
+                  activeClassName=""
+                >
+                  {txStatusIcon(tx.status)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-medium truncate leading-tight">{tx.part_name}</p>
+                    <p className="text-[9px] text-muted-foreground truncate">
+                      <span className="text-primary">{tx.ai_agent}</span>
+                      {tx.approved_by ? ` · ${tx.approved_by}` : ' · awaiting'}
+                    </p>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground flex-shrink-0">${tx.total_price.toFixed(0)}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-3 pb-2 flex-shrink-0">

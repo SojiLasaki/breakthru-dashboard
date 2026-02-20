@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DataTable, Column } from '@/components/DataTable';
 import { Loader2, Search, AlertTriangle, Wrench, Plus, DollarSign, Building2, Tag, Hash, Pencil, Save, X } from 'lucide-react';
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   in_stock:     { label: 'In Stock',     class: 'text-green-400 bg-green-400/10 border border-green-400/20' },
   low_stock:    { label: 'Low Stock',    class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20' },
   out_of_stock: { label: 'Out of Stock', class: 'text-primary bg-primary/10 border border-primary/20' },
@@ -39,21 +39,23 @@ export default function PartsPage() {
   const [editForm, setEditForm] = useState<Partial<Part>>({});
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [newForm, setNewForm] = useState(BLANK_FORM);
+  const [newForm, setNewForm] = useState<Partial<Part>>(BLANK_FORM);
   const [creating, setCreating] = useState(false);
 
   const isAdmin = isRole('admin', 'office_staff');
 
   useEffect(() => {
     Promise.all([
-      partApi.getAll().then(setParts),
-      componentApi.getAll().then(setComponents),
+      partApi.getAll().then(data => setParts(Array.isArray(data) ? data : [])).catch(() => setParts([])),
+      componentApi.getAll().then(data => setComponents(Array.isArray(data) ? data : [])).catch(() => setComponents([])),
     ]).finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() =>
     parts.filter(p => {
-      const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.part_number.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = !search ||
+        p.name?.toLowerCase().includes(search.toLowerCase()) ||
+        p.part_number?.toLowerCase().includes(search.toLowerCase());
       const matchComp = componentFilter === 'all' || p.component_id === Number(componentFilter);
       const matchStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchSearch && matchComp && matchStatus;
@@ -64,7 +66,18 @@ export default function PartsPage() {
   const openDetail = (p: Part) => {
     setSelected(p);
     setEditing(false);
-    setEditForm({ status: p.status, quantity_on_hand: p.quantity_on_hand, reorder_level: p.reorder_level, unit_price: p.unit_price, supplier: p.supplier });
+    setEditForm({
+      name: p.name,
+      part_number: p.part_number,
+      category: p.category,
+      supplier: p.supplier,
+      compatibility: p.compatibility,
+      status: p.status,
+      quantity_on_hand: p.quantity_on_hand,
+      reorder_level: p.reorder_level,
+      unit_price: p.unit_price,
+      weight_kg: p.weight_kg,
+    });
   };
 
   const handleSave = async () => {
@@ -92,7 +105,7 @@ export default function PartsPage() {
       const created = await partApi.create({ ...newForm, component_name: comp?.name ?? '' });
       setParts(prev => [created, ...prev]);
       setAddOpen(false);
-      setNewForm(BLANK_FORM);
+      setNewForm({ ...BLANK_FORM });
       toast({ title: 'Part added', description: `${created.name} has been registered.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to add part.', variant: 'destructive' });
@@ -119,13 +132,13 @@ export default function PartsPage() {
         );
       },
     },
-    { label: 'Reorder',  render: row => <span className="text-xs text-muted-foreground">{row.reorder_level}</span> },
-    { label: 'Unit Price', render: row => <span className="text-xs">${row.unit_price.toFixed(2)}</span> },
-    { label: 'Supplier',  render: row => <span className="text-xs text-muted-foreground">{row.supplier}</span> },
+    { label: 'Reorder',   render: row => <span className="text-xs text-muted-foreground">{row.reorder_level}</span> },
+    { label: 'Unit Price', render: row => <span className="text-xs">${Number(row.unit_price).toFixed(2)}</span> },
+    { label: 'Supplier',   render: row => <span className="text-xs text-muted-foreground">{row.supplier}</span> },
     {
       label: 'Status',
       render: row => {
-        const cfg = STATUS_CONFIG[row.status];
+        const cfg = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.in_stock;
         return <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
       },
     },
@@ -216,8 +229,8 @@ export default function PartsPage() {
                     <div>
                       <SheetTitle className="text-base leading-tight">{selected.name}</SheetTitle>
                       <p className="text-xs font-mono text-muted-foreground">{selected.part_number}</p>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${STATUS_CONFIG[selected.status].class}`}>
-                        {STATUS_CONFIG[selected.status].label}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.in_stock).class}`}>
+                        {(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.in_stock).label}
                       </span>
                     </div>
                   </div>
@@ -233,10 +246,22 @@ export default function PartsPage() {
                 {editing ? (
                   <div className="space-y-4">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Editing Part</p>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Name</Label>
+                      <Input value={editForm.name ?? ''} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="bg-background" />
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
+                        <Label className="text-xs">Part Number</Label>
+                        <Input value={editForm.part_number ?? ''} onChange={e => setEditForm(f => ({ ...f, part_number: e.target.value }))} className="bg-background" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Category</Label>
+                        <Input value={editForm.category ?? ''} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+                      </div>
+                      <div className="space-y-1.5">
                         <Label className="text-xs">Status</Label>
-                        <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Part['status'] }))}>
+                        <Select value={editForm.status ?? selected.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Part['status'] }))}>
                           <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {Object.entries(STATUS_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
@@ -260,6 +285,10 @@ export default function PartsPage() {
                       <Label className="text-xs">Supplier</Label>
                       <Input value={editForm.supplier ?? ''} onChange={e => setEditForm(f => ({ ...f, supplier: e.target.value }))} className="bg-background" />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Compatibility</Label>
+                      <Input value={editForm.compatibility ?? ''} onChange={e => setEditForm(f => ({ ...f, compatibility: e.target.value }))} className="bg-background" />
+                    </div>
                     <div className="flex gap-2">
                       <Button variant="outline" className="flex-1 gap-1.5" onClick={() => setEditing(false)}>
                         <X className="h-3.5 w-3.5" /> Cancel
@@ -278,7 +307,7 @@ export default function PartsPage() {
                       { icon: Wrench,     label: 'Component',      value: selected.component_name },
                       { icon: Tag,        label: 'Compatibility',  value: selected.compatibility },
                       { icon: Building2,  label: 'Supplier',       value: selected.supplier },
-                      { icon: DollarSign, label: 'Unit Price',     value: `$${selected.unit_price.toFixed(2)}` },
+                      { icon: DollarSign, label: 'Unit Price',     value: `$${Number(selected.unit_price).toFixed(2)}` },
                       { icon: Hash,       label: 'Weight',         value: `${selected.weight_kg} kg` },
                     ].map(({ icon: Icon, label, value }) => (
                       <div key={label} className="flex items-center gap-3 text-xs">
@@ -293,8 +322,8 @@ export default function PartsPage() {
                     ))}
                     <div className="bg-muted/30 border border-border rounded-lg p-3 flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Stock: {selected.quantity_on_hand} / Reorder at: {selected.reorder_level}</span>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_CONFIG[selected.status].class}`}>
-                        {STATUS_CONFIG[selected.status].label}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.in_stock).class}`}>
+                        {(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.in_stock).label}
                       </span>
                     </div>
                   </div>

@@ -4,25 +4,24 @@ import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Loader2, Search, BookOpen, Download, ExternalLink, Plus } from 'lucide-react';
+import { Loader2, Search, BookOpen, Download, ExternalLink, Plus, X, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import PdfViewer from '@/components/PdfViewer';
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Engine:       'text-blue-400 bg-blue-400/10 border-blue-400/20',
-  Electrical:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
-  'Fuel System':'text-orange-400 bg-orange-400/10 border-orange-400/20',
-  Cooling:      'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
-  Generator:    'text-green-400 bg-green-400/10 border-green-400/20',
-  General:      'text-purple-400 bg-purple-400/10 border-purple-400/20',
+  Engine:         'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  Electrical:     'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  'Fuel System':  'text-orange-400 bg-orange-400/10 border-orange-400/20',
+  Cooling:        'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
+  Generator:      'text-green-400 bg-green-400/10 border-green-400/20',
+  General:        'text-purple-400 bg-purple-400/10 border-purple-400/20',
 };
 
 const CATEGORIES = ['Engine', 'Electrical', 'Fuel System', 'Cooling', 'Generator', 'General'];
-
 const BLANK_FORM = { title: '', description: '', category: '', engine_model: '', version: 'Rev. 1' };
 
 export default function ManualsPage() {
@@ -36,7 +35,8 @@ export default function ManualsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedManual, setSelectedManual] = useState<Manual | null>(null);
+  // PDF viewer state – null = grid view, Manual = full-screen PDF
+  const [viewingManual, setViewingManual] = useState<Manual | null>(null);
 
   const canCreate = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
@@ -50,7 +50,7 @@ export default function ManualsPage() {
     manualApi.getAll(debouncedSearch || undefined).then(setManuals).finally(() => setLoading(false));
   }, [debouncedSearch]);
 
-  const categories = ['All', ...Array.from(new Set(manuals.map(m => m.category)))];
+  const categories = useMemo(() => ['All', ...Array.from(new Set(manuals.map(m => m.category)))], [manuals]);
 
   const filtered = useMemo(() =>
     categoryFilter === 'All' ? manuals : manuals.filter(m => m.category === categoryFilter),
@@ -77,6 +77,106 @@ export default function ManualsPage() {
     }
   };
 
+  // ── Full-screen PDF reader (Canvas-style) ─────────────────────────────────
+  if (viewingManual) {
+    const hasRealPdf = viewingManual.file_url && viewingManual.file_url !== '#';
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex flex-col">
+        {/* Header bar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setViewingManual(null)}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Manuals
+          </Button>
+          <div className="w-px h-4 bg-border" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
+            <span className="text-sm font-medium truncate">{viewingManual.title}</span>
+            <span className="text-xs text-muted-foreground flex-shrink-0">{viewingManual.version}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {hasRealPdf && (
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" asChild>
+                <a href={viewingManual.file_url} download>
+                  <Download className="h-3.5 w-3.5" /> Download
+                </a>
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewingManual(null)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Viewer area */}
+        <div className="flex flex-1 min-h-0">
+          {/* Left info panel */}
+          <div className="w-64 border-r border-border bg-card flex-shrink-0 overflow-y-auto p-4 space-y-4 hidden lg:block">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Manual Info</p>
+              <div className="space-y-2">
+                {[
+                  { label: 'Category',     value: viewingManual.category },
+                  { label: 'Engine Model', value: viewingManual.engine_model },
+                  { label: 'Version',      value: viewingManual.version },
+                  { label: 'Author',       value: viewingManual.author ?? '—' },
+                  { label: 'Updated',      value: new Date(viewingManual.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p className="text-[10px] text-muted-foreground">{label}</p>
+                    <p className="text-xs font-medium">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-muted/30 border border-border rounded-lg p-3">
+              <p className="text-[10px] text-muted-foreground mb-1">Description</p>
+              <p className="text-xs leading-relaxed">{viewingManual.description}</p>
+            </div>
+          </div>
+
+          {/* PDF / Fallback content */}
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+            {hasRealPdf ? (
+              <PdfViewer url={viewingManual.file_url} title={viewingManual.title} />
+            ) : (
+              <div className="flex-1 overflow-y-auto bg-muted/10 p-8 flex flex-col items-center justify-center gap-6">
+                <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="h-12 w-12 text-primary" />
+                </div>
+                <div className="text-center max-w-md">
+                  <h2 className="text-lg font-semibold mb-2">{viewingManual.title}</h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-4">{viewingManual.description}</p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {[
+                      { label: viewingManual.category, color: CATEGORY_COLORS[viewingManual.category] || 'text-muted-foreground bg-muted/50 border-border' },
+                      { label: viewingManual.engine_model, color: 'text-muted-foreground bg-muted/50 border-border' },
+                      { label: viewingManual.version, color: 'text-muted-foreground bg-muted/50 border-border' },
+                    ].map(({ label, color }) => (
+                      <span key={label} className={`text-xs px-3 py-1 rounded-full border ${color}`}>{label}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm text-center">
+                  <p className="text-sm font-medium mb-1">No PDF file attached</p>
+                  <p className="text-xs text-muted-foreground mb-4">This manual entry does not have a PDF file linked yet.</p>
+                  <Button variant="outline" className="gap-2 w-full" asChild>
+                    <a href="#"><ExternalLink className="h-4 w-4" /> Request from Knowledge Base</a>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Grid view ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -85,9 +185,8 @@ export default function ManualsPage() {
           <p className="text-muted-foreground text-sm">Technical documentation and service manuals</p>
         </div>
         {canCreate && (
-          <Button size="sm" className="gap-2 btn-primary" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            Add Manual
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" /> Add Manual
           </Button>
         )}
       </div>
@@ -97,7 +196,6 @@ export default function ManualsPage() {
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search manuals by title, category, or model..." className="pl-9 bg-card" />
       </div>
 
-      {/* Category filter chips */}
       <div className="flex flex-wrap gap-2">
         {categories.map(cat => (
           <button key={cat} onClick={() => setCategoryFilter(cat)}
@@ -119,10 +217,14 @@ export default function ManualsPage() {
           {filtered.map(manual => {
             const colorClass = CATEGORY_COLORS[manual.category] || 'text-muted-foreground bg-muted/50 border-border';
             return (
-              <Card key={manual.id} className="bg-card border-border card-hover cursor-pointer" onClick={() => setSelectedManual(manual)}>
+              <Card
+                key={manual.id}
+                className="bg-card border-border cursor-pointer hover:border-primary/40 transition-colors group"
+                onClick={() => setViewingManual(manual)}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -138,7 +240,7 @@ export default function ManualsPage() {
                   {manual.author && <p className="text-[10px] text-muted-foreground mt-2">By {manual.author}</p>}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                     <span className="text-[10px] text-muted-foreground">Updated {new Date(manual.updated_at).toLocaleDateString()}</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-primary/60" />
+                    <span className="text-[10px] text-primary font-medium group-hover:underline">Open →</span>
                   </div>
                 </CardContent>
               </Card>
@@ -147,127 +249,47 @@ export default function ManualsPage() {
         </div>
       )}
 
-      {/* Manual Detail Sheet */}
-      <Sheet open={!!selectedManual} onOpenChange={open => !open && setSelectedManual(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
-          {selectedManual && (
-            <>
-              <SheetHeader className="pb-4 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <BookOpen className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <SheetTitle className="text-base leading-tight">{selectedManual.title}</SheetTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">{selectedManual.engine_model} · {selectedManual.version}</p>
-                  </div>
-                </div>
-              </SheetHeader>
-              <div className="mt-5 space-y-5">
-                <div className="flex flex-wrap gap-2">
-                  <span className={`text-xs font-medium px-3 py-1 rounded-full border ${CATEGORY_COLORS[selectedManual.category] || 'text-muted-foreground bg-muted/50 border-border'}`}>{selectedManual.category}</span>
-                  <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border">{selectedManual.engine_model}</span>
-                  <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border">{selectedManual.version}</span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</p>
-                  <div className="bg-muted/30 border border-border rounded-lg p-4 text-sm text-muted-foreground leading-relaxed">
-                    {selectedManual.description}
-                  </div>
-                </div>
-                {selectedManual.author && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Author</p>
-                    <p className="text-sm">{selectedManual.author}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs text-muted-foreground">Last updated: {new Date(selectedManual.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <Button variant="outline" className="flex-1 gap-2">
-                    <Download className="h-4 w-4" /> Download
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-2">
-                    <ExternalLink className="h-4 w-4" /> Open
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-
       {/* Add Manual Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-primary" />
-              Add to Knowledge Base
+              <BookOpen className="h-4 w-4 text-primary" /> Add to Knowledge Base
             </DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 mt-2">
             <div>
               <Label className="text-xs text-muted-foreground">Title *</Label>
-              <Input
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. ISX15 Turbo Boost Fault Procedure"
-                className="bg-background mt-1"
-              />
+              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. ISX15 Turbo Boost Fault Procedure" className="bg-background mt-1" />
             </div>
-
             <div>
               <Label className="text-xs text-muted-foreground">Description *</Label>
-              <Textarea
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Brief description of what this manual covers..."
-                rows={3}
-                className="bg-background mt-1 resize-none"
-              />
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description..." rows={3} className="bg-background mt-1 resize-none" />
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Category *</Label>
                 <Select value={form.category} onValueChange={val => setForm(f => ({ ...f, category: val }))}>
-                  <SelectTrigger className="bg-background mt-1">
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
+                  <SelectTrigger className="bg-background mt-1"><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
                 <Label className="text-xs text-muted-foreground">Engine Model *</Label>
-                <Input
-                  value={form.engine_model}
-                  onChange={e => setForm(f => ({ ...f, engine_model: e.target.value }))}
-                  placeholder="e.g. ISX15"
-                  className="bg-background mt-1"
-                />
+                <Input value={form.engine_model} onChange={e => setForm(f => ({ ...f, engine_model: e.target.value }))} placeholder="e.g. ISX15" className="bg-background mt-1" />
               </div>
             </div>
-
             <div>
               <Label className="text-xs text-muted-foreground">Version</Label>
-              <Input
-                value={form.version}
-                onChange={e => setForm(f => ({ ...f, version: e.target.value }))}
-                placeholder="e.g. Rev. 1"
-                className="bg-background mt-1"
-              />
+              <Input value={form.version} onChange={e => setForm(f => ({ ...f, version: e.target.value }))} placeholder="e.g. Rev. 1" className="bg-background mt-1" />
             </div>
-
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button className="flex-1 btn-primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Manual'}
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Add Manual
               </Button>
             </div>
           </div>
