@@ -22,6 +22,8 @@ import ComponentsPage from "@/pages/ComponentsPage";
 import PartsPage from "@/pages/PartsPage";
 import AiAgentsPage from "@/pages/AiAgentsPage";
 import ProfilePage from "@/pages/ProfilePage";
+import DiagnosticsPage from "@/pages/DiagnosticsPage";
+import AssetsPage from "@/pages/AssetsPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -47,27 +49,31 @@ function ProtectedRoutes() {
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
-        <Route path="/"            element={<OverviewPage />} />
+        <Route path="/"               element={<OverviewPage />} />
 
         {/* Operations */}
-        <Route path="/tickets"     element={<TicketsPage />} />
-        <Route path="/customers"   element={adminOrStaff    ? <CustomersPage />    : <Navigate to="/" replace />} />
-        <Route path="/orders"      element={adminOrStaff    ? <OrdersPage />       : <Navigate to="/" replace />} />
-        <Route path="/technicians"    element={adminOrStaff    ? <TechniciansPage />       : <Navigate to="/" replace />} />
-        <Route path="/technicians/:id" element={adminOrStaff    ? <TechnicianProfilePage /> : <Navigate to="/" replace />} />
+        <Route path="/tickets"        element={<TicketsPage />} />
+        <Route path="/customers"      element={adminOrStaff ? <CustomersPage />         : <Navigate to="/" replace />} />
+        <Route path="/orders"         element={adminOrStaff ? <OrdersPage />            : <Navigate to="/" replace />} />
+        <Route path="/technicians"    element={adminOrStaff ? <TechniciansPage />       : <Navigate to="/" replace />} />
+        <Route path="/technicians/:id" element={adminOrStaff ? <TechnicianProfilePage /> : <Navigate to="/" replace />} />
+
+        {/* Equipment */}
+        <Route path="/assets"         element={techOrStaff  ? <AssetsPage />           : <Navigate to="/" replace />} />
+        <Route path="/diagnostics"    element={techOrStaff  ? <DiagnosticsPage />      : <Navigate to="/" replace />} />
 
         {/* Inventory & Parts */}
-        <Route path="/inventory"   element={techOrStaff     ? <InventoryPage />    : <Navigate to="/" replace />} />
-        <Route path="/components"  element={techOrStaff     ? <ComponentsPage />   : <Navigate to="/" replace />} />
-        <Route path="/parts"       element={techOrStaff     ? <PartsPage />        : <Navigate to="/" replace />} />
+        <Route path="/inventory"      element={techOrStaff  ? <InventoryPage />        : <Navigate to="/" replace />} />
+        <Route path="/components"     element={techOrStaff  ? <ComponentsPage />       : <Navigate to="/" replace />} />
+        <Route path="/parts"          element={techOrStaff  ? <PartsPage />            : <Navigate to="/" replace />} />
 
         {/* Resources */}
-        <Route path="/manuals"     element={<ManualsPage />} />
-        <Route path="/ai-agents"   element={techOrStaff     ? <AiAgentsPage />     : <Navigate to="/" replace />} />
-        <Route path="/logs"        element={adminOrStaff    ? <LogsPage />         : <Navigate to="/" replace />} />
-        <Route path="/profile"     element={<ProfilePage />} />
+        <Route path="/manuals"        element={<ManualsPage />} />
+        <Route path="/ai-agents"      element={techOrStaff  ? <AiAgentsPage />        : <Navigate to="/" replace />} />
+        <Route path="/logs"           element={adminOrStaff ? <LogsPage />            : <Navigate to="/" replace />} />
+        <Route path="/profile"        element={<ProfilePage />} />
 
-        <Route path="*"            element={<NotFound />} />
+        <Route path="*"               element={<NotFound />} />
       </Route>
     </Routes>
   );

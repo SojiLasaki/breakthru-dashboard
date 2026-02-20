@@ -31,13 +31,25 @@ const MOCK_PARTS: Part[] = [
   { id: 12, part_number: 'DB-3302-B', name: 'Belt Tensioner Pulley',        component_id: 6, component_name: 'Drive Belt System',        category: 'Drive System',  unit_price: 85.00,  weight_kg: 0.7, compatibility: 'All',      status: 'out_of_stock',  quantity_on_hand: 0,  reorder_level: 3,  supplier: 'Gates Rubber' },
 ];
 
+let mockParts = [...MOCK_PARTS];
+
 export const partApi = {
   getAll: async (): Promise<Part[]> => {
     try {
       const { data } = await api.get('/parts/');
       return data.results || data;
     } catch {
-      return MOCK_PARTS;
+      return mockParts;
+    }
+  },
+  getById: async (id: number): Promise<Part> => {
+    try {
+      const { data } = await api.get(`/parts/${id}/`);
+      return data;
+    } catch {
+      const p = mockParts.find(p => p.id === id);
+      if (!p) throw new Error('Part not found');
+      return p;
     }
   },
   getByComponent: async (componentId: number): Promise<Part[]> => {
@@ -45,7 +57,44 @@ export const partApi = {
       const { data } = await api.get(`/parts/?component=${componentId}`);
       return data.results || data;
     } catch {
-      return MOCK_PARTS.filter(p => p.component_id === componentId);
+      return mockParts.filter(p => p.component_id === componentId);
+    }
+  },
+  create: async (payload: Partial<Part>): Promise<Part> => {
+    try {
+      const { data } = await api.post('/parts/', payload);
+      return data;
+    } catch {
+      const newPart: Part = {
+        id: Date.now(),
+        part_number: payload.part_number ?? '',
+        name: payload.name ?? '',
+        component_id: payload.component_id ?? 0,
+        component_name: payload.component_name ?? '',
+        category: payload.category ?? '',
+        unit_price: payload.unit_price ?? 0,
+        weight_kg: payload.weight_kg ?? 0,
+        compatibility: payload.compatibility ?? '',
+        status: 'in_stock',
+        quantity_on_hand: payload.quantity_on_hand ?? 0,
+        reorder_level: payload.reorder_level ?? 0,
+        supplier: payload.supplier ?? '',
+      };
+      mockParts = [newPart, ...mockParts];
+      return newPart;
+    }
+  },
+  update: async (id: number, payload: Partial<Part>): Promise<Part> => {
+    try {
+      const { data } = await api.patch(`/parts/${id}/`, payload);
+      return data;
+    } catch {
+      const idx = mockParts.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        mockParts[idx] = { ...mockParts[idx], ...payload };
+        return mockParts[idx];
+      }
+      throw new Error('Part not found');
     }
   },
 };

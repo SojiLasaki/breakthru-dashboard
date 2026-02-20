@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { technicianApi, Technician } from '@/services/technicianApi';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings,
   Navigation, Home, ClipboardList, Search, Plus, User,
@@ -48,6 +49,7 @@ export default function TechniciansPage() {
   const [saving, setSaving] = useState(false);
 
   const isAdmin = isRole('admin', 'office_staff');
+  const { toast } = useToast();
 
   useEffect(() => {
     technicianApi.getAll().then(setTechs).finally(() => setLoading(false));
@@ -64,20 +66,17 @@ export default function TechniciansPage() {
   const handleAdd = async () => {
     if (!form.name.trim() || !form.email.trim()) return;
     setSaving(true);
-    await new Promise(r => setTimeout(r, 600)); // simulate API call
-    const newTech: Technician = {
-      id: Date.now(),
-      ...form,
-      availability: 'available',
-      lat: 0,
-      lng: 0,
-      active_tickets: 0,
-      photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(form.name)}&background=1a1f2e&color=e61409&size=96`,
-    };
-    setTechs(prev => [newTech, ...prev]);
-    setForm(EMPTY_FORM);
-    setAddOpen(false);
-    setSaving(false);
+    try {
+      const newTech = await technicianApi.create(form);
+      setTechs(prev => [newTech, ...prev]);
+      setForm(EMPTY_FORM);
+      setAddOpen(false);
+      toast({ title: 'Technician added', description: `${newTech.name} has been registered.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add technician.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

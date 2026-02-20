@@ -5,6 +5,7 @@ import { useAiTutor } from '@/context/AiTutorContext';
 import {
   Ticket, Users, Package, ShoppingCart, BookOpen, X, Bot,
   User, Layers, Wrench, FileText, ChevronDown, ChevronRight,
+  Activity, Cpu,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -26,26 +27,33 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Operations',
     items: [
-      { to: '/customers',   label: 'Customers',    icon: User,         roles: ['admin', 'office_staff'] },
-      { to: '/tickets',     label: 'Tickets',      icon: Ticket,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
-      { to: '/orders',      label: 'Orders',       icon: ShoppingCart, roles: ['admin', 'office_staff'] },
-      { to: '/technicians', label: 'Technicians',  icon: Users,        roles: ['admin', 'office_staff'] },
+      { to: '/customers',    label: 'Customers',    icon: User,         roles: ['admin', 'office_staff'] },
+      { to: '/tickets',      label: 'Tickets',      icon: Ticket,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+      { to: '/orders',       label: 'Orders',       icon: ShoppingCart, roles: ['admin', 'office_staff'] },
+      { to: '/technicians',  label: 'Technicians',  icon: Users,        roles: ['admin', 'office_staff'] },
+    ],
+  },
+  {
+    label: 'Equipment',
+    items: [
+      { to: '/assets',       label: 'Assets',       icon: Cpu,          roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/diagnostics',  label: 'Diagnostics',  icon: Activity,     roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
     ],
   },
   {
     label: 'Inventory & Parts',
     items: [
-      { to: '/inventory',   label: 'Inventory',    icon: Package,      roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/components',  label: 'Components',   icon: Layers,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/parts',       label: 'Parts',        icon: Wrench,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/inventory',    label: 'Inventory',    icon: Package,      roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/components',   label: 'Components',   icon: Layers,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/parts',        label: 'Parts',        icon: Wrench,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
     ],
   },
   {
     label: 'Resources',
     items: [
-      { to: '/manuals',     label: 'Manuals',      icon: BookOpen,     roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
-      { to: '/ai-agents',   label: 'AI Agents',    icon: Bot,          roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-      { to: '/logs',        label: 'Logs',         icon: FileText,     roles: ['admin', 'office_staff'] },
+      { to: '/manuals',      label: 'Manuals',      icon: BookOpen,     roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+      { to: '/ai-agents',    label: 'AI Agents',    icon: Bot,          roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+      { to: '/logs',         label: 'Logs',         icon: FileText,     roles: ['admin', 'office_staff'] },
     ],
   },
 ];

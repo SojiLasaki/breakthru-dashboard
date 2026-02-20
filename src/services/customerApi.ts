@@ -23,13 +23,15 @@ const MOCK_CUSTOMERS: Customer[] = [
   { id: 6, name: 'Maria Santos',    email: 'msantos@sunvalleymining.com',  phone: '+1-555-1006', company: 'Sun Valley Mining',   location: 'Tucson, AZ',       status: 'active',   total_tickets: 7, open_tickets: 3, created_at: '2023-02-18', contact_person: 'Maria Santos' },
 ];
 
+let mockCustomers = [...MOCK_CUSTOMERS];
+
 export const customerApi = {
   getAll: async (): Promise<Customer[]> => {
     try {
       const { data } = await api.get('/customers/');
       return data.results || data;
     } catch {
-      return MOCK_CUSTOMERS;
+      return mockCustomers;
     }
   },
   getById: async (id: number): Promise<Customer> => {
@@ -37,9 +39,44 @@ export const customerApi = {
       const { data } = await api.get(`/customers/${id}/`);
       return data;
     } catch {
-      const c = MOCK_CUSTOMERS.find(c => c.id === id);
+      const c = mockCustomers.find(c => c.id === id);
       if (!c) throw new Error('Customer not found');
       return c;
+    }
+  },
+  create: async (payload: Partial<Customer>): Promise<Customer> => {
+    try {
+      const { data } = await api.post('/customers/', payload);
+      return data;
+    } catch {
+      const newCustomer: Customer = {
+        id: Date.now(),
+        name: payload.name ?? '',
+        email: payload.email ?? '',
+        phone: payload.phone ?? '',
+        company: payload.company ?? '',
+        location: payload.location ?? '',
+        status: 'active',
+        total_tickets: 0,
+        open_tickets: 0,
+        created_at: new Date().toISOString(),
+        contact_person: payload.name ?? '',
+      };
+      mockCustomers = [newCustomer, ...mockCustomers];
+      return newCustomer;
+    }
+  },
+  update: async (id: number, payload: Partial<Customer>): Promise<Customer> => {
+    try {
+      const { data } = await api.patch(`/customers/${id}/`, payload);
+      return data;
+    } catch {
+      const idx = mockCustomers.findIndex(c => c.id === id);
+      if (idx !== -1) {
+        mockCustomers[idx] = { ...mockCustomers[idx], ...payload };
+        return mockCustomers[idx];
+      }
+      throw new Error('Customer not found');
     }
   },
 };

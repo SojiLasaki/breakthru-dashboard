@@ -55,9 +55,7 @@ const MOCK_TASK_HISTORY: Record<number, TechTask[]> = {
     { id: 302, ticket_id: 'TKT-008', title: 'Control Panel Calibration',       description: 'Recalibrated generator control panel sensors and alarms.',          completed_at: '2026-01-25', duration_hours: 2.5, status: 'completed', priority: 'medium' },
     { id: 303, ticket_id: 'TKT-015', title: 'ECM Software Update',             description: 'Applied latest firmware update to engine control module.',          completed_at: '2025-12-15', duration_hours: 1,   status: 'completed', priority: 'low' },
   ],
-  4: [
-    { id: 401, ticket_id: 'TKT-004', title: 'Alternator Replacement',          description: 'Diagnosed faulty alternator; replaced unit and tested output.',     completed_at: '2026-01-20', duration_hours: 2.5, status: 'completed', priority: 'high' },
-  ],
+  4: [{ id: 401, ticket_id: 'TKT-004', title: 'Alternator Replacement', description: 'Diagnosed faulty alternator; replaced unit and tested output.', completed_at: '2026-01-20', duration_hours: 2.5, status: 'completed', priority: 'high' }],
   5: [
     { id: 501, ticket_id: 'TKT-006', title: 'Preventive Maintenance – C175',   description: '500-hour scheduled PM including filter changes and fluid top-up.', completed_at: '2026-02-05', duration_hours: 3,   status: 'completed', priority: 'low' },
     { id: 502, ticket_id: 'TKT-010', title: 'Exhaust System Inspection',       description: 'Inspected DPF and DEF system; cleaned filter.',                    completed_at: '2026-01-22', duration_hours: 2,   status: 'completed', priority: 'medium' },
@@ -65,16 +63,15 @@ const MOCK_TASK_HISTORY: Record<number, TechTask[]> = {
   6: [
     { id: 601, ticket_id: 'TKT-014', title: 'VFD Drive Fault Diagnosis',       description: 'Diagnosed variable frequency drive fault and replaced control board.', completed_at: '2026-02-01', duration_hours: 6, status: 'completed', priority: 'urgent' },
     { id: 602, ticket_id: 'TKT-018', title: 'Switchgear Panel Maintenance',    description: 'Annual switchgear maintenance and contact cleaning.',              completed_at: '2026-01-10', duration_hours: 4,   status: 'completed', priority: 'medium' },
-    { id: 603, ticket_id: 'TKT-021', title: 'Load Bank Test – 500kW',          description: 'Performed full load bank test on standby generator set.',           completed_at: '2025-12-28', duration_hours: 3,   status: 'completed', priority: 'low' },
   ],
-  7: [
-    { id: 701, ticket_id: 'TKT-016', title: 'Piston Ring Replacement',         description: 'Replaced worn piston rings on cylinders 3 & 4.',                  completed_at: '2026-02-03', duration_hours: 8,   status: 'completed', priority: 'high' },
-  ],
+  7: [{ id: 701, ticket_id: 'TKT-016', title: 'Piston Ring Replacement', description: 'Replaced worn piston rings on cylinders 3 & 4.', completed_at: '2026-02-03', duration_hours: 8, status: 'completed', priority: 'high' }],
   8: [
     { id: 801, ticket_id: 'TKT-012', title: 'Oil Analysis – Fleet Wide',       description: 'Collected and sent oil samples from 12 units for lab analysis.',   completed_at: '2026-01-29', duration_hours: 2,   status: 'completed', priority: 'low' },
     { id: 802, ticket_id: 'TKT-017', title: 'Air Filter Service',              description: 'Replaced air filters and cleaned intake systems on 4 units.',      completed_at: '2026-01-14', duration_hours: 2.5, status: 'completed', priority: 'low' },
   ],
 };
+
+let mockTechnicians = [...MOCK_TECHNICIANS];
 
 export const technicianApi = {
   getAll: async (): Promise<Technician[]> => {
@@ -82,7 +79,57 @@ export const technicianApi = {
       const { data } = await api.get('/technicians/');
       return data.results || data;
     } catch {
-      return MOCK_TECHNICIANS;
+      return mockTechnicians;
+    }
+  },
+
+  getById: async (id: number): Promise<Technician> => {
+    try {
+      const { data } = await api.get(`/technicians/${id}/`);
+      return data;
+    } catch {
+      const t = mockTechnicians.find(t => t.id === id);
+      if (!t) throw new Error('Technician not found');
+      return t;
+    }
+  },
+
+  create: async (payload: Partial<Technician>): Promise<Technician> => {
+    try {
+      const { data } = await api.post('/technicians/', payload);
+      return data;
+    } catch {
+      const newTech: Technician = {
+        id: Date.now(),
+        name: payload.name ?? '',
+        email: payload.email ?? '',
+        phone: payload.phone ?? '',
+        location: payload.location ?? '',
+        address: payload.address ?? '',
+        specialization: payload.specialization ?? 'general',
+        expertise: payload.expertise ?? 'junior',
+        availability: 'available',
+        lat: 0,
+        lng: 0,
+        active_tickets: 0,
+        photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.name ?? 'New')}&background=1a1f2e&color=e61409&size=96`,
+      };
+      mockTechnicians = [newTech, ...mockTechnicians];
+      return newTech;
+    }
+  },
+
+  update: async (id: number, payload: Partial<Technician>): Promise<Technician> => {
+    try {
+      const { data } = await api.patch(`/technicians/${id}/`, payload);
+      return data;
+    } catch {
+      const idx = mockTechnicians.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        mockTechnicians[idx] = { ...mockTechnicians[idx], ...payload };
+        return mockTechnicians[idx];
+      }
+      throw new Error('Technician not found');
     }
   },
 

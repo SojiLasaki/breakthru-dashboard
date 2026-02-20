@@ -24,13 +24,15 @@ const MOCK_TICKETS: Ticket[] = [
   { id: 7, ticket_id: 'TK-007', title: 'Starter Motor Fault',             status: 'open',        priority: 'high',     assigned_technician: 'Bob Wilson',   created_by: 'James Porter', created_at: '2024-02-16T08:00:00Z', updated_at: '2024-02-16T08:00:00Z', description: 'Starter motor intermittently failing on cold starts', category: 'Electrical' },
 ];
 
+let mockTickets = [...MOCK_TICKETS];
+
 export const ticketApi = {
   getAll: async (params?: Record<string, string>): Promise<Ticket[]> => {
     try {
       const { data } = await api.get('/tickets/', { params });
       return data.results || data;
     } catch {
-      return MOCK_TICKETS;
+      return mockTickets;
     }
   },
   getById: async (id: number): Promise<Ticket> => {
@@ -38,17 +40,51 @@ export const ticketApi = {
       const { data } = await api.get(`/tickets/${id}/`);
       return data;
     } catch {
-      const t = MOCK_TICKETS.find(t => t.id === id);
+      const t = mockTickets.find(t => t.id === id);
       if (!t) throw new Error('Ticket not found');
       return t;
     }
   },
   create: async (payload: Partial<Ticket>): Promise<Ticket> => {
-    const { data } = await api.post('/tickets/', payload);
-    return data;
+    try {
+      const { data } = await api.post('/tickets/', payload);
+      return data;
+    } catch {
+      const newTicket: Ticket = {
+        id: Date.now(),
+        ticket_id: `TK-${String(Date.now()).slice(-3)}`,
+        title: payload.title ?? '',
+        description: payload.description ?? '',
+        category: payload.category ?? '',
+        status: payload.status ?? 'open',
+        priority: payload.priority ?? 'medium',
+        assigned_technician: payload.assigned_technician ?? '',
+        created_by: payload.created_by ?? '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockTickets = [newTicket, ...mockTickets];
+      return newTicket;
+    }
   },
   update: async (id: number, payload: Partial<Ticket>): Promise<Ticket> => {
-    const { data } = await api.patch(`/tickets/${id}/`, payload);
-    return data;
+    try {
+      const { data } = await api.patch(`/tickets/${id}/`, payload);
+      return data;
+    } catch {
+      const idx = mockTickets.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        mockTickets[idx] = { ...mockTickets[idx], ...payload, updated_at: new Date().toISOString() };
+        return mockTickets[idx];
+      }
+      throw new Error('Ticket not found');
+    }
+  },
+  delete: async (id: number): Promise<void> => {
+    try {
+      await api.delete(`/tickets/${id}/`);
+    } catch {
+      mockTickets = mockTickets.filter(t => t.id !== id);
+    }
   },
 };
