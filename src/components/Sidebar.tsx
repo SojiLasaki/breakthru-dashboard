@@ -115,7 +115,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="h-14 flex items-center justify-between px-4 border-b border-sidebar-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">B</span>
+              <span className="text-primary-foreground font-bold text-base italic tracking-tighter">b</span>
             </div>
             <span className="font-bold text-sm text-sidebar-foreground tracking-tight">Breakthru</span>
           </div>

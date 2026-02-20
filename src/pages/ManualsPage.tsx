@@ -4,7 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Search, BookOpen, Download, ExternalLink, Plus, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Loader2, Search, BookOpen, Download, ExternalLink, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +36,7 @@ export default function ManualsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedManual, setSelectedManual] = useState<Manual | null>(null);
 
   const canCreate = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
@@ -117,7 +119,7 @@ export default function ManualsPage() {
           {filtered.map(manual => {
             const colorClass = CATEGORY_COLORS[manual.category] || 'text-muted-foreground bg-muted/50 border-border';
             return (
-              <Card key={manual.id} className="bg-card border-border card-hover">
+              <Card key={manual.id} className="bg-card border-border card-hover cursor-pointer" onClick={() => setSelectedManual(manual)}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -128,27 +130,15 @@ export default function ManualsPage() {
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{manual.description}</p>
                     </div>
                   </div>
-
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${colorClass}`}>{manual.category}</span>
                     <span className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border">{manual.engine_model}</span>
                     <span className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border">{manual.version}</span>
                   </div>
-
-                  {manual.author && (
-                    <p className="text-[10px] text-muted-foreground mt-2">By {manual.author}</p>
-                  )}
-
+                  {manual.author && <p className="text-[10px] text-muted-foreground mt-2">By {manual.author}</p>}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                     <span className="text-[10px] text-muted-foreground">Updated {new Date(manual.updated_at).toLocaleDateString()}</span>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-primary/60" />
                   </div>
                 </CardContent>
               </Card>
@@ -156,6 +146,57 @@ export default function ManualsPage() {
           })}
         </div>
       )}
+
+      {/* Manual Detail Sheet */}
+      <Sheet open={!!selectedManual} onOpenChange={open => !open && setSelectedManual(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
+          {selectedManual && (
+            <>
+              <SheetHeader className="pb-4 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-base leading-tight">{selectedManual.title}</SheetTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">{selectedManual.engine_model} · {selectedManual.version}</p>
+                  </div>
+                </div>
+              </SheetHeader>
+              <div className="mt-5 space-y-5">
+                <div className="flex flex-wrap gap-2">
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full border ${CATEGORY_COLORS[selectedManual.category] || 'text-muted-foreground bg-muted/50 border-border'}`}>{selectedManual.category}</span>
+                  <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border">{selectedManual.engine_model}</span>
+                  <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border">{selectedManual.version}</span>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</p>
+                  <div className="bg-muted/30 border border-border rounded-lg p-4 text-sm text-muted-foreground leading-relaxed">
+                    {selectedManual.description}
+                  </div>
+                </div>
+                {selectedManual.author && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Author</p>
+                    <p className="text-sm">{selectedManual.author}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground">Last updated: {new Date(selectedManual.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" className="flex-1 gap-2">
+                    <Download className="h-4 w-4" /> Download
+                  </Button>
+                  <Button variant="outline" className="flex-1 gap-2">
+                    <ExternalLink className="h-4 w-4" /> Open
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Add Manual Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>

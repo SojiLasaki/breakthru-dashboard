@@ -1,18 +1,44 @@
 import { useEffect, useState } from 'react';
 import { customerApi, Customer } from '@/services/customerApi';
+import { ticketApi, Ticket } from '@/services/ticketApi';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Search, User, MapPin, Phone, Mail, Building2, Ticket } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Loader2, Search, User, MapPin, Phone, Mail, Building2, Ticket as TicketIcon,
+  Calendar, Hash, ExternalLink,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+
+const STATUS_CLASSES: Record<string, string> = {
+  open:        'status-open',
+  in_progress: 'status-in-progress',
+  closed:      'status-closed',
+  urgent:      'status-urgent',
+};
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'table' | 'cards'>('table');
+  const [selected, setSelected] = useState<Customer | null>(null);
+  const [relatedTickets, setRelatedTickets] = useState<Ticket[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
 
-  useEffect(() => {
-    customerApi.getAll().then(setCustomers).finally(() => setLoading(false));
-  }, []);
+  useEffect(() => { customerApi.getAll().then(setCustomers).finally(() => setLoading(false)); }, []);
+
+  const openDetail = async (c: Customer) => {
+    setSelected(c);
+    setLoadingTickets(true);
+    try {
+      const all = await ticketApi.getAll();
+      setRelatedTickets(all.filter(t => t.created_by?.toLowerCase().includes(c.name.split(' ')[0].toLowerCase())));
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
 
   const filtered = customers.filter(c =>
     !search ||
@@ -36,7 +62,6 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Summary strip */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-lg p-3">
           <p className="text-2xl font-bold">{customers.length}</p>
@@ -74,7 +99,11 @@ export default function CustomersPage() {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">No customers found</td></tr>
                 ) : filtered.map((c, i) => (
-                  <tr key={c.id} className={`border-b border-border hover:bg-accent/30 transition-colors ${i % 2 === 1 ? 'bg-muted/10' : ''}`}>
+                  <tr
+                    key={c.id}
+                    className={`border-b border-border hover:bg-accent/30 transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-muted/10' : ''}`}
+                    onClick={() => openDetail(c)}
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
@@ -100,12 +129,12 @@ export default function CustomersPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground">{filtered.length} customers</div>
+          <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground">{filtered.length} customers · click a row to see full profile</div>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(c => (
-            <Card key={c.id} className="bg-card border-border card-hover">
+            <Card key={c.id} className="bg-card border-border card-hover cursor-pointer" onClick={() => openDetail(c)}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -131,15 +160,106 @@ export default function CustomersPage() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Ticket className="h-3 w-3" />
+                    <TicketIcon className="h-3 w-3" />
                     <span>{c.open_tickets} open / {c.total_tickets} total</span>
                   </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-primary/60" />
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Customer Detail Sheet */}
+      <Sheet open={!!selected} onOpenChange={open => !open && setSelected(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
+          {selected && (
+            <>
+              <SheetHeader className="pb-4 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-primary/15 ring-2 ring-primary/30 flex items-center justify-center">
+                    <User className="h-7 w-7 text-primary" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-base">{selected.name}</SheetTitle>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <Building2 className="h-3 w-3" /> {selected.company}
+                    </p>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${selected.status === 'active' ? 'text-green-400 bg-green-400/10 border border-green-400/20' : 'text-muted-foreground bg-muted/50 border border-border'}`}>
+                      {selected.status}
+                    </span>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="mt-5 space-y-5">
+                {/* Contact details */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact Info</p>
+                  <div className="space-y-2.5">
+                    {[
+                      { icon: Mail, label: selected.email },
+                      { icon: Phone, label: selected.phone },
+                      { icon: MapPin, label: selected.location },
+                      { icon: Calendar, label: `Member since ${new Date(selected.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` },
+                    ].map(({ icon: Icon, label }) => (
+                      <div key={label} className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Icon className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-muted/30 border border-border rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-primary">{selected.open_tickets}</p>
+                    <p className="text-[10px] text-muted-foreground">Open Tickets</p>
+                  </div>
+                  <div className="bg-muted/30 border border-border rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold">{selected.total_tickets}</p>
+                    <p className="text-[10px] text-muted-foreground">Total Tickets</p>
+                  </div>
+                </div>
+
+                {/* Related tickets */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Service History</p>
+                  {loadingTickets ? (
+                    <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+                  ) : relatedTickets.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-xs">
+                      <TicketIcon className="h-6 w-6 mx-auto mb-2 opacity-40" />
+                      No ticket history found
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {relatedTickets.map(t => (
+                        <div key={t.id} className="flex items-center justify-between bg-muted/30 border border-border rounded-lg px-3 py-2.5">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <Hash className="h-3 w-3 text-primary/60" />
+                              <span className="text-xs font-mono text-primary">{t.ticket_id}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{t.title}</p>
+                          </div>
+                          <Badge className={`text-[10px] ${STATUS_CLASSES[t.status]}`}>
+                            {t.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
