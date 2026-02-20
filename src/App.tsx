@@ -13,7 +13,6 @@ import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
 import TechniciansPage from "@/pages/TechniciansPage";
 import TechnicianProfilePage from "@/pages/TechnicianProfilePage";
-
 import OrdersPage from "@/pages/OrdersPage";
 import LogsPage from "@/pages/LogsPage";
 import ManualsPage from "@/pages/ManualsPage";
@@ -45,38 +44,55 @@ function ProtectedRoutes() {
   if (!user) return <Navigate to="/login" replace />;
 
   const role = user.role;
-  const adminOrStaff   = role === 'admin' || role === 'office_staff';
-  const techOrStaff    = adminOrStaff || role === 'engine_technician' || role === 'electrical_technician';
+  const isAdmin        = role === 'admin';
+  const isAdminOrStaff = role === 'admin' || role === 'office_staff';
+  const isTech         = role === 'engine_technician' || role === 'electrical_technician';
+  const isStaffOrTech  = isAdminOrStaff || isTech;
+  const isCustomer     = role === 'customer';
+
+  // Helper: redirect unauthorized users to home
+  const guard = (allowed: boolean, element: JSX.Element) =>
+    allowed ? element : <Navigate to="/" replace />;
 
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
-        <Route path="/"               element={<OverviewPage />} />
+        {/* ── Universal ── */}
+        <Route path="/"        element={<OverviewPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
 
-        {/* Operations */}
-        <Route path="/tickets"        element={<TicketsPage />} />
-        <Route path="/customers"      element={adminOrStaff ? <CustomersPage />         : <Navigate to="/" replace />} />
-        <Route path="/orders"         element={adminOrStaff ? <OrdersPage />            : <Navigate to="/" replace />} />
-        <Route path="/technicians"    element={adminOrStaff ? <TechniciansPage />       : <Navigate to="/" replace />} />
-        <Route path="/transactions"   element={adminOrStaff ? <TransactionsPage />      : <Navigate to="/" replace />} />
-        <Route path="/technicians/:id" element={adminOrStaff ? <TechnicianProfilePage /> : <Navigate to="/" replace />} />
+        {/* ── Tickets: all roles see their own; techs see assigned; admins/staff see all ── */}
+        <Route path="/tickets" element={<TicketsPage />} />
 
-        {/* Equipment */}
-        <Route path="/assets"         element={techOrStaff  ? <AssetsPage />           : <Navigate to="/" replace />} />
-        <Route path="/diagnostics"    element={techOrStaff  ? <DiagnosticsPage />      : <Navigate to="/" replace />} />
+        {/* ── Assets: everyone except customer restriction is handled inside the page ── */}
+        <Route path="/assets" element={<AssetsPage />} />
 
-        {/* Inventory & Parts */}
-        <Route path="/components"     element={techOrStaff  ? <ComponentsPage />       : <Navigate to="/" replace />} />
-        <Route path="/parts"          element={techOrStaff  ? <PartsPage />            : <Navigate to="/" replace />} />
+        {/* ── Manuals: admins, staff, technicians only ── */}
+        <Route path="/manuals" element={guard(isStaffOrTech, <ManualsPage />)} />
 
-        {/* Resources */}
-        <Route path="/manuals"        element={<ManualsPage />} />
-        <Route path="/ask-ai"          element={<AskAiPage />} />
-        <Route path="/ai-agents"      element={techOrStaff  ? <AiAgentsPage />        : <Navigate to="/" replace />} />
-        <Route path="/logs"           element={adminOrStaff ? <LogsPage />            : <Navigate to="/" replace />} />
-        <Route path="/profile"        element={<ProfilePage />} />
+        {/* ── Ask Felix: admin, staff, technicians only ── */}
+        <Route path="/ask-ai" element={guard(!isCustomer, <AskAiPage />)} />
 
-        <Route path="*"               element={<NotFound />} />
+        {/* ── Admin + Office Staff only ── */}
+        <Route path="/customers"    element={guard(isAdminOrStaff, <CustomersPage />)} />
+        <Route path="/orders"       element={guard(isAdminOrStaff, <OrdersPage />)} />
+        <Route path="/technicians"  element={guard(isAdminOrStaff, <TechniciansPage />)} />
+        <Route path="/technicians/:id" element={guard(isAdminOrStaff, <TechnicianProfilePage />)} />
+        <Route path="/transactions" element={guard(isAdminOrStaff, <TransactionsPage />)} />
+        <Route path="/logs"         element={guard(isAdminOrStaff, <LogsPage />)} />
+
+        {/* ── Inventory: admin, staff, technicians ── */}
+        <Route path="/components"  element={guard(isStaffOrTech, <ComponentsPage />)} />
+        <Route path="/parts"       element={guard(isStaffOrTech, <PartsPage />)} />
+        <Route path="/diagnostics" element={guard(isStaffOrTech, <DiagnosticsPage />)} />
+
+        {/* ── AI Agents: admin, staff, technicians ── */}
+        <Route path="/ai-agents" element={guard(isStaffOrTech, <AiAgentsPage />)} />
+
+        {/* ── Admin-only settings re-uses logs page ── */}
+        <Route path="/settings" element={guard(isAdmin, <LogsPage />)} />
+
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );

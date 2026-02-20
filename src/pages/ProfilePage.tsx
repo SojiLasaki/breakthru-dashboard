@@ -12,11 +12,11 @@ const ROLE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: 
 };
 
 const ACCESS_MAP: Record<string, string[]> = {
-  admin:                 ['Customers', 'Tickets', 'Orders', 'Technicians', 'Inventory', 'Components', 'Parts', 'Manuals', 'AI Agents', 'Logs'],
-  office_staff:          ['Customers', 'Tickets', 'Orders', 'Technicians', 'Manuals', 'Logs'],
-  engine_technician:     ['Tickets (assigned)', 'Inventory', 'Components', 'Parts', 'Manuals', 'AI Tutor', 'Knowledge Base'],
-  electrical_technician: ['Tickets (assigned)', 'Inventory', 'Components', 'Parts', 'Manuals', 'AI Tutor', 'Knowledge Base'],
-  customer:              ['Tickets (own)', 'Manuals'],
+  admin:                 ['Dashboard', 'All Tickets', 'All Assets', 'Customers', 'Orders', 'Technicians', 'Transactions', 'Components', 'Parts', 'Manuals', 'AI Agents', 'Ask Felix', 'Logs', 'Settings'],
+  office_staff:          ['Dashboard', 'All Tickets', 'All Assets', 'Customers', 'Orders', 'Technicians', 'Transactions', 'Components', 'Parts', 'Manuals', 'AI Agents', 'Ask Felix', 'Logs'],
+  engine_technician:     ['Dashboard', 'My Tickets', 'My Assets', 'Manuals', 'Ask Felix (Tutor Mode)'],
+  electrical_technician: ['Dashboard', 'My Tickets', 'My Assets', 'Manuals', 'Ask Felix (Tutor Mode)'],
+  customer:              ['Dashboard', 'My Tickets', 'My Assets', 'Support'],
 };
 
 const STAT_MOCK: Record<string, { label: string; value: string }[]> = {
@@ -126,10 +126,10 @@ export default function ProfilePage() {
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              { label: 'My Tickets', href: '/tickets', icon: Settings, show: true },
-              { label: 'Manuals', href: '/manuals', icon: BookOpen, show: true },
-              { label: 'AI Agents', href: '/ai-agents', icon: Bot, show: user.role !== 'customer' },
-              { label: 'Inventory', href: '/inventory', icon: Wrench, show: user.role !== 'customer' },
+              { label: 'My Tickets', href: '/tickets',  icon: Settings, show: true },
+              { label: 'Manuals',    href: '/manuals',  icon: BookOpen, show: user.role !== 'customer' },
+              { label: 'AI Agents',  href: '/ai-agents', icon: Bot,     show: user.role !== 'customer' },
+              { label: 'Ask Felix',  href: '/ask-ai',   icon: Wrench,   show: user.role !== 'customer' },
             ].filter(l => l.show).map(link => (
               <a
                 key={link.label}
