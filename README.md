@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# Welcome to Breakthru, a Cummins x Xtern project
 
 ## Project info
 
