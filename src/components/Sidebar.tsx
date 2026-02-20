@@ -14,13 +14,13 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
-  { to: '/tickets', label: 'Tickets', icon: Ticket, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
-  { to: '/technicians', label: 'Technicians', icon: Users, roles: ['admin', 'office_staff'] },
-  { to: '/inventory', label: 'Inventory', icon: Package, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
-  { to: '/orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'office_staff'] },
-  { to: '/logs', label: 'Logs', icon: FileText, roles: ['admin', 'office_staff'] },
-  { to: '/manuals', label: 'Manuals', icon: BookOpen, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+  { to: '/',            label: 'Overview',     icon: LayoutDashboard, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+  { to: '/tickets',     label: 'Tickets',      icon: Ticket,          roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
+  { to: '/technicians', label: 'Technicians',  icon: Users,           roles: ['admin', 'office_staff'] },
+  { to: '/inventory',   label: 'Inventory',    icon: Package,         roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
+  { to: '/orders',      label: 'Orders',       icon: ShoppingCart,    roles: ['admin', 'office_staff'] },
+  { to: '/logs',        label: 'Logs',         icon: FileText,        roles: ['admin', 'office_staff'] },
+  { to: '/manuals',     label: 'Manuals',      icon: BookOpen,        roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
 ];
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
@@ -28,6 +28,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { openTutor, isOpen, closeTutor } = useAiTutor();
 
   const visibleItems = navItems.filter(item => user && item.roles.includes(user.role));
+  const showAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
   return (
     <>
@@ -73,18 +74,30 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* AI Tutor shortcut */}
-        <div className="p-3 border-t border-sidebar-border">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2 text-xs border-primary/30 text-primary hover:bg-primary/10"
-            onClick={() => isOpen ? closeTutor() : openTutor()}
-          >
-            <Bot className="h-4 w-4" />
-            {isOpen ? 'Close AI Tutor' : 'Open AI Tutor'}
-          </Button>
+        {/* Role badge */}
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50">
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            <span className="text-[10px] text-muted-foreground capitalize">
+              {user?.role?.replace(/_/g, ' ')}
+            </span>
+          </div>
         </div>
+
+        {/* AI Tutor shortcut — hidden from customers */}
+        {showAiTutor && (
+          <div className="p-3 border-t border-sidebar-border">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs border-primary/30 text-primary hover:bg-primary/10"
+              onClick={() => isOpen ? closeTutor() : openTutor()}
+            >
+              <Bot className="h-4 w-4" />
+              {isOpen ? 'Close AI Tutor' : 'Open AI Tutor'}
+            </Button>
+          </div>
+        )}
       </aside>
     </>
   );

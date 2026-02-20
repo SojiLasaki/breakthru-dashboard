@@ -4,10 +4,9 @@ import { useAiTutor } from '@/context/AiTutorContext';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, Search, Bot, Plus, ArrowUpDown } from 'lucide-react';
+import { Loader2, Search, Bot, Plus, ArrowUpDown, Info } from 'lucide-react';
 
 const STATUS_CLASSES: Record<string, string> = {
   open: 'status-open',
@@ -26,7 +25,7 @@ const PRIORITY_CLASSES: Record<string, string> = {
 type SortField = 'ticket_id' | 'status' | 'priority' | 'created_at';
 
 export default function TicketsPage() {
-  const { isRole } = useAuth();
+  const { user, isRole } = useAuth();
   const { openTutor } = useAiTutor();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +36,29 @@ export default function TicketsPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Ticket | null>(null);
 
+  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const isTech = isRole('engine_technician', 'electrical_technician');
+  const isCustomer = isRole('customer');
+
+  // Role label shown under the title
+  const scopeLabel = isTech
+    ? `Showing tickets assigned to you (${fullName})`
+    : isCustomer
+    ? `Showing tickets you submitted`
+    : 'Showing all tickets';
+
   useEffect(() => {
-    ticketApi.getAll().then(setTickets).finally(() => setLoading(false));
-  }, []);
+    ticketApi.getAll().then(all => {
+      // Filter server-side (or client-side as fallback)
+      let scoped = all;
+      if (isTech) {
+        scoped = all.filter(t => t.assigned_technician === fullName);
+      } else if (isCustomer) {
+        scoped = all.filter(t => t.created_by === fullName);
+      }
+      setTickets(scoped);
+    }).finally(() => setLoading(false));
+  }, [isTech, isCustomer, fullName]);
 
   const filtered = useMemo(() => {
     return tickets
@@ -66,7 +85,10 @@ export default function TicketsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Tickets</h1>
-          <p className="text-muted-foreground text-sm">Manage and track service tickets</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <Info className="h-3 w-3 text-muted-foreground" />
+            <p className="text-muted-foreground text-xs">{scopeLabel}</p>
+          </div>
         </div>
         {isRole('admin', 'office_staff') && (
           <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90">
