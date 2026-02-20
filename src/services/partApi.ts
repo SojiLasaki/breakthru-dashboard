@@ -4,8 +4,8 @@ export interface Part {
   id: number;
   part_number: string;
   name: string;
-  component_id: number;
-  component_name: string;
+  // component_id: number;
+  components: string;
   category: string;
   cost_price: number;
   resale_price: number;
@@ -58,9 +58,12 @@ export const partApi = {
     try {
       const { data } = await api.get(`/parts/?component=${componentId}`);
       return data.results || data;
-    } catch {
-      return mockParts.filter(p => p.component_id === componentId);
+    } 
+    catch {
+      return mockParts.filter(p => p.components.includes(componentId.toString()));
     }
+    // catch {
+    //   return mockParts.filter(p => p.components.includes(componentId));    }
   },
   create: async (payload: Partial<Part>): Promise<Part> => {
     try {
@@ -71,8 +74,8 @@ export const partApi = {
         id: Date.now(),
         part_number: payload.part_number ?? '',
         name: payload.name ?? '',
-        component_id: payload.component_id ?? 0,
-        component_name: payload.component_name ?? '',
+        // component_id: payload.component_id ?? 0,
+        components: payload.components ?? '',
         category: payload.category ?? '',
         cost_price: payload.cost_price ?? 0,
         resale_price: payload.resale_price ?? 0,

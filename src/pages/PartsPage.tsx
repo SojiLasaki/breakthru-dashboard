@@ -479,7 +479,7 @@ export default function PartsPage() {
                   <div className="space-y-3">
                     {[
                       { icon: Hash,         label: 'Part Number',       value: selected.part_number },
-                      { icon: Tag,          label: 'Component Group',   value: selected.component_name },
+                      { icon: Tag,          label: 'Component Group',   value: selected.components },
                       { icon: Building2,    label: 'Supplier',          value: selected.supplier },
                       { icon: CalendarDays, label: 'Last Ordered',      value: selected.last_ordered ? new Date(selected.last_ordered).toLocaleDateString() : '—' },
                       { icon: DollarSign,   label: 'Cost',              value: `$${Number(selected.cost_price).toFixed(2)}` },
