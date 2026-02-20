@@ -4,67 +4,80 @@ import { useAiTutor } from '@/context/AiTutorContext';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, Search, Bot, Plus, ArrowUpDown, Info } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Search, Bot, Plus, ArrowUpDown, Info, Pencil, Save, X, Calendar, User, Tag } from 'lucide-react';
 
 const STATUS_CLASSES: Record<string, string> = {
-  open: 'status-open',
+  open:        'status-open',
   in_progress: 'status-in-progress',
-  closed: 'status-closed',
-  urgent: 'status-urgent',
+  closed:      'status-closed',
+  urgent:      'status-urgent',
 };
 
 const PRIORITY_CLASSES: Record<string, string> = {
-  low: 'text-muted-foreground bg-muted/50 border border-border',
-  medium: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20',
-  high: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
+  low:      'text-muted-foreground bg-muted/50 border border-border',
+  medium:   'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20',
+  high:     'text-orange-400 bg-orange-400/10 border border-orange-400/20',
   critical: 'text-primary bg-primary/10 border border-primary/20',
 };
 
 type SortField = 'ticket_id' | 'status' | 'priority' | 'created_at';
 
+const BLANK_TICKET = {
+  title: '', description: '', category: '',
+  status: 'open' as Ticket['status'],
+  priority: 'medium' as Ticket['priority'],
+  assigned_technician: '',
+};
+
 export default function TicketsPage() {
   const { user, isRole } = useAuth();
   const { openTutor } = useAiTutor();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { toast } = useToast();
+  const [tickets, setTickets]     = useState<Ticket[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
+  const [statusFilter, setStatusFilter]   = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortField, setSortField] = useState<SortField>('created_at');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [selected, setSelected] = useState<Ticket | null>(null);
+  const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('desc');
+  const [selected, setSelected]   = useState<Ticket | null>(null);
+  const [editing, setEditing]     = useState(false);
+  const [editForm, setEditForm]   = useState<Partial<Ticket>>({});
+  const [saving, setSaving]       = useState(false);
+  const [addOpen, setAddOpen]     = useState(false);
+  const [newTicket, setNewTicket] = useState(BLANK_TICKET);
+  const [creating, setCreating]   = useState(false);
 
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
-  const isTech = isRole('engine_technician', 'electrical_technician');
-  const isCustomer = isRole('customer');
+  const fullName    = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const isAdmin     = isRole('admin', 'office_staff');
+  const isTech      = isRole('engine_technician', 'electrical_technician');
+  const isCustomer  = isRole('customer');
 
-  // Role label shown under the title
   const scopeLabel = isTech
     ? `Showing tickets assigned to you (${fullName})`
-    : isCustomer
-    ? `Showing tickets you submitted`
+    : isCustomer ? 'Showing your submitted tickets'
     : 'Showing all tickets';
 
   useEffect(() => {
     ticketApi.getAll().then(all => {
-      // Filter server-side (or client-side as fallback)
       let scoped = all;
-      if (isTech) {
-        scoped = all.filter(t => t.assigned_technician === fullName);
-      } else if (isCustomer) {
-        scoped = all.filter(t => t.created_by === fullName);
-      }
+      if (isTech)     scoped = all.filter(t => t.assigned_technician === fullName);
+      if (isCustomer) scoped = all.filter(t => t.created_by === fullName);
       setTickets(scoped);
     }).finally(() => setLoading(false));
   }, [isTech, isCustomer, fullName]);
 
-  const filtered = useMemo(() => {
-    return tickets
+  const filtered = useMemo(() =>
+    tickets
       .filter(t => {
         const matchSearch = !search || t.ticket_id.toLowerCase().includes(search.toLowerCase()) || t.title.toLowerCase().includes(search.toLowerCase()) || t.assigned_technician.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'all' || t.status === statusFilter;
+        const matchStatus   = statusFilter === 'all'   || t.status === statusFilter;
         const matchPriority = priorityFilter === 'all' || t.priority === priorityFilter;
         return matchSearch && matchStatus && matchPriority;
       })
@@ -72,12 +85,57 @@ export default function TicketsPage() {
         const va = a[sortField] as string;
         const vb = b[sortField] as string;
         return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-      });
-  }, [tickets, search, statusFilter, priorityFilter, sortField, sortDir]);
+      }),
+    [tickets, search, statusFilter, priorityFilter, sortField, sortDir]
+  );
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const openDetail = (t: Ticket) => {
+    setSelected(t);
+    setEditing(false);
+    setEditForm({ status: t.status, priority: t.priority, assigned_technician: t.assigned_technician, description: t.description });
+  };
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const updated = await ticketApi.update(selected.id, editForm).catch(() => ({ ...selected, ...editForm }));
+      const merged = { ...selected, ...updated } as Ticket;
+      setTickets(prev => prev.map(t => t.id === merged.id ? merged : t));
+      setSelected(merged);
+      setEditing(false);
+      toast({ title: 'Ticket updated', description: `${merged.ticket_id} has been updated.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update ticket.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newTicket.title.trim()) return;
+    setCreating(true);
+    try {
+      const mock: Ticket = {
+        id: Date.now(), ticket_id: `TK-${String(Date.now()).slice(-3)}`,
+        ...newTicket, created_by: fullName,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      };
+      const created = await ticketApi.create(mock).catch(() => mock);
+      setTickets(prev => [created as Ticket, ...prev]);
+      setAddOpen(false);
+      setNewTicket(BLANK_TICKET);
+      toast({ title: 'Ticket created', description: `${(created as Ticket).ticket_id} has been created.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to create ticket.', variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -90,8 +148,8 @@ export default function TicketsPage() {
             <p className="text-muted-foreground text-xs">{scopeLabel}</p>
           </div>
         </div>
-        {isRole('admin', 'office_staff') && (
-          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90">
+        {isAdmin && (
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
             <Plus className="h-4 w-4" /> New Ticket
           </Button>
         )}
@@ -156,24 +214,20 @@ export default function TicketsPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">No tickets found</td></tr>
               ) : filtered.map((t, i) => (
-                <tr key={t.id} className={`border-b border-border hover:bg-accent/30 transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-muted/10' : ''}`} onClick={() => setSelected(t)}>
+                <tr key={t.id} className={`border-b border-border hover:bg-accent/30 transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-muted/10' : ''}`} onClick={() => openDetail(t)}>
                   <td className="px-4 py-3 font-mono text-xs text-primary font-medium">{t.ticket_id}</td>
                   <td className="px-4 py-3 text-xs max-w-48 truncate">{t.title}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${STATUS_CLASSES[t.status]}`}>
-                      {t.status.replace('_', ' ')}
-                    </span>
+                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${STATUS_CLASSES[t.status]}`}>{t.status.replace('_', ' ')}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[t.priority]}`}>
-                      {t.priority}
-                    </span>
+                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[t.priority]}`}>{t.priority}</span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.assigned_technician}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-primary" onClick={e => { e.stopPropagation(); openTutor(t.id, t.title); }}>
-                      <Bot className="h-3 w-3" /> AI Guide
+                      <Bot className="h-3 w-3" /> AI
                     </Button>
                   </td>
                 </tr>
@@ -181,39 +235,190 @@ export default function TicketsPage() {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground">
-          {filtered.length} of {tickets.length} tickets
-        </div>
+        <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground">{filtered.length} of {tickets.length} tickets</div>
       </div>
 
-      {/* Detail Dialog */}
-      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg bg-card">
+      {/* Ticket Detail Sheet */}
+      <Sheet open={!!selected} onOpenChange={open => { if (!open) { setSelected(null); setEditing(false); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
+          {selected && (
+            <>
+              <SheetHeader className="pb-4 border-b border-border">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <SheetTitle className="font-mono text-primary text-sm">{selected.ticket_id}</SheetTitle>
+                    <p className="text-sm font-semibold mt-0.5">{selected.title}</p>
+                    <div className="flex gap-2 mt-2">
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_CLASSES[editing ? (editForm.status ?? selected.status) : selected.status]}`}>
+                        {(editing ? (editForm.status ?? selected.status) : selected.status).replace('_', ' ')}
+                      </span>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASSES[editing ? (editForm.priority ?? selected.priority) : selected.priority]}`}>
+                        {editing ? (editForm.priority ?? selected.priority) : selected.priority}
+                      </span>
+                    </div>
+                  </div>
+                  {isAdmin && !editing && (
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary/10 flex-shrink-0" onClick={() => setEditing(true)}>
+                      <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                  )}
+                </div>
+              </SheetHeader>
+
+              <div className="mt-5 space-y-5">
+                {editing ? (
+                  /* Edit form */
+                  <div className="space-y-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Editing Ticket</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Status</Label>
+                        <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Ticket['status'] }))}>
+                          <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Priority</Label>
+                        <Select value={editForm.priority} onValueChange={v => setEditForm(f => ({ ...f, priority: v as Ticket['priority'] }))}>
+                          <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Assigned Technician</Label>
+                      <Input value={editForm.assigned_technician ?? ''} onChange={e => setEditForm(f => ({ ...f, assigned_technician: e.target.value }))} className="bg-background" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Description</Label>
+                      <Textarea value={editForm.description ?? ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3} className="bg-background resize-none" />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button variant="outline" className="flex-1 gap-1.5" onClick={() => setEditing(false)}>
+                        <X className="h-3.5 w-3.5" /> Cancel
+                      </Button>
+                      <Button className="flex-1 gap-1.5 bg-primary hover:bg-primary/90" onClick={handleSave} disabled={saving}>
+                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save Changes
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Read view */
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Details</p>
+                      <div className="space-y-3">
+                        {[
+                          { icon: Tag,      label: 'Category',    value: selected.category },
+                          { icon: User,     label: 'Technician',  value: selected.assigned_technician },
+                          { icon: User,     label: 'Created By',  value: selected.created_by },
+                          { icon: Calendar, label: 'Created',     value: new Date(selected.created_at).toLocaleString() },
+                          { icon: Calendar, label: 'Last Updated',value: new Date(selected.updated_at).toLocaleString() },
+                        ].map(({ icon: Icon, label, value }) => (
+                          <div key={label} className="flex items-center gap-3 text-xs">
+                            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Icon className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">{label}</p>
+                              <p className="font-medium">{value}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</p>
+                      <div className="bg-muted/30 border border-border rounded-lg p-3 text-xs text-muted-foreground leading-relaxed">
+                        {selected.description}
+                      </div>
+                    </div>
+
+                    <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { openTutor(selected.id, selected.title); setSelected(null); }}>
+                      <Bot className="h-4 w-4" /> Open AI Tutor for this Ticket
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Add Ticket Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="font-mono text-primary text-sm">{selected?.ticket_id}</span>
-              {selected?.title}
+              <Plus className="h-4 w-4 text-primary" /> Create New Ticket
             </DialogTitle>
-            <DialogDescription>{selected?.category}</DialogDescription>
+            <DialogDescription>Fill in the ticket details below.</DialogDescription>
           </DialogHeader>
-          {selected && (
-            <div className="space-y-3 text-sm">
-              <div className="flex gap-2">
-                <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${STATUS_CLASSES[selected.status]}`}>{selected.status.replace('_', ' ')}</span>
-                <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[selected.priority]}`}>{selected.priority}</span>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Title *</Label>
+              <Input placeholder="Brief issue description..." value={newTicket.title} onChange={e => setNewTicket(f => ({ ...f, title: e.target.value }))} className="bg-background" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Textarea placeholder="Detailed description..." value={newTicket.description} onChange={e => setNewTicket(f => ({ ...f, description: e.target.value }))} rows={3} className="bg-background resize-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Status</Label>
+                <Select value={newTicket.status} onValueChange={v => setNewTicket(f => ({ ...f, status: v as Ticket['status'] }))}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <p className="text-muted-foreground text-xs">{selected.description}</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-muted-foreground">Technician:</span> <span className="ml-1">{selected.assigned_technician}</span></div>
-                <div><span className="text-muted-foreground">Created by:</span> <span className="ml-1">{selected.created_by}</span></div>
-                <div><span className="text-muted-foreground">Created:</span> <span className="ml-1">{new Date(selected.created_at).toLocaleString()}</span></div>
-                <div><span className="text-muted-foreground">Updated:</span> <span className="ml-1">{new Date(selected.updated_at).toLocaleString()}</span></div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Priority</Label>
+                <Select value={newTicket.priority} onValueChange={v => setNewTicket(f => ({ ...f, priority: v as Ticket['priority'] }))}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Button className="w-full gap-2 bg-primary hover:bg-primary/90 mt-2" onClick={() => { openTutor(selected.id, selected.title); setSelected(null); }}>
-                <Bot className="h-4 w-4" /> Open AI Tutor for this Ticket
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Category</Label>
+                <Input placeholder="Engine, Electrical…" value={newTicket.category} onChange={e => setNewTicket(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Assign Technician</Label>
+                <Input placeholder="Technician name" value={newTicket.assigned_technician} onChange={e => setNewTicket(f => ({ ...f, assigned_technician: e.target.value }))} className="bg-background" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newTicket.title.trim()}>
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Create Ticket
               </Button>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
