@@ -25,6 +25,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import DiagnosticsPage from "@/pages/DiagnosticsPage";
 import AssetsPage from "@/pages/AssetsPage";
 import TransactionsPage from "@/pages/TransactionsPage";
+import AskAiPage from "@/pages/AskAiPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -71,6 +72,7 @@ function ProtectedRoutes() {
 
         {/* Resources */}
         <Route path="/manuals"        element={<ManualsPage />} />
+        <Route path="/ask-ai"          element={<AskAiPage />} />
         <Route path="/ai-agents"      element={techOrStaff  ? <AiAgentsPage />        : <Navigate to="/" replace />} />
         <Route path="/logs"           element={adminOrStaff ? <LogsPage />            : <Navigate to="/" replace />} />
         <Route path="/profile"        element={<ProfilePage />} />
