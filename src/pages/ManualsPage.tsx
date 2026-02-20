@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { manualApi, Manual } from '@/services/manualApi';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Loader2, Search, BookOpen, Download, ExternalLink, Plus, X,
-  ArrowLeft, Tag, Cpu, User, CalendarDays, FileText, Paperclip,
+  ArrowLeft, Tag, Cpu, User, CalendarDays, FileText, Paperclip, FileCheck,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -43,39 +43,32 @@ function TagChip({ label, className = '' }: { label: string; className?: string 
 
 // ── Manual detail / PDF viewer ────────────────────────────────────────────────
 function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }) {
-  const hasRealPdf = manual.file_url && manual.file_url !== '#';
+  const hasRealPdf = !!(manual.file_url && manual.file_url !== '#');
   const colorClass = CATEGORY_COLORS[manual.category] || 'text-muted-foreground bg-muted/50 border-border';
   const [activeTab, setActiveTab] = useState<'content' | 'pdf'>(hasRealPdf ? 'pdf' : 'content');
+  const [pdfFullscreen, setPdfFullscreen] = useState(false);
 
-  const handleDownloadContent = () => {
-    const lines: string[] = [];
-    lines.push(`MANUAL: ${manual.title}`);
-    lines.push(`Version: ${manual.version}`);
-    lines.push(`Category: ${manual.category}`);
-    lines.push(`Engine Model: ${manual.engine_model}`);
-    lines.push(`Author: ${manual.author ?? manual.created_by ?? '—'}`);
-    lines.push(`Updated: ${manual.updated_at}`);
-    lines.push('');
-    lines.push('DESCRIPTION');
-    lines.push('===========');
-    lines.push(manual.description);
-    if (manual.components && manual.components.length > 0) {
-      lines.push('');
-      lines.push('COMPONENTS');
-      lines.push('==========');
-      lines.push(manual.components.join(', '));
+  const handleDownloadContent = useCallback(() => {
+    const lines: string[] = [
+      `MANUAL: ${manual.title}`,
+      `Version: ${manual.version}`,
+      `Category: ${manual.category}`,
+      `Engine Model: ${manual.engine_model}`,
+      `Author: ${manual.author ?? manual.created_by ?? '—'}`,
+      `Updated: ${manual.updated_at}`,
+      '',
+      'DESCRIPTION',
+      '===========',
+      manual.description,
+    ];
+    if (manual.components?.length) {
+      lines.push('', 'COMPONENTS', '==========', manual.components.join(', '));
     }
-    if (manual.tags && manual.tags.length > 0) {
-      lines.push('');
-      lines.push('TAGS');
-      lines.push('====');
-      lines.push(manual.tags.map(t => `#${t}`).join(', '));
+    if (manual.tags?.length) {
+      lines.push('', 'TAGS', '====', manual.tags.map(t => `#${t}`).join(', '));
     }
     if (manual.content) {
-      lines.push('');
-      lines.push('CONTENT');
-      lines.push('=======');
-      lines.push(manual.content);
+      lines.push('', 'CONTENT', '=======', manual.content);
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -86,121 +79,143 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }, [manual]);
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={onBack}>
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Manuals
-        </Button>
-        <div className="w-px h-4 bg-border" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
-          <span className="text-sm font-medium truncate">{manual.title}</span>
-          <span className="text-xs text-muted-foreground flex-shrink-0">{manual.version}</span>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {hasRealPdf ? (
-            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" asChild>
-              <a href={manual.file_url} download>
-                <Download className="h-3.5 w-3.5" /> Download PDF
-              </a>
-            </Button>
-          ) : manual.content ? (
-            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadContent}>
-              <Download className="h-3.5 w-3.5" /> Download
-            </Button>
-          ) : null}
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onBack}>
-            <X className="h-4 w-4" />
+      {/* ── Top Bar (hidden when PDF is fullscreen) ── */}
+      {!pdfFullscreen && (
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={onBack}>
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Manuals
           </Button>
+          <div className="w-px h-4 bg-border" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
+            <span className="text-sm font-medium truncate">{manual.title}</span>
+            <span className="text-xs text-muted-foreground flex-shrink-0">{manual.version}</span>
+            {hasRealPdf && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-primary/10 text-primary border-primary/30 flex-shrink-0">
+                <FileCheck className="h-2.5 w-2.5" /> PDF Available
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {!hasRealPdf && manual.content && (
+              <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadContent}>
+                <Download className="h-3.5 w-3.5" /> Download
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onBack}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-1 min-h-0">
-        {/* Left info panel */}
-        <div className="w-64 border-r border-border bg-card flex-shrink-0 overflow-y-auto p-4 space-y-4 hidden lg:block">
-          {/* Tabs */}
-          {hasRealPdf && (
-            <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
-              {(['pdf', 'content'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 text-[10px] py-1 rounded-md capitalize font-medium transition-colors ${
-                    activeTab === tab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab === 'pdf' ? 'PDF' : 'Content'}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* ── Left Info Panel (hidden when PDF fullscreen) ── */}
+        {!pdfFullscreen && (
+          <div className="w-64 border-r border-border bg-card flex-shrink-0 overflow-y-auto p-4 space-y-4 hidden lg:block">
+            {hasRealPdf && (
+              <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
+                {(['pdf', 'content'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 text-[10px] py-1 rounded-md capitalize font-medium transition-colors ${
+                      activeTab === tab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {tab === 'pdf' ? 'PDF' : 'Content'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {/* Meta info */}
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Manual Info</p>
-            <div className="space-y-2">
-              {[
-                { label: 'Category',     value: manual.category },
-                { label: 'Engine Model', value: manual.engine_model },
-                { label: 'Version',      value: manual.version },
-                { label: 'Author',       value: manual.author ?? '—' },
-                { label: 'Created by',   value: manual.created_by ?? manual.author ?? '—' },
-                { label: 'Created',      value: manual.created_at ? new Date(manual.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
-                { label: 'Updated',      value: new Date(manual.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-[10px] text-muted-foreground">{label}</p>
-                  <p className="text-xs font-medium">{value}</p>
+            {/* Meta info */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Manual Info</p>
+              <div className="space-y-2">
+                {[
+                  { label: 'Category',     value: manual.category },
+                  { label: 'Engine Model', value: manual.engine_model },
+                  { label: 'Version',      value: manual.version },
+                  { label: 'Author',       value: manual.author ?? '—' },
+                  { label: 'Created by',   value: manual.created_by ?? manual.author ?? '—' },
+                  { label: 'Created',      value: manual.created_at ? new Date(manual.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
+                  { label: 'Updated',      value: new Date(manual.updated_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p className="text-[10px] text-muted-foreground">{label}</p>
+                    <p className="text-xs font-medium">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="bg-muted/30 border border-border rounded-lg p-3">
+              <p className="text-[10px] text-muted-foreground mb-1">Description</p>
+              <p className="text-xs leading-relaxed">{manual.description}</p>
+            </div>
+
+            {/* Components */}
+            {manual.components && manual.components.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Cpu className="h-3 w-3 text-muted-foreground" />
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Components</p>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {manual.components.map(c => (
+                    <TagChip key={c} label={c} className="text-blue-400 bg-blue-400/10 border-blue-400/20" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            {manual.tags && manual.tags.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Tag className="h-3 w-3 text-muted-foreground" />
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tags</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {manual.tags.map(t => (
+                    <TagChip key={t} label={`#${t}`} className="text-muted-foreground bg-muted/50 border-border" />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Description */}
-          <div className="bg-muted/30 border border-border rounded-lg p-3">
-            <p className="text-[10px] text-muted-foreground mb-1">Description</p>
-            <p className="text-xs leading-relaxed">{manual.description}</p>
-          </div>
-
-          {/* Components */}
-          {manual.components && manual.components.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Cpu className="h-3 w-3 text-muted-foreground" />
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Components</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {manual.components.map(c => (
-                  <TagChip key={c} label={c} className="text-blue-400 bg-blue-400/10 border-blue-400/20" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tags */}
-          {manual.tags && manual.tags.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Tag className="h-3 w-3 text-muted-foreground" />
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tags</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {manual.tags.map(t => (
-                  <TagChip key={t} label={`#${t}`} className="text-muted-foreground bg-muted/50 border-border" />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Main area */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+        {/* ── Main Content Area ── */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto">
           {activeTab === 'pdf' && hasRealPdf ? (
-            <PdfViewer url={manual.file_url} title={manual.title} />
+            /* PDF section — shown below metadata on page, or fullscreen */
+            <div className="flex-1 p-4 lg:p-6 flex flex-col gap-4 bg-muted/10 min-h-0">
+              {/* Metadata summary above PDF (not shown in fullscreen) */}
+              {!pdfFullscreen && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <TagChip label={manual.category} className={colorClass} />
+                  <TagChip label={manual.engine_model} className="text-muted-foreground bg-muted/50 border-border" />
+                  <TagChip label={manual.version} className="text-muted-foreground bg-muted/50 border-border" />
+                  {manual.tags?.slice(0, 3).map(t => (
+                    <TagChip key={t} label={`#${t}`} className="text-muted-foreground bg-muted/40 border-border" />
+                  ))}
+                </div>
+              )}
+              <PdfViewer
+                url={manual.file_url}
+                title={manual.title}
+                version={manual.version}
+                onFullscreenChange={setPdfFullscreen}
+                className="flex-1"
+              />
+            </div>
           ) : (
             <div className="flex-1 overflow-y-auto bg-muted/10 p-6 lg:p-8">
               {manual.content ? (
@@ -262,7 +277,6 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
                   </div>
                 </div>
               ) : (
-                /* No content fallback */
                 <div className="flex flex-col items-center justify-center h-full gap-6">
                   <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center">
                     <BookOpen className="h-12 w-12 text-primary" />
@@ -557,7 +571,14 @@ export default function ManualsPage() {
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium line-clamp-2">{manual.title}</p>
+                      <div className="flex items-start gap-1.5">
+                        <p className="text-sm font-medium line-clamp-2 flex-1">{manual.title}</p>
+                        {manual.file_url && manual.file_url !== '#' && (
+                          <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border bg-primary/10 text-primary border-primary/30 flex-shrink-0 mt-0.5">
+                            <FileCheck className="h-2 w-2" /> PDF
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{manual.description}</p>
                     </div>
                   </div>

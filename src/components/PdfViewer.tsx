@@ -1,33 +1,61 @@
-import { useEffect, useRef, useState } from 'react';
-import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Download, Maximize2, Minimize2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface PdfViewerProps {
   url: string;
   title?: string;
+  version?: string;
+  /** Called when fullscreen is toggled so parent can hide sidebar etc. */
+  onFullscreenChange?: (isFullscreen: boolean) => void;
+  className?: string;
 }
 
-export default function PdfViewer({ url, title }: PdfViewerProps) {
+export default function PdfViewer({ url, title, version, onFullscreenChange, className }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.2);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const renderTasksRef = useRef<{ cancel: () => void }[]>([]);
 
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(prev => {
+      const next = !prev;
+      onFullscreenChange?.(next);
+      return next;
+    });
+  }, [onFullscreenChange]);
+
+  // Close fullscreen on Escape
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+        onFullscreenChange?.(false);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isFullscreen, onFullscreenChange]);
+
   useEffect(() => {
     let cancelled = false;
+    canvasRefs.current = [];
 
     const loadPdf = async () => {
       setLoading(true);
       setError(null);
+      setNumPages(0);
+      setCurrentPage(1);
 
       try {
-        // Dynamic import to avoid SSR issues
         const pdfjsLib = await import('pdfjs-dist');
-        // Use a CDN worker that matches pdfjs-dist 4.4.168
         pdfjsLib.GlobalWorkerOptions.workerSrc =
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
 
@@ -39,11 +67,9 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
         setNumPages(pdf.numPages);
         setLoading(false);
 
-        // Cancel any ongoing renders
         renderTasksRef.current.forEach(t => t.cancel());
         renderTasksRef.current = [];
 
-        // Render all pages
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           if (cancelled) break;
           const page = await pdf.getPage(pageNum);
@@ -58,7 +84,7 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
           renderTasksRef.current.push(renderTask);
           await renderTask.promise;
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setError('Unable to render this PDF. The file may be unavailable or in an unsupported format.');
           setLoading(false);
@@ -73,7 +99,7 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
       renderTasksRef.current.forEach(t => t.cancel());
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, scale]);
+  }, [url, scale, retryKey]);
 
   const scrollToPage = (page: number) => {
     const canvas = canvasRefs.current[page - 1];
@@ -81,27 +107,48 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
     setCurrentPage(page);
   };
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card flex-shrink-0">
-        <span className="text-xs text-muted-foreground truncate max-w-[200px]">{title}</span>
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = title ? `${title.replace(/[^a-z0-9]/gi, '_')}.pdf` : 'manual.pdf';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
-        <div className="flex items-center gap-1">
+  return (
+    <div
+      className={cn(
+        'flex flex-col bg-card border border-border rounded-2xl shadow-xl overflow-hidden transition-all duration-300',
+        isFullscreen && 'fixed inset-0 z-[100] rounded-none border-0',
+        className,
+      )}
+    >
+      {/* ── Control Bar ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-card flex-shrink-0 gap-3">
+        {/* Left: title + version */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-foreground truncate leading-none">{title ?? 'Document'}</p>
+            {version && <p className="text-[10px] text-muted-foreground mt-0.5">{version}</p>}
+          </div>
+        </div>
+
+        {/* Center: page navigation + zoom */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <Button
-            variant="ghost" size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            variant="ghost" size="icon" className="h-7 w-7"
+            onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
             disabled={currentPage <= 1 || numPages === 0}
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <span className="text-xs text-muted-foreground min-w-[60px] text-center">
+          <span className="text-xs text-muted-foreground min-w-[52px] text-center tabular-nums">
             {numPages > 0 ? `${currentPage} / ${numPages}` : '—'}
           </span>
           <Button
-            variant="ghost" size="icon"
-            className="h-7 w-7"
+            variant="ghost" size="icon" className="h-7 w-7"
             onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
             disabled={currentPage >= numPages || numPages === 0}
           >
@@ -113,35 +160,73 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.max(0.5, s - 0.2))}>
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
-          <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(scale * 100)}%</span>
+          <span className="text-xs text-muted-foreground w-9 text-center tabular-nums">{Math.round(scale * 100)}%</span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.min(3, s + 0.2))}>
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(1.2)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Reset zoom" onClick={() => setScale(1.2)}>
             <RotateCcw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {/* Right: download + fullscreen */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Button
+            variant="ghost" size="sm"
+            className="h-7 gap-1.5 text-xs px-2.5 hover:bg-primary/10 hover:text-primary transition-colors"
+            onClick={handleDownload}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Download</span>
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </Button>
         </div>
       </div>
 
-      {/* Viewer */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20 p-4 space-y-4">
+      {/* ── PDF Canvas Area ──────────────────────────────────────────── */}
+      <div
+        ref={containerRef}
+        className={cn(
+          'flex-1 overflow-y-auto bg-muted/20 p-4 space-y-4',
+          isFullscreen ? 'h-[calc(100vh-46px)]' : '',
+        )}
+        style={{ minHeight: isFullscreen ? undefined : '70vh' }}
+      >
+        {/* Loading */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-            <p className="text-sm text-muted-foreground">Loading document...</p>
+          <div className="flex flex-col items-center justify-center py-24 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading manual…</p>
           </div>
         )}
 
-        {error && (
-          <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-              <span className="text-3xl">📄</span>
+        {/* Error */}
+        {error && !loading && (
+          <div className="flex flex-col items-center justify-center py-24 text-center px-6 gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="h-7 w-7 text-destructive" />
             </div>
-            <p className="text-sm font-medium mb-1">Preview unavailable</p>
-            <p className="text-xs text-muted-foreground max-w-xs">{error}</p>
+            <div>
+              <p className="text-sm font-semibold mb-1">Preview Unavailable</p>
+              <p className="text-xs text-muted-foreground max-w-xs">{error}</p>
+            </div>
+            <Button
+              size="sm" variant="outline"
+              className="gap-2 hover:border-primary/50 hover:text-primary"
+              onClick={() => setRetryKey(k => k + 1)}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Retry
+            </Button>
           </div>
         )}
 
+        {/* Pages */}
         {!loading && !error && numPages > 0 && Array.from({ length: numPages }, (_, i) => (
           <div
             key={i}
@@ -150,7 +235,7 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
           >
             <canvas
               ref={el => { canvasRefs.current[i] = el; }}
-              className="rounded-lg shadow-lg border border-border max-w-full"
+              className="rounded-xl shadow-lg border border-border max-w-full"
               style={{ background: '#fff' }}
             />
           </div>
