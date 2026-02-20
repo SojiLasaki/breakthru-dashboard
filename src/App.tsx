@@ -16,6 +16,10 @@ import InventoryPage from "@/pages/InventoryPage";
 import OrdersPage from "@/pages/OrdersPage";
 import LogsPage from "@/pages/LogsPage";
 import ManualsPage from "@/pages/ManualsPage";
+import CustomersPage from "@/pages/CustomersPage";
+import ComponentsPage from "@/pages/ComponentsPage";
+import PartsPage from "@/pages/PartsPage";
+import AiAgentsPage from "@/pages/AiAgentsPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -34,19 +38,32 @@ function ProtectedRoutes() {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  const isAdminOrStaff = user.role === 'admin' || user.role === 'office_staff';
+  const role = user.role;
+  const adminOrStaff   = role === 'admin' || role === 'office_staff';
+  const techOrStaff    = adminOrStaff || role === 'engine_technician' || role === 'electrical_technician';
 
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
-        <Route path="/" element={<OverviewPage />} />
-        <Route path="/tickets" element={<TicketsPage />} />
-        {isAdminOrStaff && <Route path="/technicians" element={<TechniciansPage />} />}
-        <Route path="/inventory" element={user.role !== 'customer' ? <InventoryPage /> : <Navigate to="/" replace />} />
-        {isAdminOrStaff && <Route path="/orders" element={<OrdersPage />} />}
-        {isAdminOrStaff && <Route path="/logs" element={<LogsPage />} />}
-        <Route path="/manuals" element={<ManualsPage />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="/"            element={<OverviewPage />} />
+
+        {/* Operations */}
+        <Route path="/tickets"     element={<TicketsPage />} />
+        <Route path="/customers"   element={adminOrStaff    ? <CustomersPage />    : <Navigate to="/" replace />} />
+        <Route path="/orders"      element={adminOrStaff    ? <OrdersPage />       : <Navigate to="/" replace />} />
+        <Route path="/technicians" element={adminOrStaff    ? <TechniciansPage />  : <Navigate to="/" replace />} />
+
+        {/* Inventory & Parts */}
+        <Route path="/inventory"   element={techOrStaff     ? <InventoryPage />    : <Navigate to="/" replace />} />
+        <Route path="/components"  element={techOrStaff     ? <ComponentsPage />   : <Navigate to="/" replace />} />
+        <Route path="/parts"       element={techOrStaff     ? <PartsPage />        : <Navigate to="/" replace />} />
+
+        {/* Resources */}
+        <Route path="/manuals"     element={<ManualsPage />} />
+        <Route path="/ai-agents"   element={techOrStaff     ? <AiAgentsPage />     : <Navigate to="/" replace />} />
+        <Route path="/logs"        element={adminOrStaff    ? <LogsPage />         : <Navigate to="/" replace />} />
+
+        <Route path="*"            element={<NotFound />} />
       </Route>
     </Routes>
   );
@@ -66,7 +83,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/*" element={<ProtectedRoutes />} />
+      <Route path="/*"     element={<ProtectedRoutes />} />
     </Routes>
   );
 }
