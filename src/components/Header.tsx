@@ -39,9 +39,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </Button>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">C</span>
+              <span className="text-primary-foreground font-bold text-sm">B</span>
             </div>
-            <span className="font-semibold text-sm hidden sm:block text-foreground">Cummins Dashboard</span>
+            <span className="font-bold text-sm hidden sm:block text-foreground tracking-tight">Breakthru</span>
           </div>
         </div>
 

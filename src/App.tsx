@@ -12,6 +12,7 @@ import LoginPage from "@/pages/LoginPage";
 import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
 import TechniciansPage from "@/pages/TechniciansPage";
+import TechnicianProfilePage from "@/pages/TechnicianProfilePage";
 import InventoryPage from "@/pages/InventoryPage";
 import OrdersPage from "@/pages/OrdersPage";
 import LogsPage from "@/pages/LogsPage";
@@ -52,7 +53,8 @@ function ProtectedRoutes() {
         <Route path="/tickets"     element={<TicketsPage />} />
         <Route path="/customers"   element={adminOrStaff    ? <CustomersPage />    : <Navigate to="/" replace />} />
         <Route path="/orders"      element={adminOrStaff    ? <OrdersPage />       : <Navigate to="/" replace />} />
-        <Route path="/technicians" element={adminOrStaff    ? <TechniciansPage />  : <Navigate to="/" replace />} />
+        <Route path="/technicians"    element={adminOrStaff    ? <TechniciansPage />       : <Navigate to="/" replace />} />
+        <Route path="/technicians/:id" element={adminOrStaff    ? <TechnicianProfilePage /> : <Navigate to="/" replace />} />
 
         {/* Inventory & Parts */}
         <Route path="/inventory"   element={techOrStaff     ? <InventoryPage />    : <Navigate to="/" replace />} />
