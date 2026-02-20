@@ -4,9 +4,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useAiTutor } from '@/context/AiTutorContext';
 import { transactionApi, Transaction } from '@/services/transactionApi';
 import {
-  Ticket, Users, Package, ShoppingCart, BookOpen, X, Bot,
+  Ticket, Users, ShoppingCart, BookOpen, X, Bot,
   User, Layers, Wrench, FileText, ChevronDown, ChevronRight,
-  Activity, Cpu, ArrowLeftRight, Clock, CheckCircle2, XCircle,
+  Activity, Cpu, ArrowLeftRight, Clock, CheckCircle2, XCircle, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -44,7 +44,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Inventory & Parts',
     items: [
-      { to: '/inventory',  label: 'Inventory',  icon: Package, roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
       { to: '/components', label: 'Components', icon: Layers,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
       { to: '/parts',      label: 'Parts',      icon: Wrench,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
     ],
@@ -52,6 +51,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Resources',
     items: [
+      { to: '/ask-ai',    label: 'Ask Felix',  icon: Sparkles,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
       { to: '/manuals',   label: 'Manuals',    icon: BookOpen,  roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician', 'customer'] },
       { to: '/ai-agents', label: 'AI Agents',  icon: Bot,       roles: ['admin', 'office_staff', 'engine_technician', 'electrical_technician'] },
       { to: '/logs',      label: 'Logs',       icon: FileText,  roles: ['admin', 'office_staff'] },
