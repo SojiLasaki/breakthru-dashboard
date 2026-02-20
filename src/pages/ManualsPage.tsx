@@ -47,6 +47,47 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
   const colorClass = CATEGORY_COLORS[manual.category] || 'text-muted-foreground bg-muted/50 border-border';
   const [activeTab, setActiveTab] = useState<'content' | 'pdf'>(hasRealPdf ? 'pdf' : 'content');
 
+  const handleDownloadContent = () => {
+    const lines: string[] = [];
+    lines.push(`MANUAL: ${manual.title}`);
+    lines.push(`Version: ${manual.version}`);
+    lines.push(`Category: ${manual.category}`);
+    lines.push(`Engine Model: ${manual.engine_model}`);
+    lines.push(`Author: ${manual.author ?? manual.created_by ?? '—'}`);
+    lines.push(`Updated: ${manual.updated_at}`);
+    lines.push('');
+    lines.push('DESCRIPTION');
+    lines.push('===========');
+    lines.push(manual.description);
+    if (manual.components && manual.components.length > 0) {
+      lines.push('');
+      lines.push('COMPONENTS');
+      lines.push('==========');
+      lines.push(manual.components.join(', '));
+    }
+    if (manual.tags && manual.tags.length > 0) {
+      lines.push('');
+      lines.push('TAGS');
+      lines.push('====');
+      lines.push(manual.tags.map(t => `#${t}`).join(', '));
+    }
+    if (manual.content) {
+      lines.push('');
+      lines.push('CONTENT');
+      lines.push('=======');
+      lines.push(manual.content);
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${manual.title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
@@ -61,13 +102,17 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
           <span className="text-xs text-muted-foreground flex-shrink-0">{manual.version}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {hasRealPdf && (
+          {hasRealPdf ? (
             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" asChild>
               <a href={manual.file_url} download>
-                <Download className="h-3.5 w-3.5" /> Download
+                <Download className="h-3.5 w-3.5" /> Download PDF
               </a>
             </Button>
-          )}
+          ) : manual.content ? (
+            <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadContent}>
+              <Download className="h-3.5 w-3.5" /> Download
+            </Button>
+          ) : null}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onBack}>
             <X className="h-4 w-4" />
           </Button>
