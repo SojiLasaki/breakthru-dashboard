@@ -33,7 +33,7 @@ const EXPERTISE_CONFIG = {
 const SPEC_ICONS = { engine: Wrench, electrical: Zap, general: Settings };
 
 const EMPTY_FORM = {
-  name: '', email: '', phone: '', location: '', address: '',
+  first_name: '', last_name: '', email: '', phone: '', location: '', address: '',
   specialization: 'engine' as Technician['specialization'],
   expertise: 'junior' as Technician['expertise'],
 };
@@ -64,14 +64,15 @@ export default function TechniciansPage() {
   );
 
   const handleAdd = async () => {
-    if (!form.name.trim() || !form.email.trim()) return;
+    if (!form.first_name.trim() || !form.email.trim()) return;
     setSaving(true);
+    const fullName = `${form.first_name.trim()} ${form.last_name.trim()}`.trim();
     try {
-      const newTech = await technicianApi.create(form);
+      const newTech = await technicianApi.create({ ...form, name: fullName });
       setTechs(prev => [newTech, ...prev]);
       setForm(EMPTY_FORM);
       setAddOpen(false);
-      toast({ title: 'Technician added', description: `${newTech.name} has been registered.` });
+      toast({ title: 'Technician added', description: `${fullName} has been registered.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to add technician.', variant: 'destructive' });
     } finally {
@@ -228,11 +229,20 @@ export default function TechniciansPage() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Full Name *</Label>
+                <Label className="text-xs">First Name *</Label>
                 <Input
-                  placeholder="John Smith"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="John"
+                  value={form.first_name}
+                  onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Last Name</Label>
+                <Input
+                  placeholder="Smith"
+                  value={form.last_name}
+                  onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
                   className="bg-background"
                 />
               </div>
@@ -309,7 +319,7 @@ export default function TechniciansPage() {
               <Button
                 className="flex-1 bg-primary hover:bg-primary/90"
                 onClick={handleAdd}
-                disabled={saving || !form.name.trim() || !form.email.trim()}
+                disabled={saving || !form.first_name.trim() || !form.email.trim()}
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                 Add Technician

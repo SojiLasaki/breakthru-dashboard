@@ -22,7 +22,7 @@ const STATUS_CLASSES: Record<string, string> = {
   urgent:      'status-urgent',
 };
 
-const BLANK_CUSTOMER = { name: '', email: '', phone: '', company: '', location: '' };
+const BLANK_CUSTOMER = { first_name: '', last_name: '', email: '', phone: '', company: '', location: '' };
 
 export default function CustomersPage() {
   const { isRole } = useAuth();
@@ -54,14 +54,15 @@ export default function CustomersPage() {
   };
 
   const handleCreate = async () => {
-    if (!newCustomer.name.trim() || !newCustomer.email.trim()) return;
+    if (!newCustomer.first_name.trim() || !newCustomer.email.trim()) return;
+    const fullName = `${newCustomer.first_name.trim()} ${newCustomer.last_name.trim()}`.trim();
     setCreating(true);
     try {
-      const created = await customerApi.create(newCustomer);
+      const created = await customerApi.create({ ...newCustomer, name: fullName });
       setCustomers(prev => [created, ...prev]);
       setAddOpen(false);
       setNewCustomer(BLANK_CUSTOMER);
-      toast({ title: 'Customer added', description: `${created.name} has been registered.` });
+      toast({ title: 'Customer added', description: `${fullName} has been registered.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to add customer.', variant: 'destructive' });
     } finally {
@@ -307,8 +308,12 @@ export default function CustomersPage() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Full Name *</Label>
-                <Input placeholder="James Porter" value={newCustomer.name} onChange={e => setNewCustomer(f => ({ ...f, name: e.target.value }))} className="bg-background" />
+                <Label className="text-xs">First Name *</Label>
+                <Input placeholder="James" value={newCustomer.first_name} onChange={e => setNewCustomer(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Last Name</Label>
+                <Input placeholder="Porter" value={newCustomer.last_name} onChange={e => setNewCustomer(f => ({ ...f, last_name: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Email *</Label>
@@ -331,7 +336,7 @@ export default function CustomersPage() {
             </div>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newCustomer.name.trim() || !newCustomer.email.trim()}>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newCustomer.first_name.trim() || !newCustomer.email.trim()}>
                 {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                 Add Customer
               </Button>

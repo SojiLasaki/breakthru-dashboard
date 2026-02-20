@@ -2,6 +2,8 @@ import { api } from './apiClient';
 
 export interface Technician {
   id: number;
+  first_name?: string;
+  last_name?: string;
   name: string;
   email: string;
   specialization: 'engine' | 'electrical' | 'general';
@@ -99,9 +101,12 @@ export const technicianApi = {
       const { data } = await api.post('/technicians/', payload);
       return data;
     } catch {
+      const fullName = payload.name ?? `${payload.first_name ?? ''} ${payload.last_name ?? ''}`.trim();
       const newTech: Technician = {
         id: Date.now(),
-        name: payload.name ?? '',
+        first_name: payload.first_name ?? payload.name?.split(' ')[0] ?? '',
+        last_name: payload.last_name ?? payload.name?.split(' ').slice(1).join(' ') ?? '',
+        name: fullName,
         email: payload.email ?? '',
         phone: payload.phone ?? '',
         location: payload.location ?? '',
@@ -112,7 +117,7 @@ export const technicianApi = {
         lat: 0,
         lng: 0,
         active_tickets: 0,
-        photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.name ?? 'New')}&background=1a1f2e&color=e61409&size=96`,
+        photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName || 'New')}&background=1a1f2e&color=e61409&size=96`,
       };
       mockTechnicians = [newTech, ...mockTechnicians];
       return newTech;
