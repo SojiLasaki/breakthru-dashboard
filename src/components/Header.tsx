@@ -90,6 +90,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 {user?.email}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => window.location.href = '/profile'} className="gap-2 text-sm">
+                <User className="h-4 w-4" />
+                My Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive gap-2">
                 <LogOut className="h-4 w-4" />
                 Sign Out
