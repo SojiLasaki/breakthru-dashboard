@@ -44,6 +44,8 @@ export default function TechniciansPage() {
   const [techs, setTechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterSpec, setFilterSpec] = useState<string>('all');
+  const [filterExpertise, setFilterExpertise] = useState<string>('all');
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -55,13 +57,17 @@ export default function TechniciansPage() {
     technicianApi.getAll().then(setTechs).finally(() => setLoading(false));
   }, []);
 
-  const filtered = techs.filter(t =>
-    !search ||
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.specialization.includes(search.toLowerCase()) ||
-    t.location.toLowerCase().includes(search.toLowerCase()) ||
-    t.expertise.includes(search.toLowerCase())
-  );
+  const filtered = techs.filter(t => {
+    const q = search.toLowerCase();
+    const matchSearch = !search ||
+      t.name.toLowerCase().includes(q) ||
+      t.specialization.includes(q) ||
+      t.location.toLowerCase().includes(q) ||
+      t.expertise.includes(q);
+    const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;
+    const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
+    return matchSearch && matchSpec && matchExpertise;
+  });
 
   const handleAdd = async () => {
     if (!form.first_name.trim() || !form.email.trim()) return;
@@ -111,9 +117,33 @@ export default function TechniciansPage() {
         })}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, specialization, expertise..." className="pl-9 bg-card" />
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, location..." className="pl-9 bg-card" />
+        </div>
+        <Select value={filterSpec} onValueChange={setFilterSpec}>
+          <SelectTrigger className="bg-card w-full sm:w-44">
+            <SelectValue placeholder="Specialization" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Specializations</SelectItem>
+            <SelectItem value="engine">Engine</SelectItem>
+            <SelectItem value="electrical">Electrical</SelectItem>
+            <SelectItem value="general">General</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterExpertise} onValueChange={setFilterExpertise}>
+          <SelectTrigger className="bg-card w-full sm:w-40">
+            <SelectValue placeholder="Expertise" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            <SelectItem value="junior">Junior</SelectItem>
+            <SelectItem value="mid">Mid-level</SelectItem>
+            <SelectItem value="senior">Senior</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
