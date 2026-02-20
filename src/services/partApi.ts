@@ -12,8 +12,8 @@ export interface Part {
   weight_kg: number;
   compatibility: string;
   status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'discontinued';
-  quantity_available: number;
-  reorder_threshold: number;
+  quantity_on_hand: number;
+  reorder_level: number;
   supplier: string;
   last_ordered?: string;
 }
@@ -79,8 +79,8 @@ export const partApi = {
         weight_kg: payload.weight_kg ?? 0,
         compatibility: payload.compatibility ?? '',
         status: 'in_stock',
-        quantity_available: payload.quantity_available ?? 0,
-        reorder_threshold: payload.reorder_threshold ?? 0,
+        quantity_on_hand: payload.quantity_on_hand ?? 0,
+        reorder_level: payload.reorder_level ?? 0,
         supplier: payload.supplier ?? '',
         last_ordered: payload.last_ordered,
       };
