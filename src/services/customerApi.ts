@@ -2,6 +2,8 @@ import { api } from './apiClient';
 
 export interface Customer {
   id: number;
+  first_name?: string;
+  last_name?: string;
   name: string;
   email: string;
   phone: string;
@@ -49,9 +51,12 @@ export const customerApi = {
       const { data } = await api.post('/customers/', payload);
       return data;
     } catch {
+      const fullName = payload.name ?? `${payload.first_name ?? ''} ${payload.last_name ?? ''}`.trim();
       const newCustomer: Customer = {
         id: Date.now(),
-        name: payload.name ?? '',
+        first_name: payload.first_name ?? payload.name?.split(' ')[0] ?? '',
+        last_name: payload.last_name ?? payload.name?.split(' ').slice(1).join(' ') ?? '',
+        name: fullName,
         email: payload.email ?? '',
         phone: payload.phone ?? '',
         company: payload.company ?? '',
@@ -60,7 +65,7 @@ export const customerApi = {
         total_tickets: 0,
         open_tickets: 0,
         created_at: new Date().toISOString(),
-        contact_person: payload.name ?? '',
+        contact_person: fullName,
       };
       mockCustomers = [newCustomer, ...mockCustomers];
       return newCustomer;
