@@ -13,7 +13,7 @@ import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
 import TechniciansPage from "@/pages/TechniciansPage";
 import TechnicianProfilePage from "@/pages/TechnicianProfilePage";
-import InventoryPage from "@/pages/InventoryPage";
+
 import OrdersPage from "@/pages/OrdersPage";
 import LogsPage from "@/pages/LogsPage";
 import ManualsPage from "@/pages/ManualsPage";
@@ -66,7 +66,6 @@ function ProtectedRoutes() {
         <Route path="/diagnostics"    element={techOrStaff  ? <DiagnosticsPage />      : <Navigate to="/" replace />} />
 
         {/* Inventory & Parts */}
-        <Route path="/inventory"      element={techOrStaff  ? <InventoryPage />        : <Navigate to="/" replace />} />
         <Route path="/components"     element={techOrStaff  ? <ComponentsPage />       : <Navigate to="/" replace />} />
         <Route path="/parts"          element={techOrStaff  ? <PartsPage />            : <Navigate to="/" replace />} />
 
