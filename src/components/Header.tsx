@@ -28,6 +28,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { unreadCount } = useNotifications();
   const { openTutor, isOpen, closeTutor } = useAiTutor();
   const [notifOpen, setNotifOpen] = useState(false);
+  const canUseAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
   return (
     <>
@@ -45,6 +46,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {canUseAiTutor && (
           <Button
             variant="ghost"
             size="sm"
@@ -54,6 +56,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <Bot className="h-4 w-4" />
             <span className="text-xs">AI Tutor</span>
           </Button>
+          )}
 
           <Button
             variant="ghost"
