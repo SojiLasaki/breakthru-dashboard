@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, Search, AlertTriangle, Wrench, Plus, DollarSign, Building2,
   Tag, Hash, Pencil, Save, X, ShoppingCart, CheckCircle2, Clock,
-  XCircle, Truck, Shield,
+  XCircle, Truck, Shield, CalendarDays,
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
@@ -36,8 +36,8 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; class: string; icon: 
 
 const BLANK_FORM: Partial<Part> = {
   name: '', part_number: '', component_id: 0, component_name: '', category: '',
-  unit_price: 0, weight_kg: 0, compatibility: '', supplier: '',
-  quantity_on_hand: 0, reorder_level: 5,
+  cost_price: 0, resale_price: 0, weight_kg: 0, compatibility: '', supplier: '',
+  quantity_on_hand: 0, reorder_level: 5, last_ordered: '',
 };
 
 const BLANK_ORDER = { item_name: '', quantity: 1, unit_price: 0, assigned_ticket: '', notes: '' };
@@ -71,7 +71,6 @@ export default function PartsPage() {
       partApi.getAll().then(data => setParts(Array.isArray(data) ? data : [])).catch(() => setParts([])),
       componentApi.getAll().then(data => setComponents(Array.isArray(data) ? data : [])).catch(() => setComponents([])),
       orderApi.getAll().then(data => setOrders(Array.isArray(data) ? data : [])).catch(() => setOrders([])),
-      // Pull components from manuals to populate dropdown
       manualApi.getAll().then(manuals => {
         const allComponents = new Set<string>();
         manuals.forEach(m => m.components?.forEach(c => allComponents.add(c)));
@@ -99,7 +98,8 @@ export default function PartsPage() {
       name: p.name, part_number: p.part_number, category: p.category,
       supplier: p.supplier, compatibility: p.compatibility, status: p.status,
       quantity_on_hand: p.quantity_on_hand, reorder_level: p.reorder_level,
-      unit_price: p.unit_price, weight_kg: p.weight_kg,
+      cost_price: p.cost_price, resale_price: p.resale_price,
+      last_ordered: p.last_ordered ?? '',
     });
   };
 
@@ -125,7 +125,7 @@ export default function PartsPage() {
     setCreating(true);
     try {
       const comp = components.find(c => c.id === newForm.component_id);
-      const created = await partApi.create({ ...newForm, component_name: comp?.name ?? '' });
+      const created = await partApi.create({ ...newForm, component_name: comp?.name ?? newForm.component_name ?? '' });
       setParts(prev => [created, ...prev]);
       setAddOpen(false);
       setNewForm({ ...BLANK_FORM });
@@ -174,26 +174,51 @@ export default function PartsPage() {
   const alerts = parts.filter(p => p.status === 'out_of_stock' || p.status === 'low_stock').length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
 
+  // Table columns: Part #, Name, Qty Available, Reorder Threshold, Supplier, Last Ordered, Cost, Resale Price
   const columns: Column<Part>[] = [
-    { label: 'Part #',           render: row => <span className="font-mono text-xs text-muted-foreground">{row.part_number}</span> },
-    { label: 'Name',             render: row => <span className="text-xs font-medium">{row.name}</span> },
-    { label: 'Component Group',  render: row => <span className="text-xs text-muted-foreground">{row.component_name}</span> },
-    { label: 'Category',         render: row => <span className="text-xs text-muted-foreground">{row.category}</span> },
     {
-      label: 'Qty',
+      label: 'Part #',
+      render: row => <span className="font-mono text-xs text-muted-foreground">{row.part_number}</span>,
+    },
+    {
+      label: 'Name',
+      render: row => <span className="text-xs font-medium">{row.name}</span>,
+    },
+    {
+      label: 'Qty Available',
       render: row => {
         const isAlert = row.status === 'low_stock' || row.status === 'out_of_stock';
-        return <span className={`text-xs font-semibold ${isAlert ? 'text-primary' : 'text-foreground'}`}>{row.quantity_on_hand} {isAlert && <AlertTriangle className="h-3 w-3 inline ml-0.5" />}</span>;
+        return (
+          <span className={`text-xs font-semibold flex items-center gap-1 ${isAlert ? 'text-primary' : 'text-foreground'}`}>
+            {row.quantity_on_hand}
+            {isAlert && <AlertTriangle className="h-3 w-3" />}
+          </span>
+        );
       },
     },
-    { label: 'Unit Price', render: row => <span className="text-xs">${Number(row.unit_price).toFixed(2)}</span> },
-    { label: 'Supplier',   render: row => <span className="text-xs text-muted-foreground">{row.supplier}</span> },
     {
-      label: 'Status',
-      render: row => {
-        const cfg = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.in_stock;
-        return <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
-      },
+      label: 'Reorder Threshold',
+      render: row => <span className="text-xs text-muted-foreground">{row.reorder_level}</span>,
+    },
+    {
+      label: 'Supplier',
+      render: row => <span className="text-xs text-muted-foreground">{row.supplier}</span>,
+    },
+    {
+      label: 'Last Ordered',
+      render: row => (
+        <span className="text-xs text-muted-foreground">
+          {row.last_ordered ? new Date(row.last_ordered).toLocaleDateString() : '—'}
+        </span>
+      ),
+    },
+    {
+      label: 'Cost',
+      render: row => <span className="text-xs">${Number(row.cost_price).toFixed(2)}</span>,
+    },
+    {
+      label: 'Resale Price',
+      render: row => <span className="text-xs font-medium">${Number(row.resale_price).toFixed(2)}</span>,
     },
   ];
 
@@ -206,14 +231,17 @@ export default function PartsPage() {
           <p className="text-muted-foreground text-sm">Parts catalogue and order management</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-            onClick={() => setOrderOpen(true)}
-          >
-            <ShoppingCart className="h-4 w-4" /> Order Parts
-          </Button>
+          {/* Order Parts — Admin/Office Staff only */}
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={() => setOrderOpen(true)}
+            >
+              <ShoppingCart className="h-4 w-4" /> Order Parts
+            </Button>
+          )}
           {isAdmin && (
             <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" /> Add Part
@@ -404,10 +432,6 @@ export default function PartsPage() {
                         <Input value={editForm.part_number ?? ''} onChange={e => setEditForm(f => ({ ...f, part_number: e.target.value }))} className="bg-background" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Category</Label>
-                        <Input value={editForm.category ?? ''} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} className="bg-background" />
-                      </div>
-                      <div className="space-y-1.5">
                         <Label className="text-xs">Status</Label>
                         <Select value={editForm.status ?? selected.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Part['status'] }))}>
                           <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
@@ -417,16 +441,20 @@ export default function PartsPage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Quantity on Hand</Label>
+                        <Label className="text-xs">Qty Available</Label>
                         <Input type="number" min={0} value={editForm.quantity_on_hand ?? 0} onChange={e => setEditForm(f => ({ ...f, quantity_on_hand: Number(e.target.value) }))} className="bg-background" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Reorder Level</Label>
+                        <Label className="text-xs">Reorder Threshold</Label>
                         <Input type="number" min={0} value={editForm.reorder_level ?? 0} onChange={e => setEditForm(f => ({ ...f, reorder_level: Number(e.target.value) }))} className="bg-background" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Unit Price ($)</Label>
-                        <Input type="number" min={0} step={0.01} value={editForm.unit_price ?? 0} onChange={e => setEditForm(f => ({ ...f, unit_price: Number(e.target.value) }))} className="bg-background" />
+                        <Label className="text-xs">Cost ($)</Label>
+                        <Input type="number" min={0} step={0.01} value={editForm.cost_price ?? 0} onChange={e => setEditForm(f => ({ ...f, cost_price: Number(e.target.value) }))} className="bg-background" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Resale Price ($)</Label>
+                        <Input type="number" min={0} step={0.01} value={editForm.resale_price ?? 0} onChange={e => setEditForm(f => ({ ...f, resale_price: Number(e.target.value) }))} className="bg-background" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -434,8 +462,8 @@ export default function PartsPage() {
                       <Input value={editForm.supplier ?? ''} onChange={e => setEditForm(f => ({ ...f, supplier: e.target.value }))} className="bg-background" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Compatibility</Label>
-                      <Input value={editForm.compatibility ?? ''} onChange={e => setEditForm(f => ({ ...f, compatibility: e.target.value }))} className="bg-background" />
+                      <Label className="text-xs">Last Ordered</Label>
+                      <Input type="date" value={editForm.last_ordered ?? ''} onChange={e => setEditForm(f => ({ ...f, last_ordered: e.target.value }))} className="bg-background" />
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" className="flex-1 gap-1.5" onClick={() => setEditing(false)}>
@@ -450,13 +478,12 @@ export default function PartsPage() {
                 ) : (
                   <div className="space-y-3">
                     {[
-                      { icon: Hash,       label: 'Part Number',    value: selected.part_number },
-                      { icon: Tag,        label: 'Category',       value: selected.category },
-                      { icon: Wrench,     label: 'Component',      value: selected.component_name },
-                      { icon: Tag,        label: 'Compatibility',  value: selected.compatibility },
-                      { icon: Building2,  label: 'Supplier',       value: selected.supplier },
-                      { icon: DollarSign, label: 'Unit Price',     value: `$${Number(selected.unit_price).toFixed(2)}` },
-                      { icon: Hash,       label: 'Weight',         value: `${selected.weight_kg} kg` },
+                      { icon: Hash,         label: 'Part Number',       value: selected.part_number },
+                      { icon: Tag,          label: 'Component Group',   value: selected.component_name },
+                      { icon: Building2,    label: 'Supplier',          value: selected.supplier },
+                      { icon: CalendarDays, label: 'Last Ordered',      value: selected.last_ordered ? new Date(selected.last_ordered).toLocaleDateString() : '—' },
+                      { icon: DollarSign,   label: 'Cost',              value: `$${Number(selected.cost_price).toFixed(2)}` },
+                      { icon: DollarSign,   label: 'Resale Price',      value: `$${Number(selected.resale_price).toFixed(2)}` },
                     ].map(({ icon: Icon, label, value }) => (
                       <div key={label} className="flex items-center gap-3 text-xs">
                         <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -505,8 +532,8 @@ export default function PartsPage() {
                 <Input placeholder="e.g. FI-6700-A" value={newForm.part_number ?? ''} onChange={e => setNewForm(f => ({ ...f, part_number: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Category</Label>
-                <Input placeholder="e.g. Fuel System" value={newForm.category ?? ''} onChange={e => setNewForm(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+                <Label className="text-xs">Supplier</Label>
+                <Input placeholder="e.g. Cummins Direct" value={newForm.supplier ?? ''} onChange={e => setNewForm(f => ({ ...f, supplier: e.target.value }))} className="bg-background" />
               </div>
             </div>
 
@@ -514,15 +541,13 @@ export default function PartsPage() {
             <div className="space-y-1.5">
               <Label className="text-xs">Component Group <span className="text-muted-foreground">(from manuals)</span></Label>
               <Select
-                value={newForm.component_id ? String(newForm.component_id) : 'none'}
+                value={newForm.component_id ? String(newForm.component_id) : newForm.component_name || 'none'}
                 onValueChange={v => {
                   if (v === 'none') { setNewForm(f => ({ ...f, component_id: 0, component_name: '' })); return; }
-                  // Try matching to existing component list first
                   const comp = components.find(c => c.id === Number(v));
                   if (comp) {
                     setNewForm(f => ({ ...f, component_id: comp.id, component_name: comp.name }));
                   } else {
-                    // Manual component name (from manuals)
                     setNewForm(f => ({ ...f, component_id: 0, component_name: v }));
                   }
                 }}
@@ -530,11 +555,9 @@ export default function PartsPage() {
                 <SelectTrigger className="bg-background"><SelectValue placeholder="Select component…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No component</SelectItem>
-                  {/* Components from componentApi */}
                   {components.length > 0 && components.map(c => (
                     <SelectItem key={`comp-${c.id}`} value={String(c.id)}>{c.name}</SelectItem>
                   ))}
-                  {/* Additional components from manuals not already in components list */}
                   {manualComponents.filter(mc => !components.some(c => c.name.toLowerCase() === mc.toLowerCase())).map(mc => (
                     <SelectItem key={`manual-${mc}`} value={mc}>{mc}</SelectItem>
                   ))}
@@ -544,29 +567,25 @@ export default function PartsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Unit Price ($)</Label>
-                <Input type="number" min={0} step={0.01} value={newForm.unit_price ?? 0} onChange={e => setNewForm(f => ({ ...f, unit_price: Number(e.target.value) }))} className="bg-background" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Quantity on Hand</Label>
+                <Label className="text-xs">Qty Available</Label>
                 <Input type="number" min={0} value={newForm.quantity_on_hand ?? 0} onChange={e => setNewForm(f => ({ ...f, quantity_on_hand: Number(e.target.value) }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Reorder Level</Label>
+                <Label className="text-xs">Reorder Threshold</Label>
                 <Input type="number" min={0} value={newForm.reorder_level ?? 5} onChange={e => setNewForm(f => ({ ...f, reorder_level: Number(e.target.value) }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Weight (kg)</Label>
-                <Input type="number" min={0} step={0.1} value={newForm.weight_kg ?? 0} onChange={e => setNewForm(f => ({ ...f, weight_kg: Number(e.target.value) }))} className="bg-background" />
+                <Label className="text-xs">Cost ($)</Label>
+                <Input type="number" min={0} step={0.01} value={newForm.cost_price ?? 0} onChange={e => setNewForm(f => ({ ...f, cost_price: Number(e.target.value) }))} className="bg-background" />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Supplier</Label>
-              <Input placeholder="e.g. Cummins Direct" value={newForm.supplier ?? ''} onChange={e => setNewForm(f => ({ ...f, supplier: e.target.value }))} className="bg-background" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Compatibility</Label>
-              <Input placeholder="e.g. ISB6.7, ISX15" value={newForm.compatibility ?? ''} onChange={e => setNewForm(f => ({ ...f, compatibility: e.target.value }))} className="bg-background" />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Resale Price ($)</Label>
+                <Input type="number" min={0} step={0.01} value={newForm.resale_price ?? 0} onChange={e => setNewForm(f => ({ ...f, resale_price: Number(e.target.value) }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Last Ordered</Label>
+                <Input type="date" value={newForm.last_ordered ?? ''} onChange={e => setNewForm(f => ({ ...f, last_ordered: e.target.value }))} className="bg-background" />
+              </div>
             </div>
             <div className="flex gap-2 pt-1">
               <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
@@ -579,52 +598,54 @@ export default function PartsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Order Parts Dialog ── */}
-      <Dialog open={orderOpen} onOpenChange={setOrderOpen}>
-        <DialogContent className="max-w-md bg-card">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4 text-primary" /> Order Parts
-            </DialogTitle>
-            <DialogDescription>Submit a part order — requires admin approval before processing.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-400/10 border border-yellow-400/20 rounded-lg text-xs text-yellow-400">
-              <Shield className="h-3.5 w-3.5" /> Orders are submitted as <strong>pending</strong> and require admin approval.
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Part / Item Name *</Label>
-              <Input placeholder="e.g. Fuel Injector 6.7L" value={orderForm.item_name} onChange={e => setOrderForm(f => ({ ...f, item_name: e.target.value }))} className="bg-background" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Quantity *</Label>
-                <Input type="number" min={1} value={orderForm.quantity} onChange={e => setOrderForm(f => ({ ...f, quantity: Number(e.target.value) }))} className="bg-background" />
+      {/* ── Order Parts Dialog (Admin / Office Staff only) ── */}
+      {isAdmin && (
+        <Dialog open={orderOpen} onOpenChange={setOrderOpen}>
+          <DialogContent className="max-w-md bg-card">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-primary" /> Order Parts
+              </DialogTitle>
+              <DialogDescription>Submit a part order — requires admin approval before processing.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-2 px-3 py-2 bg-yellow-400/10 border border-yellow-400/20 rounded-lg text-xs text-yellow-400">
+                <Shield className="h-3.5 w-3.5" /> Orders are submitted as <strong>pending</strong> and require admin approval.
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Unit Price ($)</Label>
-                <Input type="number" min={0} step={0.01} value={orderForm.unit_price} onChange={e => setOrderForm(f => ({ ...f, unit_price: Number(e.target.value) }))} className="bg-background" />
+                <Label className="text-xs">Part / Item Name *</Label>
+                <Input placeholder="e.g. Fuel Injector 6.7L" value={orderForm.item_name} onChange={e => setOrderForm(f => ({ ...f, item_name: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Quantity *</Label>
+                  <Input type="number" min={1} value={orderForm.quantity} onChange={e => setOrderForm(f => ({ ...f, quantity: Number(e.target.value) }))} className="bg-background" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Unit Price ($)</Label>
+                  <Input type="number" min={0} step={0.01} value={orderForm.unit_price} onChange={e => setOrderForm(f => ({ ...f, unit_price: Number(e.target.value) }))} className="bg-background" />
+                </div>
+              </div>
+              {orderForm.quantity > 0 && orderForm.unit_price > 0 && (
+                <div className="px-3 py-2 bg-muted/30 border border-border rounded-lg text-xs text-muted-foreground">
+                  Estimated total: <strong className="text-foreground">${(orderForm.quantity * orderForm.unit_price).toFixed(2)}</strong>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Linked Ticket <span className="text-muted-foreground">(optional)</span></Label>
+                <Input placeholder="e.g. TK-042" value={orderForm.assigned_ticket} onChange={e => setOrderForm(f => ({ ...f, assigned_ticket: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => setOrderOpen(false)}>Cancel</Button>
+                <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleOrder} disabled={ordering || !orderForm.item_name.trim() || orderForm.quantity < 1}>
+                  {ordering ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
+                  Submit Order
+                </Button>
               </div>
             </div>
-            {orderForm.quantity > 0 && orderForm.unit_price > 0 && (
-              <div className="px-3 py-2 bg-muted/30 border border-border rounded-lg text-xs text-muted-foreground">
-                Estimated total: <strong className="text-foreground">${(orderForm.quantity * orderForm.unit_price).toFixed(2)}</strong>
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Linked Ticket <span className="text-muted-foreground">(optional)</span></Label>
-              <Input placeholder="e.g. TK-042" value={orderForm.assigned_ticket} onChange={e => setOrderForm(f => ({ ...f, assigned_ticket: e.target.value }))} className="bg-background" />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button variant="outline" className="flex-1" onClick={() => setOrderOpen(false)}>Cancel</Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleOrder} disabled={ordering || !orderForm.item_name.trim() || orderForm.quantity < 1}>
-                {ordering ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
-                Submit Order
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
