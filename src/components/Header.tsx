@@ -1,14 +1,14 @@
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useAiTutor } from '@/context/AiTutorContext';
-import { Bell, Bot, Menu, LogOut, User, ChevronDown, Sparkles } from 'lucide-react';
+import { Bell, Bot, Menu, LogOut, User, ChevronDown, Sparkles, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationPanel from './NotificationPanel';
 
@@ -31,6 +31,18 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
   const canUseAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const handleOnline  = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <>
@@ -74,6 +86,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </div>
             <span className="text-xs">Felix</span>
           </Button>
+
+          <div
+            title={isOnline ? 'Online' : 'Offline'}
+            className="flex items-center gap-1 px-2 py-1 rounded-md"
+          >
+            {isOnline
+              ? <Wifi className="h-4 w-4 text-[hsl(142,70%,50%)]" />
+              : <WifiOff className="h-4 w-4 text-muted-foreground" />
+            }
+            <span className={`text-[10px] font-medium hidden sm:block ${isOnline ? 'text-[hsl(142,70%,50%)]' : 'text-muted-foreground'}`}>
+              {isOnline ? 'Online' : 'Offline'}
+            </span>
+          </div>
 
           <Button
             variant="ghost"
