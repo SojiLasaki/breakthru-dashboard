@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { technicianApi, Technician } from '@/services/technicianApi';
-import { Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings } from 'lucide-react';
+import { Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings, Navigation, Home } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
@@ -118,6 +118,21 @@ export default function TechniciansPage() {
                         <div className="flex items-center gap-2">
                           <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />
                           <span>{tech.location}</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Home className="h-3.5 w-3.5 flex-shrink-0 text-primary/60 mt-0.5" />
+                          <span className="leading-tight">{tech.address}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Navigation className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />
+                          <a
+                            href={`https://www.google.com/maps?q=${tech.lat},${tech.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[10px] text-primary/80 hover:text-primary transition-colors"
+                          >
+                            {tech.lat.toFixed(4)}°, {tech.lng.toFixed(4)}°
+                          </a>
                         </div>
                         <div className="flex items-center gap-2">
                           <Phone className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />
