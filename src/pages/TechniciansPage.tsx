@@ -74,9 +74,9 @@ export default function TechniciansPage() {
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(tech => {
-            const avail = AVAILABILITY_CONFIG[tech.availability];
-            const exp   = EXPERTISE_CONFIG[tech.expertise];
-            const SpecIcon = SPEC_ICONS[tech.specialization];
+            const avail    = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG['off_duty'];
+            const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
+            const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
             return (
               <Card key={tech.id} className="bg-card border-border card-hover overflow-hidden">
                 <CardContent className="p-0">
