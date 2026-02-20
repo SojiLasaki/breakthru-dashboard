@@ -47,7 +47,7 @@ export default function CustomersPage() {
     setLoadingTickets(true);
     try {
       const all = await ticketApi.getAll();
-      setRelatedTickets(all.filter(t => t.created_by?.toLowerCase().includes(c.name.split(' ')[0].toLowerCase())));
+      setRelatedTickets(all.filter(t => t.created_by?.toLowerCase().includes(c.first_name.split(' ')[0].toLowerCase())));
     } finally {
       setLoadingTickets(false);
     }
@@ -58,7 +58,7 @@ export default function CustomersPage() {
     const fullName = `${newCustomer.first_name.trim()} ${newCustomer.last_name.trim()}`.trim();
     setCreating(true);
     try {
-      const created = await customerApi.create({ ...newCustomer, name: fullName });
+      const created = await customerApi.create({ ...newCustomer, first_name: fullName });
       setCustomers(prev => [created, ...prev]);
       setAddOpen(false);
       setNewCustomer(BLANK_CUSTOMER);
@@ -72,9 +72,16 @@ export default function CustomersPage() {
 
   const filtered = customers.filter(c =>
     !search ||
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.first_name.toLowerCase().includes(search.toLowerCase()) ||
+    c.last_name.toLowerCase().includes(search.toLowerCase()) ||
     c.company.toLowerCase().includes(search.toLowerCase()) ||
-    c.location.toLowerCase().includes(search.toLowerCase())
+    c.street_address.toLowerCase().includes(search.toLowerCase()) ||
+    c.street_address_2.toLowerCase().includes(search.toLowerCase()) ||
+    c.city.toLowerCase().includes(search.toLowerCase()) ||
+    c.state.toLowerCase().includes(search.toLowerCase()) ||
+    c.country.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone.toLowerCase().includes(search.toLowerCase())
   );
 
   const active = customers.filter(c => c.status === 'active').length;
@@ -125,7 +132,7 @@ export default function CustomersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  {['Name', 'Company', 'Location', 'Contact', 'Open Tickets', 'Total', 'Status'].map(h => (
+                  {['Full Name', 'Company', 'Location', 'Phone', 'Email', 'Open Tickets', 'Total', 'Status'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -144,11 +151,12 @@ export default function CustomersPage() {
                         <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                           <User className="h-3.5 w-3.5 text-primary" />
                         </div>
-                        <span className="text-xs font-medium">{c.name}</span>
+                        <span className="text-xs font-medium">{c.first_name} {c.last_name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{c.company}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.location}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.city} {c.state}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.phone}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{c.email}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-semibold ${c.open_tickets > 0 ? 'text-primary' : 'text-muted-foreground'}`}>{c.open_tickets}</span>
@@ -177,7 +185,7 @@ export default function CustomersPage() {
                       <User className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{c.name}</p>
+                      <p className="text-sm font-medium">{c.first_name} {c.last_name}</p>
                       <div className="flex items-center gap-1 mt-0.5">
                         <Building2 className="h-3 w-3 text-muted-foreground" />
                         <p className="text-[10px] text-muted-foreground">{c.company}</p>
@@ -189,7 +197,7 @@ export default function CustomersPage() {
                   </span>
                 </div>
                 <div className="space-y-1.5 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2"><MapPin className="h-3 w-3" />{c.location}</div>
+                  <div className="flex items-center gap-2"><MapPin className="h-3 w-3" />{c.city} {c.state}</div>
                   <div className="flex items-center gap-2"><Phone className="h-3 w-3" />{c.phone}</div>
                   <div className="flex items-center gap-2"><Mail className="h-3 w-3 flex-shrink-0" />{c.email}</div>
                 </div>
@@ -217,7 +225,7 @@ export default function CustomersPage() {
                     <User className="h-7 w-7 text-primary" />
                   </div>
                   <div>
-                    <SheetTitle className="text-base">{selected.name}</SheetTitle>
+                    <SheetTitle className="text-base">{selected.first_name + ' ' + selected.last_name}</SheetTitle>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <Building2 className="h-3 w-3" /> {selected.company}
                     </p>
@@ -236,7 +244,7 @@ export default function CustomersPage() {
                     {[
                       { icon: Mail, label: selected.email },
                       { icon: Phone, label: selected.phone },
-                      { icon: MapPin, label: selected.location },
+                      { icon: MapPin, label: selected.city + ' ' + selected.state },
                       { icon: Calendar, label: `Member since ${new Date(selected.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` },
                     ].map(({ icon: Icon, label }) => (
                       <div key={label} className="flex items-center gap-2.5 text-xs text-muted-foreground">

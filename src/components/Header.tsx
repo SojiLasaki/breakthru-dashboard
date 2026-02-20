@@ -41,7 +41,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <div className="w-7 h-7 rounded bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-base italic tracking-tighter">b</span>
             </div>
-            <span className="font-bold text-sm hidden sm:block text-foreground tracking-tight">Breakthru</span>
+            <span className="font-bold text-sm hidden sm:block text-foreground tracking-tight">breakthru</span>
           </div>
         </div>
 
