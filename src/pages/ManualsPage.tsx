@@ -434,8 +434,21 @@ export default function ManualsPage() {
   }, [search]);
 
   useEffect(() => {
-    setLoading(true);
-    manualApi.getAll(debouncedSearch || undefined).then(setManuals).finally(() => setLoading(false));
+    let cancelled = false;
+    const fetchManuals = async () => {
+      setLoading(true);
+      try {
+        const data = await manualApi.getAll(debouncedSearch || undefined);
+        if (!cancelled) setManuals(data);
+      } catch (err) {
+        console.error('Failed to load manuals:', err);
+        if (!cancelled) setManuals([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchManuals();
+    return () => { cancelled = true; };
   }, [debouncedSearch]);
 
   const categories = useMemo(() => ['All', ...Array.from(new Set(manuals.map(m => m.category)))], [manuals]);
