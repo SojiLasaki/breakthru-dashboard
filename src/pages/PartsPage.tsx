@@ -37,7 +37,7 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; class: string; icon: 
 const BLANK_FORM: Partial<Part> = {
   name: '', part_number: '', component_id: 0, component_name: '', category: '',
   cost_price: 0, resale_price: 0, weight_kg: 0, compatibility: '', supplier: '',
-  quantity_on_hand: 0, reorder_level: 5, last_ordered: '',
+  quantity_available: 0, reorder_threshold: 5, last_ordered: '',
 };
 
 const BLANK_ORDER = { item_name: '', quantity: 1, unit_price: 0, assigned_ticket: '', notes: '' };
@@ -97,7 +97,7 @@ export default function PartsPage() {
     setEditForm({
       name: p.name, part_number: p.part_number, category: p.category,
       supplier: p.supplier, compatibility: p.compatibility, status: p.status,
-      quantity_on_hand: p.quantity_on_hand, reorder_level: p.reorder_level,
+      quantity_available: p.quantity_available, reorder_threshold: p.reorder_threshold,
       cost_price: p.cost_price, resale_price: p.resale_price,
       last_ordered: p.last_ordered ?? '',
     });
@@ -190,7 +190,7 @@ export default function PartsPage() {
         const isAlert = row.status === 'low_stock' || row.status === 'out_of_stock';
         return (
           <span className={`text-xs font-semibold flex items-center gap-1 ${isAlert ? 'text-primary' : 'text-foreground'}`}>
-            {row.quantity_on_hand}
+            {row.quantity_available}
             {isAlert && <AlertTriangle className="h-3 w-3" />}
           </span>
         );
@@ -198,7 +198,7 @@ export default function PartsPage() {
     },
     {
       label: 'Reorder Threshold',
-      render: row => <span className="text-xs text-muted-foreground">{row.reorder_level}</span>,
+      render: row => <span className="text-xs text-muted-foreground">{row.reorder_threshold}</span>,
     },
     {
       label: 'Supplier',
@@ -442,11 +442,11 @@ export default function PartsPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Qty Available</Label>
-                        <Input type="number" min={0} value={editForm.quantity_on_hand ?? 0} onChange={e => setEditForm(f => ({ ...f, quantity_on_hand: Number(e.target.value) }))} className="bg-background" />
+                        <Input type="number" min={0} value={editForm.quantity_available ?? 0} onChange={e => setEditForm(f => ({ ...f, quantity_available: Number(e.target.value) }))} className="bg-background" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Reorder Threshold</Label>
-                        <Input type="number" min={0} value={editForm.reorder_level ?? 0} onChange={e => setEditForm(f => ({ ...f, reorder_level: Number(e.target.value) }))} className="bg-background" />
+                        <Input type="number" min={0} value={editForm.reorder_threshold ?? 0} onChange={e => setEditForm(f => ({ ...f, reorder_threshold: Number(e.target.value) }))} className="bg-background" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Cost ($)</Label>
@@ -496,7 +496,7 @@ export default function PartsPage() {
                       </div>
                     ))}
                     <div className="bg-muted/30 border border-border rounded-lg p-3 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Stock: {selected.quantity_on_hand} / Reorder at: {selected.reorder_level}</span>
+                      <span className="text-xs text-muted-foreground">Stock: {selected.quantity_available} / Reorder at: {selected.reorder_threshold}</span>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.in_stock).class}`}>
                         {(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.in_stock).label}
                       </span>
@@ -568,11 +568,11 @@ export default function PartsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Qty Available</Label>
-                <Input type="number" min={0} value={newForm.quantity_on_hand ?? 0} onChange={e => setNewForm(f => ({ ...f, quantity_on_hand: Number(e.target.value) }))} className="bg-background" />
+                <Input type="number" min={0} value={newForm.quantity_available ?? 0} onChange={e => setNewForm(f => ({ ...f, quantity_available: Number(e.target.value) }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Reorder Threshold</Label>
-                <Input type="number" min={0} value={newForm.reorder_level ?? 5} onChange={e => setNewForm(f => ({ ...f, reorder_level: Number(e.target.value) }))} className="bg-background" />
+                <Input type="number" min={0} value={newForm.reorder_threshold ?? 5} onChange={e => setNewForm(f => ({ ...f, reorder_threshold: Number(e.target.value) }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Cost ($)</Label>
