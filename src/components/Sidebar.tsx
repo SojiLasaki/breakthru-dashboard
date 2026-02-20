@@ -115,9 +115,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="h-14 flex items-center justify-between px-4 border-b border-sidebar-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">C</span>
+              <span className="text-primary-foreground font-bold text-sm">B</span>
             </div>
-            <span className="font-semibold text-sm text-sidebar-foreground">Cummins</span>
+            <span className="font-bold text-sm text-sidebar-foreground tracking-tight">Breakthru</span>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="lg:hidden h-7 w-7">
             <X className="h-4 w-4" />

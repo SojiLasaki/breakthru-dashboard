@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
-import { technicianApi, Technician, TechTask } from '@/services/technicianApi';
-import { Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings, Navigation, Home, ClipboardList, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { technicianApi, Technician } from '@/services/technicianApi';
+import { useAuth } from '@/context/AuthContext';
+import {
+  Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings,
+  Navigation, Home, ClipboardList, Search, Plus, User,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const AVAILABILITY_CONFIG = {
   available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
@@ -19,34 +29,29 @@ const EXPERTISE_CONFIG = {
   senior: { label: 'Senior',   class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
 };
 
-const PRIORITY_CONFIG = {
-  low:    { label: 'Low',    class: 'text-muted-foreground bg-muted/50 border-border' },
-  medium: { label: 'Medium', class: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
-  high:   { label: 'High',   class: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
-  urgent: { label: 'Urgent', class: 'text-red-400 bg-red-400/10 border-red-400/20' },
-};
-
 const SPEC_ICONS = { engine: Wrench, electrical: Zap, general: Settings };
 
+const EMPTY_FORM = {
+  name: '', email: '', phone: '', location: '', address: '',
+  specialization: 'engine' as Technician['specialization'],
+  expertise: 'junior' as Technician['expertise'],
+};
+
 export default function TechniciansPage() {
+  const navigate = useNavigate();
+  const { isRole } = useAuth();
   const [techs, setTechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
-  const [taskHistory, setTaskHistory] = useState<TechTask[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+
+  const isAdmin = isRole('admin', 'office_staff');
 
   useEffect(() => {
     technicianApi.getAll().then(setTechs).finally(() => setLoading(false));
   }, []);
-
-  const openHistory = (tech: Technician) => {
-    setSelectedTech(tech);
-    setHistoryLoading(true);
-    technicianApi.getTaskHistory(tech.id)
-      .then(setTaskHistory)
-      .finally(() => setHistoryLoading(false));
-  };
 
   const filtered = techs.filter(t =>
     !search ||
@@ -56,11 +61,37 @@ export default function TechniciansPage() {
     t.expertise.includes(search.toLowerCase())
   );
 
+  const handleAdd = async () => {
+    if (!form.name.trim() || !form.email.trim()) return;
+    setSaving(true);
+    await new Promise(r => setTimeout(r, 600)); // simulate API call
+    const newTech: Technician = {
+      id: Date.now(),
+      ...form,
+      availability: 'available',
+      lat: 0,
+      lng: 0,
+      active_tickets: 0,
+      photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(form.name)}&background=1a1f2e&color=e61409&size=96`,
+    };
+    setTechs(prev => [newTech, ...prev]);
+    setForm(EMPTY_FORM);
+    setAddOpen(false);
+    setSaving(false);
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Technicians</h1>
-        <p className="text-muted-foreground text-sm">Team availability and specializations</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Technicians</h1>
+          <p className="text-muted-foreground text-sm">Team availability and specializations</p>
+        </div>
+        {isAdmin && (
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> Add Technician
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -94,7 +125,11 @@ export default function TechniciansPage() {
             const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
             const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
             return (
-              <Card key={tech.id} className="bg-card border-border card-hover overflow-hidden">
+              <Card
+                key={tech.id}
+                className="bg-card border-border card-hover overflow-hidden cursor-pointer"
+                onClick={() => navigate(`/technicians/${tech.id}`)}
+              >
                 <CardContent className="p-0">
                   <div className="flex">
                     {/* Left profile column */}
@@ -145,6 +180,7 @@ export default function TechniciansPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-mono text-[10px] text-primary/80 hover:text-primary transition-colors"
+                            onClick={e => e.stopPropagation()}
                           >
                             {tech.lat.toFixed(4)}°, {tech.lng.toFixed(4)}°
                           </a>
@@ -165,10 +201,10 @@ export default function TechniciansPage() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                          onClick={() => openHistory(tech)}
+                          onClick={e => { e.stopPropagation(); navigate(`/technicians/${tech.id}`); }}
                         >
-                          <ClipboardList className="h-3 w-3" />
-                          History
+                          <User className="h-3 w-3" />
+                          View Profile
                         </Button>
                       </div>
                     </div>
@@ -180,70 +216,109 @@ export default function TechniciansPage() {
         </div>
       )}
 
-      {/* Task History Sheet */}
-      <Sheet open={!!selectedTech} onOpenChange={open => !open && setSelectedTech(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
-          {selectedTech && (
-            <>
-              <SheetHeader className="pb-4 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={selectedTech.photo}
-                    alt={selectedTech.name}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/30"
-                    onError={e => {
-                      (e.currentTarget as HTMLImageElement).src =
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedTech.name)}&background=1a1f2e&color=e61409&size=48`;
-                    }}
-                  />
-                  <div>
-                    <SheetTitle className="text-base">{selectedTech.name}</SheetTitle>
-                    <p className="text-xs text-muted-foreground capitalize">{selectedTech.specialization} · {selectedTech.expertise}</p>
-                  </div>
-                </div>
-              </SheetHeader>
+      {/* Add Technician Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" /> Add New Technician
+            </DialogTitle>
+            <DialogDescription>Fill in the details to register a new technician.</DialogDescription>
+          </DialogHeader>
 
-              <div className="mt-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Completed Tasks</p>
-
-                {historyLoading ? (
-                  <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-                ) : taskHistory.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm">No task history found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {taskHistory.map(task => {
-                      const priority = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG['low'];
-                      return (
-                        <div key={task.id} className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              {task.status === 'completed'
-                                ? <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
-                                : <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-                              <span className="text-sm font-medium leading-tight">{task.title}</span>
-                            </div>
-                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${priority.class}`}>{priority.label}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground pl-6">{task.description}</p>
-                          <div className="flex items-center gap-4 pl-6 text-[10px] text-muted-foreground">
-                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{task.duration_hours}h</span>
-                            <span>{new Date(task.completed_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                            <span className="font-mono text-primary/60">{task.ticket_id}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Full Name *</Label>
+                <Input
+                  placeholder="John Smith"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="bg-background"
+                />
               </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email *</Label>
+                <Input
+                  type="email"
+                  placeholder="john@breakthru.com"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  className="bg-background"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone</Label>
+                <Input
+                  placeholder="+1-555-0100"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Location</Label>
+                <Input
+                  placeholder="City, State"
+                  value={form.location}
+                  onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                  className="bg-background"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Address</Label>
+              <Input
+                placeholder="123 Main St, City, ST 00000"
+                value={form.address}
+                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                className="bg-background"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Specialization</Label>
+                <Select value={form.specialization} onValueChange={v => setForm(f => ({ ...f, specialization: v as Technician['specialization'] }))}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="engine">Engine</SelectItem>
+                    <SelectItem value="electrical">Electrical</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Expertise Level</Label>
+                <Select value={form.expertise} onValueChange={v => setForm(f => ({ ...f, expertise: v as Technician['expertise'] }))}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="junior">Junior</SelectItem>
+                    <SelectItem value="mid">Mid-level</SelectItem>
+                    <SelectItem value="senior">Senior</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button
+                className="flex-1 bg-primary hover:bg-primary/90"
+                onClick={handleAdd}
+                disabled={saving || !form.name.trim() || !form.email.trim()}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Add Technician
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
