@@ -1,21 +1,26 @@
 import { useEffect, useState } from 'react';
 import { technicianApi, Technician } from '@/services/technicianApi';
-import { Loader2, User, MapPin, Phone, Mail, Wrench, Zap, Settings } from 'lucide-react';
+import { Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
 const AVAILABILITY_CONFIG = {
   available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
-  busy: { label: 'Busy', class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
-  off_duty: { label: 'Off Duty', class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
+  busy:      { label: 'Busy',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
+  off_duty:  { label: 'Off Duty',  class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
+};
+
+const EXPERTISE_CONFIG = {
+  junior: { label: 'Junior', class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20' },
+  mid:    { label: 'Mid-level', class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20' },
+  senior: { label: 'Senior', class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
 };
 
 const SPEC_ICONS = {
-  engine: Wrench,
+  engine:     Wrench,
   electrical: Zap,
-  general: Settings,
+  general:    Settings,
 };
 
 export default function TechniciansPage() {
@@ -28,9 +33,11 @@ export default function TechniciansPage() {
   }, []);
 
   const filtered = techs.filter(t =>
-    !search || t.name.toLowerCase().includes(search.toLowerCase()) ||
+    !search ||
+    t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.specialization.includes(search.toLowerCase()) ||
-    t.location.toLowerCase().includes(search.toLowerCase())
+    t.location.toLowerCase().includes(search.toLowerCase()) ||
+    t.expertise.includes(search.toLowerCase())
   );
 
   return (
@@ -59,7 +66,7 @@ export default function TechniciansPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search technicians..." className="pl-9 bg-card" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, specialization, expertise..." className="pl-9 bg-card" />
       </div>
 
       {loading ? (
@@ -68,16 +75,28 @@ export default function TechniciansPage() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(tech => {
             const avail = AVAILABILITY_CONFIG[tech.availability];
+            const exp   = EXPERTISE_CONFIG[tech.expertise];
             const SpecIcon = SPEC_ICONS[tech.specialization];
             return (
-              <Card key={tech.id} className="bg-card border-border card-hover">
+              <Card key={tech.id} className="bg-card border-border card-hover overflow-hidden">
                 <CardContent className="p-0">
                   <div className="flex">
                     {/* Left profile column */}
-                    <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border rounded-l-lg min-w-[120px]">
-                      <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/20">
-                        <User className="h-8 w-8 text-primary" />
+                    <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[130px]">
+                      <div className="relative">
+                        <img
+                          src={tech.photo}
+                          alt={tech.name}
+                          className="w-18 h-18 rounded-full object-cover ring-2 ring-primary/30"
+                          style={{ width: 72, height: 72 }}
+                          onError={e => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=1a1f2e&color=e61409&size=72`;
+                          }}
+                        />
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card ${avail.dot}`} />
                       </div>
+
                       <div className="text-center">
                         <p className="font-semibold text-sm leading-tight">{tech.name}</p>
                         <div className="flex items-center justify-center gap-1 mt-1">
@@ -85,22 +104,34 @@ export default function TechniciansPage() {
                           <p className="text-[10px] text-muted-foreground capitalize">{tech.specialization.replace('_', ' ')}</p>
                         </div>
                       </div>
-                      <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${avail.class}`}>{avail.label}</span>
+
+                      {/* Badges */}
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${avail.class}`}>{avail.label}</span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>
+                      </div>
                     </div>
 
                     {/* Right details column */}
-                    <div className="flex-1 p-4 flex flex-col justify-between">
-                      <div className="space-y-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />{tech.location}</div>
-                        <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />{tech.phone}</div>
-                        <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.email}</span></div>
+                    <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+                      <div className="space-y-2.5 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />
+                          <span>{tech.location}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />
+                          <span>{tech.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />
+                          <span className="truncate">{tech.email}</span>
+                        </div>
                       </div>
 
                       <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <div className={`w-2 h-2 rounded-full ${avail.dot}`} />
-                          <span className="text-xs text-muted-foreground">{tech.active_tickets} active tickets</span>
-                        </div>
+                        <span className="text-xs text-muted-foreground">{tech.active_tickets} active ticket{tech.active_tickets !== 1 ? 's' : ''}</span>
+                        <div className={`w-2 h-2 rounded-full ${avail.dot}`} />
                       </div>
                     </div>
                   </div>
