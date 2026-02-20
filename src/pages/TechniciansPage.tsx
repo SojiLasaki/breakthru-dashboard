@@ -65,38 +65,44 @@ export default function TechniciansPage() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(tech => {
             const avail = AVAILABILITY_CONFIG[tech.availability];
             const SpecIcon = SPEC_ICONS[tech.specialization];
             return (
               <Card key={tech.id} className="bg-card border-border card-hover">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
-                        <User className="h-5 w-5 text-primary" />
+                <CardContent className="p-0">
+                  <div className="flex">
+                    {/* Left profile column */}
+                    <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border rounded-l-lg min-w-[120px]">
+                      <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/20">
+                        <User className="h-8 w-8 text-primary" />
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{tech.name}</p>
-                        <div className="flex items-center gap-1 mt-0.5">
+                      <div className="text-center">
+                        <p className="font-semibold text-sm leading-tight">{tech.name}</p>
+                        <div className="flex items-center justify-center gap-1 mt-1">
                           <SpecIcon className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-xs text-muted-foreground capitalize">{tech.specialization.replace('_', ' ')}</p>
+                          <p className="text-[10px] text-muted-foreground capitalize">{tech.specialization.replace('_', ' ')}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${avail.class}`}>{avail.label}</span>
+                    </div>
+
+                    {/* Right details column */}
+                    <div className="flex-1 p-4 flex flex-col justify-between">
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />{tech.location}</div>
+                        <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" />{tech.phone}</div>
+                        <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.email}</span></div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-2 h-2 rounded-full ${avail.dot}`} />
+                          <span className="text-xs text-muted-foreground">{tech.active_tickets} active tickets</span>
                         </div>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${avail.class}`}>{avail.label}</span>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2"><MapPin className="h-3 w-3" />{tech.location}</div>
-                    <div className="flex items-center gap-2"><Phone className="h-3 w-3" />{tech.phone}</div>
-                    <div className="flex items-center gap-2"><Mail className="h-3 w-3 flex-shrink-0" />{tech.email}</div>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{tech.active_tickets} active tickets</span>
-                    <div className={`w-2 h-2 rounded-full ${avail.dot}`} />
                   </div>
                 </CardContent>
               </Card>
