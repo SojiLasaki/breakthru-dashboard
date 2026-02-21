@@ -27,6 +27,7 @@ import AssetsPage from "@/pages/AssetsPage";
 import TransactionsPage from "@/pages/TransactionsPage";
 import AskAiPage from "@/pages/AskAiPage";
 import SettingsPage from "@/pages/SettingsPage";
+import StaffPage from "@/pages/StaffPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -81,6 +82,7 @@ function ProtectedRoutes() {
         <Route path="/orders"       element={guard(isAdminOrStaff, <OrdersPage />)} />
         <Route path="/technicians"  element={guard(isAdminOrStaff, <TechniciansPage />)} />
         <Route path="/technicians/:id" element={guard(isAdminOrStaff, <TechnicianProfilePage />)} />
+        <Route path="/staff"        element={guard(isAdminOrStaff, <StaffPage />)} />
         <Route path="/transactions" element={guard(isAdminOrStaff, <TransactionsPage />)} />
         <Route path="/logs"         element={guard(isAdminOrStaff, <LogsPage />)} />
 

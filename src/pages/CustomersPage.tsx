@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { customerApi, Customer } from '@/services/customerApi';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,10 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Loader2, Search, User, MapPin, Phone, Mail, Building2, Ticket as TicketIcon,
-  Calendar, Hash, Plus, X,
+  Calendar, Hash, Plus, X, LayoutGrid, List,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { DataTable, Column } from '@/components/DataTable';
 
 const STATUS_CLASSES: Record<string, string> = {
   open:        'status-open',
@@ -25,11 +30,13 @@ const BLANK_CUSTOMER = { first_name: '', last_name: '', email: '', phone: '', co
 
 export default function CustomersPage() {
   const { isRole } = useAuth();
+  const { defaultView } = useTheme();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<'table' | 'cards'>('table');
+  const [view, setView] = useState<'table' | 'cards'>(defaultView);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selected, setSelected] = useState<Customer | null>(null);
   const [relatedTickets, setRelatedTickets] = useState<Ticket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -69,16 +76,19 @@ export default function CustomersPage() {
     }
   };
 
-  const filtered = customers.filter(c =>
-    !search ||
-    c.first_name.toLowerCase().includes(search.toLowerCase()) ||
-    c.last_name.toLowerCase().includes(search.toLowerCase()) ||
-    c.company.toLowerCase().includes(search.toLowerCase()) ||
-    c.city.toLowerCase().includes(search.toLowerCase()) ||
-    c.state.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = customers.filter(c => {
+    const q = search.toLowerCase();
+    const matchSearch = !search ||
+      (c.first_name ?? '').toLowerCase().includes(q) ||
+      (c.last_name ?? '').toLowerCase().includes(q) ||
+      c.company.toLowerCase().includes(q) ||
+      c.city.toLowerCase().includes(q) ||
+      c.state.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q) ||
+      c.phone.toLowerCase().includes(q);
+    const matchStatus = filterStatus === 'all' || c.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
 
   const active = customers.filter(c => c.status === 'active').length;
 
@@ -90,37 +100,61 @@ export default function CustomersPage() {
           <h1 className="text-xl font-semibold">Customers</h1>
           <p className="text-muted-foreground text-sm">{active} active customers</p>
         </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4" /> New Customer
-            </Button>
-          )}
-          <button onClick={() => setView('table')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${view === 'table' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>Table</button>
-          <button onClick={() => setView('cards')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${view === 'cards' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>Cards</button>
-        </div>
+        {isAdmin && (
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> New Customer
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 flex-shrink-0">
-        <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-2xl font-bold">{customers.length}</p>
-          <p className="text-xs text-muted-foreground">Total Customers</p>
+        <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-foreground" />
+          <div>
+            <p className="text-lg font-bold">{customers.length}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
+          </div>
         </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-2xl font-bold text-green-400">{active}</p>
-          <p className="text-xs text-muted-foreground">Active</p>
+        <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+          <div>
+            <p className="text-lg font-bold">{active}</p>
+            <p className="text-xs text-muted-foreground">Active</p>
+          </div>
         </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-2xl font-bold text-primary">{customers.reduce((s, c) => s + c.open_tickets, 0)}</p>
-          <p className="text-xs text-muted-foreground">Open Tickets</p>
+        <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+          <div>
+            <p className="text-lg font-bold">{customers.reduce((s, c) => s + c.open_tickets, 0)}</p>
+            <p className="text-xs text-muted-foreground">Open Tickets</p>
+          </div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative flex-shrink-0">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers, companies, locations..." className="pl-9 bg-card" />
+      {/* Filters — matching Technicians style */}
+      <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers, companies, locations..." className="pl-9 bg-card" />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="bg-card w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        {/* View toggle */}
+        <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
+          <Button variant={view === 'cards' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('cards')} title="Card View">
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button variant={view === 'table' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('table')} title="Table View">
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Main content: list + detail panel side by side */}
@@ -129,53 +163,43 @@ export default function CustomersPage() {
         <div className={`flex flex-col min-h-0 transition-all duration-300 ${selected ? 'flex-1' : 'flex-1'}`}>
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          ) : view === 'table' ? (
-            <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
-              <div className="overflow-y-auto flex-1">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0">
-                    <tr className="border-b border-border bg-muted/30">
-                      {['Full Name', 'Company', 'Location', 'Phone', 'Email', 'Tickets', 'Status'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">No customers found</td></tr>
-                    ) : filtered.map((c, i) => (
-                      <tr
-                        key={c.id}
-                        className={`border-b border-border hover:bg-accent/30 transition-colors cursor-pointer ${selected?.id === c.id ? 'bg-primary/8' : i % 2 === 1 ? 'bg-muted/10' : ''}`}
-                        onClick={() => openDetail(c)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-                              <User className="h-3.5 w-3.5 text-primary" />
-                            </div>
-                            <span className="text-xs font-medium">{c.first_name} {c.last_name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{c.company}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{c.city} {c.state}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{c.phone}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{c.email}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs font-semibold ${c.open_tickets > 0 ? 'text-primary' : 'text-muted-foreground'}`}>{c.open_tickets}/{c.total_tickets}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${c.status === 'active' ? 'text-green-400 bg-green-400/10 border border-green-400/20' : 'text-muted-foreground bg-muted/50 border border-border'}`}>
-                            {c.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground flex-shrink-0">{filtered.length} customers · click a row to see full profile</div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <User className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">No customers</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">No customers match your current filters.</p>
             </div>
+          ) : view === 'table' ? (
+            <DataTable<Customer>
+              columns={[
+                {
+                  label: 'Name',
+                  render: (c) => (
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="font-medium">{c.first_name} {c.last_name}</span>
+                    </div>
+                  ),
+                },
+                { label: 'Company', key: 'company' },
+                { label: 'Location', render: (c) => <span>{c.city} {c.state}</span> },
+                { label: 'Phone', key: 'phone' },
+                { label: 'Email', key: 'email' },
+                { label: 'Tickets', render: (c) => <span className={`font-semibold ${c.open_tickets > 0 ? 'text-primary' : 'text-muted-foreground'}`}>{c.open_tickets}/{c.total_tickets}</span> },
+                { label: 'Status', render: (c) => (
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${c.status === 'active' ? 'text-green-400 bg-green-400/10 border border-green-400/20' : 'text-muted-foreground bg-muted/50 border border-border'}`}>
+                    {c.status}
+                  </span>
+                )},
+              ] as Column<Customer>[]}
+              data={filtered}
+              rowKey={(c) => c.id}
+              onRowClick={(c) => openDetail(c)}
+              emptyMessage="No customers found"
+              footer={`${filtered.length} customers · click a row to see full profile`}
+            />
           ) : (
             <div className="overflow-y-auto flex-1">
               <div className="grid sm:grid-cols-2 gap-4">
