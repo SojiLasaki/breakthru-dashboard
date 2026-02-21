@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { technicianApi, Technician } from '@/services/technicianApi';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings,
-  Home, Search, Plus, User, X, Star,
+  Home, Search, Plus, User, X, Star,  LayoutGrid, List,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,11 +43,13 @@ const EMPTY_FORM = {
 export default function TechniciansPage() {
   const navigate = useNavigate();
   const { isRole } = useAuth();
+  const { defaultView } = useTheme();
   const [techs, setTechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterSpec, setFilterSpec] = useState<string>('all');
   const [filterExpertise, setFilterExpertise] = useState<string>('all');
+  const [view, setView] = useState<'table' | 'cards'>(defaultView);
   const [selected, setSelected] = useState<Technician | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -157,6 +160,15 @@ export default function TechniciansPage() {
             <SelectItem value="senior">Senior</SelectItem>
           </SelectContent>
         </Select>
+        {/* View toggle */}
+        <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
+          <Button variant={view === 'cards' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('cards')} title="Card View">
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button variant={view === 'table' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('table')} title="Table View">
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Main: card grid + side panel */}
