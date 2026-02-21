@@ -9,6 +9,7 @@ import {
   Home, Search, Plus, User, X, Star,  LayoutGrid, List,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { DataTable, Column } from '@/components/DataTable';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -162,11 +163,11 @@ export default function TechniciansPage() {
         </Select>
         {/* View toggle */}
         <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
-          <Button variant={view === 'cards' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('cards')} title="Card View">
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
           <Button variant={view === 'table' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('table')} title="Table View">
             <List className="h-4 w-4" />
+          </Button>
+          <Button variant={view === 'cards' ? 'default' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('cards')} title="Card View">
+            <LayoutGrid className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -177,6 +178,37 @@ export default function TechniciansPage() {
         <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : filtered.length === 0 ? (
+            <p className="py-12 text-center text-muted-foreground text-sm">No technicians</p>
+          ) : view === 'table' ? (
+            <DataTable<Technician>
+              columns={[
+                { label: 'Name', render: t => (
+                  <div className="flex items-center gap-2">
+                    <img src={getAvatarUrl(t)} alt="" className="w-7 h-7 rounded-full object-cover" />
+                    <span className="font-medium">{t.first_name} {t.last_name}</span>
+                  </div>
+                )},
+                { label: 'Specialization', render: t => {
+                  const Icon = SPEC_ICONS[t.specialization] ?? Settings;
+                  return <span className="capitalize flex items-center gap-1.5"><Icon className="h-3.5 w-3.5 text-muted-foreground" />{t.specialization?.replace('_', ' ')}</span>;
+                }},
+                { label: 'Expertise', render: t => {
+                  const exp = EXPERTISE_CONFIG[t.expertise] ?? EXPERTISE_CONFIG['mid'];
+                  return <span className={`text-xs px-2 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>;
+                }},
+                { label: 'Availability', render: t => {
+                  const avail = AVAILABILITY_CONFIG[t.availability] ?? AVAILABILITY_CONFIG['off_duty'];
+                  return <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit ${avail.class}`}><span className={`w-1.5 h-1.5 rounded-full ${avail.dot}`} />{avail.label}</span>;
+                }},
+                { label: 'City', key: 'city' },
+                { label: 'Tickets', render: t => <span>{t.active_tickets}</span> },
+              ] as Column<Technician>[]}
+              data={filtered}
+              rowKey={t => t.id}
+              onRowClick={t => setSelected(selected?.id === t.id ? null : t)}
+              emptyMessage="No technicians"
+            />
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
@@ -193,18 +225,9 @@ export default function TechniciansPage() {
                   >
                     <CardContent className="p-0">
                       <div className="flex">
-                        {/* Left profile column */}
                         <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[120px]">
                           <div className="relative">
-                            <img
-                              src={getAvatarUrl(tech)}
-                              alt={(tech.first_name ?? '') + ' ' + (tech.last_name ?? '')}
-                              className="rounded-full object-cover ring-2 ring-primary/30"
-                              style={{ width: 64, height: 64 }}
-                              onError={e => {
-                                (e.currentTarget as HTMLImageElement).src = getAvatarUrl(tech);
-                              }}
-                            />
+                            <img src={getAvatarUrl(tech)} alt={(tech.first_name ?? '') + ' ' + (tech.last_name ?? '')} className="rounded-full object-cover ring-2 ring-primary/30" style={{ width: 64, height: 64 }} onError={e => { (e.currentTarget as HTMLImageElement).src = getAvatarUrl(tech); }} />
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${avail.dot}`} />
                           </div>
                           <div className="text-center">
@@ -219,8 +242,6 @@ export default function TechniciansPage() {
                             <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>
                           </div>
                         </div>
-
-                        {/* Right details */}
                         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
                           <div className="space-y-1.5 text-xs text-muted-foreground">
                             <div className="flex items-center gap-2"><User className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate font-bold">{tech.first_name} {tech.last_name}</span></div>
@@ -230,12 +251,7 @@ export default function TechniciansPage() {
                           </div>
                           <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
                             <span className="text-[10px] text-muted-foreground">{tech.active_tickets} active ticket{tech.active_tickets !== 1 ? 's' : ''}</span>
-                            <button
-                              className="text-[10px] text-primary hover:underline font-medium"
-                              onClick={e => { e.stopPropagation(); navigate(`/technicians/${tech.id}`); }}
-                            >
-                              Full Profile →
-                            </button>
+                            <button className="text-[10px] text-primary hover:underline font-medium" onClick={e => { e.stopPropagation(); navigate(`/technicians/${tech.id}`); }}>Full Profile →</button>
                           </div>
                         </div>
                       </div>

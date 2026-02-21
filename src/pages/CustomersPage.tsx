@@ -21,7 +21,7 @@ const STATUS_CLASSES: Record<string, string> = {
   urgent:      'status-urgent',
 };
 
-const BLANK_CUSTOMER = { first_name: '', last_name: '', email: '', phone: '', company: '', location: '' };
+const BLANK_CUSTOMER = { first_name: '', last_name: '', email: '', phone: '', company: '', location: '', street_address: '', street_address_2: '', city: '', state: '', country: '', postal_code: '', customer_info: '' };
 
 export default function CustomersPage() {
   const { isRole } = useAuth();
