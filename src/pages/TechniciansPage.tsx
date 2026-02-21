@@ -84,7 +84,7 @@ export default function TechniciansPage() {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim(),
+        phone_number: form.phone.trim(),
         city: form.city.trim(),
         street_address: form.street_address.trim(),
         specialization: form.specialization,
@@ -208,7 +208,7 @@ export default function TechniciansPage() {
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${avail.dot}`} />
                           </div>
                           <div className="text-center">
-                            <p className="font-semibold text-xs leading-tight">{tech.first_name}</p>
+
                             <div className="flex items-center justify-center gap-1 mt-0.5">
                               <SpecIcon className="h-2.5 w-2.5 text-muted-foreground" />
                               <p className="text-[9px] text-muted-foreground capitalize">{tech.specialization?.replace('_', ' ') ?? 'N/A'}</p>
@@ -223,8 +223,9 @@ export default function TechniciansPage() {
                         {/* Right details */}
                         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
                           <div className="space-y-1.5 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.city}</span></div>
-                            <div className="flex items-center gap-2"><Phone className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>{tech.phone}</span></div>
+                            <div className="flex items-center gap-2"><User className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate font-bold">{tech.first_name} {tech.last_name}</span></div>
+                            <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.station}</span></div>
+                            <div className="flex items-center gap-2"><Phone className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>{tech.phone_number}</span></div>
                             <div className="flex items-center gap-2"><Mail className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.email}</span></div>
                           </div>
                           <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
@@ -293,8 +294,9 @@ export default function TechniciansPage() {
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2.5">Contact</p>
                 <div className="space-y-2.5">
                   {[
+                    { icon: User,       value: selected.first_name + selected.last_name},
                     { icon: Mail,       value: selected.email },
-                    { icon: Phone,      value: selected.phone },
+                    { icon: Phone,      value: selected.phone_number },
                     { icon: MapPin,     value: selected.station },
                     { icon: Home,       value: `${selected.street_address}, ${selected.city}` },
                   ].filter(r => r.value).map(({ icon: Icon, value }) => (

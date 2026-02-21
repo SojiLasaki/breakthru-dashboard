@@ -17,7 +17,7 @@ export interface Technician {
   // longitude: number;
   station: string;
   active_tickets: number;
-  phone: string;
+  phone_number: string;
   expertise: 'junior' | 'mid' | 'senior';
   photo: string;
 }
@@ -54,7 +54,7 @@ export const technicianApi = {
         last_name: c.last_name_display,
         photo: c.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name_display ?? 'Unknown')}&background=1a1f2e&color=e61409&size=64`,
         email: c.email_display ?? '',
-        phone: c.phone ?? '',
+        phone_number: c.phone_number ?? '',
         street_address: c.street_address ?? '',
         street_address_2: c.street_address_2 ?? '',
         city: c.city ?? '',

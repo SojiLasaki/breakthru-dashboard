@@ -138,7 +138,7 @@ export default function TechnicianProfilePage() {
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Phone className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <span>{tech.phone}</span>
+                  <span>{tech.phone_number}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
