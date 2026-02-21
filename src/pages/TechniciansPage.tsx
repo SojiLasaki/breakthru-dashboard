@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings,
-  Navigation, Home, Search, Plus, User, X, Star,
+  Navigation, Home, Search, Plus, User, X, Star, LayoutGrid, List,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-
+import { useTheme } from '@/context/ThemeContext';
+import { DataTable, Column } from '@/components/DataTable';
 const AVAILABILITY_CONFIG = {
   available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
   busy:      { label: 'Busy',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
@@ -41,6 +42,7 @@ const EMPTY_FORM = {
 export default function TechniciansPage() {
   const navigate = useNavigate();
   const { isRole } = useAuth();
+  const { defaultView } = useTheme();
   const [techs, setTechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -50,6 +52,7 @@ export default function TechniciansPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(defaultView);
 
   const isAdmin = isRole('admin', 'office_staff');
   const { toast } = useToast();
@@ -143,6 +146,27 @@ export default function TechniciansPage() {
             <SelectItem value="senior">Senior</SelectItem>
           </SelectContent>
         </Select>
+        {/* View toggle */}
+        <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
+          <Button
+            variant={viewMode === 'cards' ? 'default' : 'ghost'}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setViewMode('cards')}
+            title="Card View"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setViewMode('table')}
+            title="Table View"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Main: card grid + side panel */}
@@ -151,6 +175,42 @@ export default function TechniciansPage() {
         <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <User className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">No technicians</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">No technicians match your current filters.</p>
+            </div>
+          ) : viewMode === 'table' ? (
+            <DataTable<Technician>
+              columns={[
+                {
+                  label: 'Name',
+                  render: (t) => (
+                    <div className="flex items-center gap-2">
+                      <img src={t.photo} alt={t.name} className="w-7 h-7 rounded-full object-cover ring-1 ring-border"
+                        onError={e => { (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(t.name)}&background=1a1f2e&color=e61409&size=28`; }} />
+                      <span className="font-medium">{t.name}</span>
+                    </div>
+                  ),
+                },
+                { label: 'Specialization', render: (t) => <span className="capitalize">{t.specialization}</span> },
+                { label: 'Expertise', render: (t) => {
+                  const exp = EXPERTISE_CONFIG[t.expertise] ?? EXPERTISE_CONFIG.mid;
+                  return <span className={`text-xs px-2 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>;
+                }},
+                { label: 'Availability', render: (t) => {
+                  const avail = AVAILABILITY_CONFIG[t.availability] ?? AVAILABILITY_CONFIG.off_duty;
+                  return <span className={`text-xs px-2 py-0.5 rounded-full ${avail.class}`}>{avail.label}</span>;
+                }},
+                { label: 'Location', key: 'location' },
+                { label: 'Tickets', render: (t) => <span className="tabular-nums">{t.active_tickets}</span> },
+              ] as Column<Technician>[]}
+              data={filtered}
+              rowKey={(t) => t.id}
+              onRowClick={(t) => setSelected(selected?.id === t.id ? null : t)}
+              emptyMessage="No technicians"
+            />
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
@@ -166,19 +226,10 @@ export default function TechniciansPage() {
                   >
                     <CardContent className="p-0">
                       <div className="flex">
-                        {/* Left profile column */}
                         <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[120px]">
                           <div className="relative">
-                            <img
-                              src={tech.photo}
-                              alt={tech.name}
-                              className="rounded-full object-cover ring-2 ring-primary/30"
-                              style={{ width: 64, height: 64 }}
-                              onError={e => {
-                                (e.currentTarget as HTMLImageElement).src =
-                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=1a1f2e&color=e61409&size=64`;
-                              }}
-                            />
+                            <img src={tech.photo} alt={tech.name} className="rounded-full object-cover ring-2 ring-primary/30" style={{ width: 64, height: 64 }}
+                              onError={e => { (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=1a1f2e&color=e61409&size=64`; }} />
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${avail.dot}`} />
                           </div>
                           <div className="text-center">
@@ -193,8 +244,6 @@ export default function TechniciansPage() {
                             <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>
                           </div>
                         </div>
-
-                        {/* Right details */}
                         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
                           <div className="space-y-1.5 text-xs text-muted-foreground">
                             <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.location}</span></div>
@@ -203,10 +252,7 @@ export default function TechniciansPage() {
                           </div>
                           <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
                             <span className="text-[10px] text-muted-foreground">{tech.active_tickets} active ticket{tech.active_tickets !== 1 ? 's' : ''}</span>
-                            <button
-                              className="text-[10px] text-primary hover:underline font-medium"
-                              onClick={e => { e.stopPropagation(); navigate(`/technicians/${tech.id}`); }}
-                            >
+                            <button className="text-[10px] text-primary hover:underline font-medium" onClick={e => { e.stopPropagation(); navigate(`/technicians/${tech.id}`); }}>
                               Full Profile →
                             </button>
                           </div>
