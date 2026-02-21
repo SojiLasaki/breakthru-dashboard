@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, MapPin, Phone, Mail, Wrench, Zap, Settings,
-  Navigation, Home, Search, Plus, User, X, Star,
+  Home, Search, Plus, User, X, Star,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,7 +33,7 @@ const EXPERTISE_CONFIG = {
 const SPEC_ICONS = { engine: Wrench, electrical: Zap, general: Settings };
 
 const EMPTY_FORM = {
-  first_name: '', last_name: '', email: '', phone: '', location: '', address: '',
+  first_name: '', last_name: '', email: '', phone: '', city: '', address: '',
   specialization: 'engine' as Technician['specialization'],
   expertise: 'junior' as Technician['expertise'],
 };
@@ -63,7 +63,7 @@ export default function TechniciansPage() {
     const matchSearch = !search ||
       t.name.toLowerCase().includes(q) ||
       t.specialization.includes(q) ||
-      t.location.toLowerCase().includes(q) ||
+      t.city.toLowerCase().includes(q) || // use city only
       t.expertise.includes(q);
     const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;
     const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
@@ -102,28 +102,11 @@ export default function TechniciansPage() {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 flex-shrink-0">
-        {(['available', 'busy', 'off_duty'] as const).map(status => {
-          const count = techs.filter(t => t.availability === status).length;
-          const cfg = AVAILABILITY_CONFIG[status];
-          return (
-            <div key={status} className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-              <div>
-                <p className="text-lg font-bold">{count}</p>
-                <p className="text-xs text-muted-foreground">{cfg.label}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, location..." className="pl-9 bg-card" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, city..." className="pl-9 bg-card" />
         </div>
         <Select value={filterSpec} onValueChange={setFilterSpec}>
           <SelectTrigger className="bg-card w-full sm:w-44"><SelectValue placeholder="Specialization" /></SelectTrigger>
@@ -154,9 +137,9 @@ export default function TechniciansPage() {
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
-                const avail    = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG['off_duty'];
-                const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
-                const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
+                const avail = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG.off_duty;
+                const exp   = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG.mid;
+                const SpecIcon = SPEC_ICONS[tech.specialization]      ?? Settings;
                 const isActive = selected?.id === tech.id;
                 return (
                   <Card
@@ -166,7 +149,6 @@ export default function TechniciansPage() {
                   >
                     <CardContent className="p-0">
                       <div className="flex">
-                        {/* Left profile column */}
                         <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[120px]">
                           <div className="relative">
                             <img
@@ -174,10 +156,6 @@ export default function TechniciansPage() {
                               alt={tech.name}
                               className="rounded-full object-cover ring-2 ring-primary/30"
                               style={{ width: 64, height: 64 }}
-                              onError={e => {
-                                (e.currentTarget as HTMLImageElement).src =
-                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=1a1f2e&color=e61409&size=64`;
-                              }}
                             />
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${avail.dot}`} />
                           </div>
@@ -193,11 +171,9 @@ export default function TechniciansPage() {
                             <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>
                           </div>
                         </div>
-
-                        {/* Right details */}
                         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
                           <div className="space-y-1.5 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.location}</span></div>
+                            <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.city}</span></div>
                             <div className="flex items-center gap-2"><Phone className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>{tech.phone}</span></div>
                             <div className="flex items-center gap-2"><Mail className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.email}</span></div>
                           </div>
@@ -220,7 +196,7 @@ export default function TechniciansPage() {
           )}
         </div>
 
-        {/* Side detail panel */}
+        {/* Side panel */}
         {selected && (
           <div className="w-72 flex-shrink-0 bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
@@ -229,21 +205,11 @@ export default function TechniciansPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {/* Profile */}
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="relative">
-                  <img
-                    src={selected.photo}
-                    alt={selected.name}
-                    className="rounded-full object-cover ring-2 ring-primary/30"
-                    style={{ width: 80, height: 80 }}
-                    onError={e => {
-                      (e.currentTarget as HTMLImageElement).src =
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(selected.name)}&background=1a1f2e&color=e61409&size=80`;
-                    }}
-                  />
+                  <img src={selected.photo} alt={selected.name} className="rounded-full object-cover ring-2 ring-primary/30" style={{ width: 80, height: 80 }} />
                   <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).dot}`} />
                 </div>
                 <div>
@@ -258,15 +224,6 @@ export default function TechniciansPage() {
                     {(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.mid).label}
                   </span>
                 </div>
-                {/* Stars */}
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3].map(i => (
-                    <Star
-                      key={i}
-                      className={`h-4 w-4 ${i <= (EXPERTISE_CONFIG[selected.expertise]?.stars ?? 1) ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'}`}
-                    />
-                  ))}
-                </div>
               </div>
 
               {/* Contact */}
@@ -276,9 +233,8 @@ export default function TechniciansPage() {
                   {[
                     { icon: Mail,       value: selected.email },
                     { icon: Phone,      value: selected.phone },
-                    { icon: MapPin,     value: selected.location },
-                    { icon: Home,       value: selected.address },
-                    { icon: Navigation, value: `${selected.lat?.toFixed(4)}°, ${selected.lng?.toFixed(4)}°` },
+                    { icon: MapPin,     value: selected.city },
+                    { icon: Home,       value: `${selected.street_address}${selected.street_address_2 ? ', ' + selected.street_address_2 : ''}, ${selected.city}, ${selected.state} ${selected.zip_code}` },
                   ].filter(r => r.value).map(({ icon: Icon, value }) => (
                     <div key={value} className="flex items-start gap-2 text-xs text-muted-foreground">
                       <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -296,90 +252,13 @@ export default function TechniciansPage() {
                 <p className="text-[10px] text-muted-foreground">Active Tickets</p>
               </div>
 
-              {/* CTA */}
-              <Button
-                className="w-full gap-2 bg-primary hover:bg-primary/90"
-                onClick={() => navigate(`/technicians/${selected.id}`)}
-              >
+              <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => navigate(`/technicians/${selected.id}`)}>
                 <User className="h-4 w-4" /> View Full Profile
               </Button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Add Technician Dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md bg-card">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-4 w-4 text-primary" /> Add New Technician
-            </DialogTitle>
-            <DialogDescription>Fill in the details to register a new technician.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">First Name *</Label>
-                <Input placeholder="John" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Last Name</Label>
-                <Input placeholder="Smith" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className="bg-background" />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Email *</Label>
-                <Input type="email" placeholder="john@breakthru.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="bg-background" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Phone</Label>
-                <Input placeholder="+1-555-0100" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="bg-background" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Location</Label>
-                <Input placeholder="City, State" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className="bg-background" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Address</Label>
-              <Input placeholder="123 Main St, City, ST 00000" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="bg-background" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Specialization</Label>
-                <Select value={form.specialization} onValueChange={v => setForm(f => ({ ...f, specialization: v as Technician['specialization'] }))}>
-                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="engine">Engine</SelectItem>
-                    <SelectItem value="electrical">Electrical</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Expertise Level</Label>
-                <Select value={form.expertise} onValueChange={v => setForm(f => ({ ...f, expertise: v as Technician['expertise'] }))}>
-                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="junior">Junior</SelectItem>
-                    <SelectItem value="mid">Mid-level</SelectItem>
-                    <SelectItem value="senior">Senior</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving || !form.first_name.trim() || !form.email.trim()}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                Add Technician
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
