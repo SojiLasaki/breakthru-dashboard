@@ -274,18 +274,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           </NavLink>
 
-          {/* Admin-only settings */}
-          {role === 'admin' && (
-            <NavLink
-              to="/logs"
-              onClick={onClose}
-              className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-150"
-              activeClassName="bg-primary/15 text-primary font-semibold"
-            >
-              <Settings className="h-4 w-4 flex-shrink-0 opacity-70" />
-              <span>Settings</span>
-            </NavLink>
-          )}
+          {/* Settings — all roles */}
+          <NavLink
+            to="/settings"
+            onClick={onClose}
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-150"
+            activeClassName="bg-primary/15 text-primary font-semibold"
+          >
+            <Settings className="h-4 w-4 flex-shrink-0 opacity-70" />
+            <span>Settings</span>
+          </NavLink>
 
           {showAiTutor && (
             <Button

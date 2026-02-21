@@ -101,7 +101,9 @@ export interface Customer {
   city: string;
   state: string;
   zip_code: string;
+  postal_code?: string;
   country: string;
+  customer_info?: string;
   status: 'active' | 'inactive';
   total_tickets: number;
   open_tickets: number;

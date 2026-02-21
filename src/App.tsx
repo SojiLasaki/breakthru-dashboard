@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { AiTutorProvider } from "@/context/AiTutorContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 import DashboardLayout from "@/components/DashboardLayout";
 import LoginPage from "@/pages/LoginPage";
@@ -25,6 +26,7 @@ import DiagnosticsPage from "@/pages/DiagnosticsPage";
 import AssetsPage from "@/pages/AssetsPage";
 import TransactionsPage from "@/pages/TransactionsPage";
 import AskAiPage from "@/pages/AskAiPage";
+import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -60,6 +62,7 @@ function ProtectedRoutes() {
         {/* ── Universal ── */}
         <Route path="/"        element={<OverviewPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
         {/* ── Tickets: all roles see their own; techs see assigned; admins/staff see all ── */}
         <Route path="/tickets" element={<TicketsPage />} />
@@ -90,7 +93,7 @@ function ProtectedRoutes() {
         <Route path="/ai-agents" element={guard(isStaffOrTech, <AiAgentsPage />)} />
 
         {/* ── Admin-only settings re-uses logs page ── */}
-        <Route path="/settings" element={guard(isAdmin, <LogsPage />)} />
+        {/* Removed duplicate settings route - now available to all roles above */}
 
         <Route path="*" element={<NotFound />} />
       </Route>
@@ -120,17 +123,19 @@ function AppRouter() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <NotificationProvider>
-          <AiTutorProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRouter />
-            </BrowserRouter>
-          </AiTutorProvider>
-        </NotificationProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <AiTutorProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRouter />
+              </BrowserRouter>
+            </AiTutorProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
