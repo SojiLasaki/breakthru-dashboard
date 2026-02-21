@@ -35,7 +35,7 @@ let MOCK_MANUALS: Manual[] = [
   {
     id: 1, title: 'ISX15 Engine Service Manual',
     description: 'Complete service procedures for ISX15 diesel engine',
-    category: 'Engine', file_url: '#', version: 'Rev. 12',
+    category: 'Engine', file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', version: 'Rev. 12',
     updated_at: '2024-01-15', created_at: '2023-01-15',
     engine_model: 'ISX15', author: 'Cummins Engineering', created_by: 'Cummins Engineering',
     components: ['Turbocharger', 'Fuel Injectors', 'EGR Valve', 'Oil Pump'],

@@ -309,7 +309,7 @@ export default function ComponentsPage() {
                               <p className="text-[10px] font-mono text-muted-foreground">{p.part_number}</p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs text-muted-foreground">Qty: {p.quantity_on_hand}</span>
+                              <span className="text-xs text-muted-foreground">Qty: {p.quantity_available}</span>
                               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>
                             </div>
                           </div>

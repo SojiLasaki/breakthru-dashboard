@@ -35,7 +35,7 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; class: string; icon: 
 };
 
 const BLANK_FORM: Partial<Part> = {
-  name: '', part_number: '', component_id: 0, component_name: '', category: '',
+  name: '', part_number: '', component_id: 0, component_name: '', components: '', category: '',
   cost_price: 0, resale_price: 0, weight_kg: 0, compatibility: '', supplier: '',
   quantity_available: 0, reorder_threshold: 5, last_ordered: '',
 };
@@ -84,7 +84,7 @@ export default function PartsPage() {
       const matchSearch = !search ||
         p.name?.toLowerCase().includes(search.toLowerCase()) ||
         p.part_number?.toLowerCase().includes(search.toLowerCase());
-      const matchComp = componentFilter === 'all' || p.component_id === Number(componentFilter);
+      const matchComp = componentFilter === 'all' || p.component_id === Number(componentFilter) || p.components?.includes(componentFilter);
       const matchStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchSearch && matchComp && matchStatus;
     }),
