@@ -1,7 +1,7 @@
 import { api } from './apiClient';
 
 export interface Technician {
-  id: number;
+  id: string;
   first_name?: string;
   last_name?: string;
   email: string;
@@ -79,7 +79,7 @@ export const technicianApi = {
     }
   },
 
-  getById: async (id: number): Promise<Technician> => {
+  getById: async (id: string): Promise<Technician> => {
     try {
       const { data } = await api.get(`/technicians/${id}/`);
       return data;
@@ -101,7 +101,7 @@ export const technicianApi = {
     }
   },
 
-  update: async (id: number, payload: Partial<Technician>): Promise<Technician> => {
+  update: async (id: string, payload: Partial<Technician>): Promise<Technician> => {
     try {
       const { data } = await api.patch(`/technicians/${id}/`, payload);
       const cached = loadFromCache().map(t => (t.id === id ? { ...t, ...data } : t));
@@ -112,7 +112,7 @@ export const technicianApi = {
     }
   },
 
-  delete: async (id: number): Promise<void> => {
+  delete: async (id: string): Promise<void> => {
     try {
       await api.delete(`/technicians/${id}/`);
       const cached = loadFromCache().filter(t => t.id !== id);
