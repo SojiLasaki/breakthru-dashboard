@@ -33,7 +33,8 @@ const EXPERTISE_CONFIG = {
 const SPEC_ICONS = { engine: Wrench, electrical: Zap, general: Settings };
 
 const EMPTY_FORM = {
-  first_name: '', last_name: '', email: '', phone: '', city: '', address: '',
+  first_name: '', last_name: '', email: '', phone: '', 
+  city: '', street_address: '',
   specialization: 'engine' as Technician['specialization'],
   expertise: 'junior' as Technician['expertise'],
 };
@@ -61,10 +62,11 @@ export default function TechniciansPage() {
   const filtered = techs.filter(t => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
-      t.name.toLowerCase().includes(q) ||
-      t.specialization.includes(q) ||
-      t.city.toLowerCase().includes(q) || // use city only
-      t.expertise.includes(q);
+      t.first_name?.toLowerCase().includes(q) ||
+      t.last_name?.toLowerCase().includes(q) ||
+      t.specialization?.includes(q) ||
+      t.city?.toLowerCase().includes(q) ||
+      t.expertise?.includes(q);
     const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;
     const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
     return matchSearch && matchSpec && matchExpertise;
@@ -75,7 +77,16 @@ export default function TechniciansPage() {
     setSaving(true);
     const fullName = `${form.first_name.trim()} ${form.last_name.trim()}`.trim();
     try {
-      const newTech = await technicianApi.create({ ...form, name: fullName });
+      const newTech = await technicianApi.create({
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        city: form.city.trim(),
+        street_address: form.street_address.trim(),
+        specialization: form.specialization,
+        expertise: form.expertise,
+      });
       setTechs(prev => [newTech, ...prev]);
       setForm(EMPTY_FORM);
       setAddOpen(false);
@@ -86,6 +97,9 @@ export default function TechniciansPage() {
       setSaving(false);
     }
   };
+
+  const getAvatarUrl = (t: Technician) =>
+    t.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((t.first_name ?? '') + ' ' + (t.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`;
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -100,6 +114,23 @@ export default function TechniciansPage() {
             <Plus className="h-4 w-4" /> Add Technician
           </Button>
         )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 flex-shrink-0">
+        {(['available', 'busy', 'off_duty'] as const).map(status => {
+          const count = techs.filter(t => t.availability === status).length;
+          const cfg = AVAILABILITY_CONFIG[status];
+          return (
+            <div key={status} className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+              <div>
+                <p className="text-lg font-bold">{count}</p>
+                <p className="text-xs text-muted-foreground">{cfg.label}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Filters */}
@@ -137,10 +168,11 @@ export default function TechniciansPage() {
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
-                const avail = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG.off_duty;
-                const exp   = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG.mid;
-                const SpecIcon = SPEC_ICONS[tech.specialization]      ?? Settings;
+                const avail    = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG['off_duty'];
+                const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
+                const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
                 const isActive = selected?.id === tech.id;
+
                 return (
                   <Card
                     key={tech.id}
@@ -149,21 +181,25 @@ export default function TechniciansPage() {
                   >
                     <CardContent className="p-0">
                       <div className="flex">
+                        {/* Left profile column */}
                         <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[120px]">
                           <div className="relative">
                             <img
-                              src={tech.photo}
-                              alt={tech.name}
+                              src={getAvatarUrl(tech)}
+                              alt={(tech.first_name ?? '') + ' ' + (tech.last_name ?? '')}
                               className="rounded-full object-cover ring-2 ring-primary/30"
                               style={{ width: 64, height: 64 }}
+                              onError={e => {
+                                (e.currentTarget as HTMLImageElement).src = getAvatarUrl(tech);
+                              }}
                             />
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${avail.dot}`} />
                           </div>
                           <div className="text-center">
-                            <p className="font-semibold text-xs leading-tight">{tech.name}</p>
+                            <p className="font-semibold text-xs leading-tight">{tech.first_name}</p>
                             <div className="flex items-center justify-center gap-1 mt-0.5">
                               <SpecIcon className="h-2.5 w-2.5 text-muted-foreground" />
-                              <p className="text-[9px] text-muted-foreground capitalize">{tech.specialization.replace('_', ' ')}</p>
+                              <p className="text-[9px] text-muted-foreground capitalize">{tech.specialization?.replace('_', ' ') ?? 'N/A'}</p>
                             </div>
                           </div>
                           <div className="flex flex-col items-center gap-1">
@@ -171,6 +207,8 @@ export default function TechniciansPage() {
                             <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>
                           </div>
                         </div>
+
+                        {/* Right details */}
                         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
                           <div className="space-y-1.5 text-xs text-muted-foreground">
                             <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{tech.city}</span></div>
@@ -196,7 +234,7 @@ export default function TechniciansPage() {
           )}
         </div>
 
-        {/* Side panel */}
+        {/* Side detail panel */}
         {selected && (
           <div className="w-72 flex-shrink-0 bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
@@ -205,16 +243,23 @@ export default function TechniciansPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {/* Profile */}
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="relative">
-                  <img src={selected.photo} alt={selected.name} className="rounded-full object-cover ring-2 ring-primary/30" style={{ width: 80, height: 80 }} />
+                  <img
+                    src={getAvatarUrl(selected)}
+                    alt={(selected.first_name ?? '') + ' ' + (selected.last_name ?? '')}
+                    className="rounded-full object-cover ring-2 ring-primary/30"
+                    style={{ width: 80, height: 80 }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = getAvatarUrl(selected); }}
+                  />
                   <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).dot}`} />
                 </div>
                 <div>
-                  <p className="font-bold text-sm">{selected.name}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{selected.specialization.replace('_', ' ')} Specialist</p>
+                  <p className="font-bold text-sm">{selected.first_name} {selected.last_name}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{selected.specialization?.replace('_', ' ')} Specialist</p>
                 </div>
                 <div className="flex gap-1.5">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).class}`}>
@@ -223,6 +268,11 @@ export default function TechniciansPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.mid).class}`}>
                     {(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.mid).label}
                   </span>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  {[1,2,3].map(i => (
+                    <Star key={i} className={`h-4 w-4 ${i <= (EXPERTISE_CONFIG[selected.expertise]?.stars ?? 1) ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'}`} />
+                  ))}
                 </div>
               </div>
 
@@ -233,8 +283,8 @@ export default function TechniciansPage() {
                   {[
                     { icon: Mail,       value: selected.email },
                     { icon: Phone,      value: selected.phone },
-                    { icon: MapPin,     value: selected.city },
-                    { icon: Home,       value: `${selected.street_address}${selected.street_address_2 ? ', ' + selected.street_address_2 : ''}, ${selected.city}, ${selected.state} ${selected.zip_code}` },
+                    { icon: MapPin,     value: selected.station },
+                    { icon: Home,       value: `${selected.street_address}, ${selected.city}` },
                   ].filter(r => r.value).map(({ icon: Icon, value }) => (
                     <div key={value} className="flex items-start gap-2 text-xs text-muted-foreground">
                       <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -252,13 +302,80 @@ export default function TechniciansPage() {
                 <p className="text-[10px] text-muted-foreground">Active Tickets</p>
               </div>
 
-              <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => navigate(`/technicians/${selected.id}`)}>
+              {/* CTA */}
+              <Button
+                className="w-full gap-2 bg-primary hover:bg-primary/90"
+                onClick={() => navigate(`/technicians/${selected.id}`)}
+              >
                 <User className="h-4 w-4" /> View Full Profile
               </Button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Add Technician Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" /> Add New Technician
+            </DialogTitle>
+            <DialogDescription>Fill in the details to register a new technician.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">First Name *</Label>
+                <Input placeholder="John" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Last Name</Label>
+                <Input placeholder="Doe" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email *</Label>
+              <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone</Label>
+                <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">City</Label>
+                <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Street Address</Label>
+              <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={form.specialization} onValueChange={v => setForm(f => ({ ...f, specialization: v as Technician['specialization'] }))}>
+                <SelectTrigger><SelectValue placeholder="Specialization" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="engine">Engine</SelectItem>
+                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={form.expertise} onValueChange={v => setForm(f => ({ ...f, expertise: v as Technician['expertise'] }))}>
+                <SelectTrigger><SelectValue placeholder="Expertise" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="junior">Junior</SelectItem>
+                  <SelectItem value="mid">Mid-level</SelectItem>
+                  <SelectItem value="senior">Senior</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving}>
+              <Plus className="h-4 w-4" /> {saving ? 'Saving...' : 'Add Technician'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,7 +4,6 @@ export interface Technician {
   id: number;
   first_name?: string;
   last_name?: string;
-  name: string;
   email: string;
   specialization: 'engine' | 'electrical' | 'general';
   availability: 'available' | 'busy' | 'off_duty';
@@ -12,10 +11,11 @@ export interface Technician {
   street_address_2?: string;
   city: string;
   state: string;
-  zip_code?: string;
+  postal_code?: string;
   country?: string;
-  lat: number;
-  lng: number;
+  // latitude: number;
+  // longitude: number;
+  station: string;
   active_tickets: number;
   phone: string;
   expertise: 'junior' | 'mid' | 'senior';
@@ -47,12 +47,35 @@ function loadFromCache(): Technician[] {
 export const technicianApi = {
   getAll: async (): Promise<Technician[]> => {
     try {
-      const { data } = await api.get('/technicians/');
-      const technicians = data.results || data;
-      saveToCache(technicians);
-      return technicians;
-    } catch {
-      return loadFromCache();
+      const { data } = await api.get('/customers/');
+      const customers: Technician[] = (data.results ?? data).map(c => ({
+        id: c.id,
+        first_name: c.first_name_display,
+        last_name: c.last_name_display,
+        photo: c.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name_display ?? 'Unknown')}&background=1a1f2e&color=e61409&size=64`,
+        email: c.email_display ?? '',
+        phone: c.phone ?? '',
+        street_address: c.street_address ?? '',
+        street_address_2: c.street_address_2 ?? '',
+        city: c.city ?? '',
+        state: c.state ?? '',
+        country: c.country ?? '',
+        postal_code: c.postal_code ?? '',
+        status: c.is_active ? 'active' : 'inactive',
+        station: c.station ?? '',
+        notes: c.notes ?? '',
+        created_at: c.created_at,
+        contact_person: c.name || 'Unknown'
+      }));
+  
+      saveToCache(customers);
+      console.log('Mapped customers:', customers);
+      return customers;
+    } catch (error) {
+      console.warn('Backend unavailable — loading cached customers');
+      const cached = loadFromCache();
+      console.log('Cached customers:', cached);
+      return cached;
     }
   },
 

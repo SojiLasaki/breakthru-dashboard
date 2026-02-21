@@ -161,6 +161,7 @@ export const customerApi = {
         total_tickets: c.total_tickets ?? 0,
         open_tickets: c.open_tickets ?? 0,
         customer_info: c.customer_info ?? '',
+        photo: c.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name_display ?? 'Unknown')}&background=1a1f2e&color=e61409&size=64`,
         created_at: c.created_at,
         contact_person: c.name || 'Unknown',
       }));

@@ -98,18 +98,18 @@ export default function TechnicianProfilePage() {
               <div className="relative">
                 <img
                   src={tech.photo}
-                  alt={tech.name}
+                  alt={tech.first_name}
                   className="w-24 h-24 rounded-full object-cover ring-2 ring-primary/40"
                   onError={e => {
                     (e.currentTarget as HTMLImageElement).src =
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(tech.name)}&background=1a1f2e&color=e61409&size=96`;
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent((tech.first_name || '') + ' ' + (tech.last_name || ''))}&background=1a1f2e&color=e61409&size=96`
                   }}
                 />
                 <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${avail.dot}`} />
               </div>
 
               <div className="text-center">
-                <h1 className="font-bold text-lg leading-tight">{tech.name}</h1>
+                <h1 className="font-bold text-lg leading-tight">{tech.first_name} {tech.last_name}</h1>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-muted-foreground">
                   <SpecIcon className="h-3.5 w-3.5" />
                   <span className="text-xs capitalize">{tech.specialization.replace('_', ' ')}</span>
@@ -150,26 +150,27 @@ export default function TechnicianProfilePage() {
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <MapPin className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <span>{tech.location}</span>
+                  <span>{tech.station}</span>
+                  <span>{tech.street_address} {tech.street_address_2} {tech.city} {tech.state} {tech.country} {tech.postal_code}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Navigation className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <a
-                    href={`https://www.google.com/maps?q=${tech.lat},${tech.lng}`}
+                  {/* <a
+                    href={`https://www.google.com/maps?q=${tech.latitude},${tech.longitude}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono text-xs text-primary/80 hover:text-primary transition-colors"
                   >
-                    {tech.lat.toFixed(4)}°, {tech.lng.toFixed(4)}°
-                  </a>
+                    {tech.latitude.toFixed(4)}°, {tech.longitude.toFixed(4)}°
+                  </a> */}
                 </div>
                 <div className="flex items-start gap-2.5 sm:col-span-2">
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Home className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <span className="text-xs leading-relaxed">{tech.address}</span>
+                  <span className="text-xs leading-relaxed">{tech.street_address} {tech.street_address_2} {tech.city} {tech.state} {tech.country} {tech.postal_code}</span>
                 </div>
               </div>
 
