@@ -255,7 +255,7 @@ export default function CustomersPage() {
                   {[
                     { icon: Mail,     label: selected.email },
                     { icon: Phone,    label: selected.phone },
-                    { icon: MapPin,   label: `${selected.city} ${selected.state}` },
+                    { icon: MapPin,   label: `${selected.street_address} ${selected.street_address_2} ${selected.city} ${selected.state} ${selected.country} ${selected.postal_code}` },
                     { icon: Calendar, label: `Member since ${new Date(selected.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` },
                   ].map(({ icon: Icon, label }) => (
                     <div key={label} className="flex items-center gap-2.5 text-xs text-muted-foreground">
@@ -327,11 +327,11 @@ export default function CustomersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">First Name *</Label>
-                <Input placeholder="James" value={newCustomer.first_name} onChange={e => setNewCustomer(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
+                <Input placeholder="Enter First Name ``" value={newCustomer.first_name} onChange={e => setNewCustomer(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Last Name</Label>
-                <Input placeholder="Porter" value={newCustomer.last_name} onChange={e => setNewCustomer(f => ({ ...f, last_name: e.target.value }))} className="bg-background" />
+                <Input placeholder="Enter Last Name" value={newCustomer.last_name} onChange={e => setNewCustomer(f => ({ ...f, last_name: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Email *</Label>
@@ -341,17 +341,52 @@ export default function CustomersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Phone</Label>
-                <Input placeholder="+1-555-0000" value={newCustomer.phone} onChange={e => setNewCustomer(f => ({ ...f, phone: e.target.value }))} className="bg-background" />
+                <Input placeholder="Enter Phone Number" value={newCustomer.phone} onChange={e => setNewCustomer(f => ({ ...f, phone: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Company</Label>
-                <Input placeholder="Acme Corp" value={newCustomer.company} onChange={e => setNewCustomer(f => ({ ...f, company: e.target.value }))} className="bg-background" />
+                <Input placeholder="Enter Company Name" value={newCustomer.company} onChange={e => setNewCustomer(f => ({ ...f, company: e.target.value }))} className="bg-background" />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Location</Label>
-              <Input placeholder="Houston, TX" value={newCustomer.location} onChange={e => setNewCustomer(f => ({ ...f, location: e.target.value }))} className="bg-background" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Street Address</Label>
+                <Input placeholder="Enter Street Address" value={newCustomer.street_address} onChange={e => setNewCustomer(f => ({ ...f, street_address: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Street Address</Label>
+                <Input placeholder="Enter Street Address 2" value={newCustomer.street_address_2} onChange={e => setNewCustomer(f => ({ ...f, street_address_2: e.target.value }))} className="bg-background" />
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">City</Label>
+                <Input placeholder="Enter City" value={newCustomer.city} onChange={e => setNewCustomer(f => ({ ...f, city: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">State</Label>
+                <Input placeholder="Enter State" value={newCustomer.state} onChange={e => setNewCustomer(f => ({ ...f, state: e.target.value }))} className="bg-background" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Country</Label>
+                <Input placeholder="Enter Country" value={newCustomer.country} onChange={e => setNewCustomer(f => ({ ...f, country: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Postal / Zip Code</Label>
+                <Input placeholder="Enter Postal / Zip Code" value={newCustomer.postal_code} onChange={e => setNewCustomer(f => ({ ...f, postal_code: e.target.value }))} className="bg-background" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Notes</Label>
+              <Input placeholder="Other info" value={newCustomer.customer_info} onChange={e => setNewCustomer(f => ({ ...f, customer_info: e.target.value }))} className="bg-background" />
+            </div>
+
             <div className="flex gap-2 pt-1">
               <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newCustomer.first_name.trim() || !newCustomer.email.trim()}>

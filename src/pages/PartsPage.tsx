@@ -541,7 +541,7 @@ export default function PartsPage() {
             <div className="space-y-1.5">
               <Label className="text-xs">Component Group <span className="text-muted-foreground">(from manuals)</span></Label>
               <Select
-                value={newForm.component_id ? String(newForm.component_id) : newForm.component_name || 'none'}
+                value={newForm.component_name ? String(newForm.component_name) : newForm.component_name || 'none'}
                 onValueChange={v => {
                   if (v === 'none') { setNewForm(f => ({ ...f, component_id: 0, component_name: '' })); return; }
                   const comp = components.find(c => c.id === Number(v));
