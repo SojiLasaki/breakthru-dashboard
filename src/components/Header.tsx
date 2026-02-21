@@ -1,7 +1,8 @@
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useAiTutor } from '@/context/AiTutorContext';
-import { Bell, Bot, Menu, LogOut, User, ChevronDown, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
+import { Bell, Bot, Menu, LogOut, User, ChevronDown, Sparkles, Wifi, WifiOff, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -28,6 +29,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const { openTutor, isOpen, closeTutor } = useAiTutor();
+  const { theme, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
   const canUseAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
@@ -87,15 +89,26 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <span className="text-xs">Felix</span>
           </Button>
 
+          {/* Theme toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
           <div
             title={isOnline ? 'Online' : 'Offline'}
             className="flex items-center gap-1 px-2 py-1 rounded-md"
           >
             {isOnline
-              ? <Wifi className="h-4 w-4 text-[hsl(142,70%,50%)]" />
+              ? <Wifi className="h-4 w-4 text-[hsl(var(--success))]" />
               : <WifiOff className="h-4 w-4 text-muted-foreground" />
             }
-            <span className={`text-[10px] font-medium hidden sm:block ${isOnline ? 'text-[hsl(142,70%,50%)]' : 'text-muted-foreground'}`}>
+            <span className={`text-[10px] font-medium hidden sm:block ${isOnline ? 'text-[hsl(var(--success))]' : 'text-muted-foreground'}`}>
               {isOnline ? 'Online' : 'Offline'}
             </span>
           </div>
