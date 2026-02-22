@@ -17,9 +17,9 @@ const AVAILABILITY_CONFIG = {
 };
 
 const EXPERTISE_CONFIG = {
-  junior: { label: 'Junior',    class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',   stars: 1 },
-  mid:    { label: 'Mid-level', class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20', stars: 2 },
-  senior: { label: 'Senior',   class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20', stars: 3 },
+  Junior: { label: 'Junior',    class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',   stars: 1 },
+  Mid:    { label: 'Mid-level', class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20', stars: 2 },
+  Senior: { label: 'Senior',   class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20', stars: 3 },
 };
 
 const PRIORITY_CONFIG = {
@@ -29,7 +29,10 @@ const PRIORITY_CONFIG = {
   urgent: { label: 'Urgent', class: 'text-red-400 bg-red-400/10 border-red-400/20' },
 };
 
-const SPEC_ICONS = { engine: Wrench, electrical: Zap, general: Settings };
+const SPEC_ICONS = { Engine: Wrench, Electrical: Zap, General: Settings };
+const getAvatarUrl = (t: Technician) =>
+  t.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((t.first_name ?? '') + ' ' + (t.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`;
+
 
 export default function TechnicianProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -39,27 +42,6 @@ export default function TechnicianProfilePage() {
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(true);
 
-  // useEffect(() => {
-  //   if (!id) return;
-  //   const techId = parseInt(id, 10);
-  //   // Use getById to call GET /technicians/{id}/ directly
-  //   technicianApi.getById(techId)
-  //     .then(found => {
-  //       setTech(found);
-  //       return technicianApi.getTaskHistory(techId);
-  //     })
-  //     .then(t => setTasks(t))
-  //     .catch(() => setTech(null))
-  //     .finally(() => { setLoading(false); setTasksLoading(false); });
-  // }, [id]);
-
-  // if (loading) {
-  //   return (
-  //     <div className="flex justify-center items-center py-24">
-  //       <Loader2 className="h-7 w-7 animate-spin text-primary" />
-  //     </div>
-  //   );
-  // }
   useEffect(() => {
     if (!id) return;
   
@@ -68,7 +50,7 @@ export default function TechnicianProfilePage() {
         setLoading(true);
         setTasksLoading(true);
   
-        const tech = await technicianApi.getById(id); // 🔥 no parseInt
+        const tech = await technicianApi.getById(id);
         setTech(tech);
         console.log(id)
         const taskHistory = await technicianApi.getTaskHistory(id);
@@ -98,7 +80,7 @@ export default function TechnicianProfilePage() {
     );
   }
 
-  const avail    = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG['off_duty'];
+  const avail    = AVAILABILITY_CONFIG[tech.status] ?? AVAILABILITY_CONFIG['off_duty'];
   const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
   const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
 
@@ -122,8 +104,10 @@ export default function TechnicianProfilePage() {
             <div className="flex flex-col items-center justify-center gap-4 p-8 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[220px]">
               <div className="relative">
                 <img
-                  src={tech.photo}
-                  alt={tech.first_name}
+                  // src={tech.photo || "/default-avatar.png"}
+                  // alt={''}
+                  src={getAvatarUrl(tech)} 
+                  alt="" 
                   className="w-24 h-24 rounded-full object-cover ring-2 ring-primary/40"
                   onError={e => {
                     (e.currentTarget as HTMLImageElement).src =
@@ -134,7 +118,7 @@ export default function TechnicianProfilePage() {
               </div>
 
               <div className="text-center">
-                <h1 className="font-bold text-lg leading-tight">{tech.first_name} {tech.last_name}</h1>
+                <h1 className="font-bold text-lg leading-tight">{tech.first_name_display} {tech.last_name_display}</h1>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-muted-foreground">
                   <SpecIcon className="h-3.5 w-3.5" />
                   <span className="text-xs capitalize">{tech.specialization.replace('_', ' ')}</span>
@@ -208,11 +192,11 @@ export default function TechnicianProfilePage() {
                   </Badge>
                   <Badge variant="outline" className={`text-xs border-0 ${exp.class}`}>
                     <Award className="h-3 w-3 mr-1" />
-                    {exp.label} technician
+                    {tech.expertise} technician
                   </Badge>
                   <Badge variant="outline" className="text-xs border-border text-muted-foreground">
                     <ClipboardList className="h-3 w-3 mr-1" />
-                    {tech.active_tickets} active ticket{tech.active_tickets !== 1 ? 's' : ''}
+                    {tech.active_tickets}  active ticket{tech.active_tickets !== 1 ? 's' : ''}
                   </Badge>
                 </div>
               </div>

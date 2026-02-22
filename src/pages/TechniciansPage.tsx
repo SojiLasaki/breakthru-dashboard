@@ -21,9 +21,9 @@ import {
 import { Label } from '@/components/ui/label';
 
 const AVAILABILITY_CONFIG = {
-  available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
-  busy:      { label: 'Busy',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
-  off_duty:  { label: 'Off Duty',  class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
+  Available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
+  Busy:      { label: 'Busy',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
+  Unavailable:  { label: 'Unavailable',  class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
 };
 
 const EXPERTISE_CONFIG = {
@@ -36,9 +36,11 @@ const SPEC_ICONS = { Engine: Wrench, Electrical: Zap, General: Settings };
 
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', phone: '', 
-  city: '', street_address: '',
-  specialization: 'engine' as Technician['specialization'],
-  expertise: 'junior' as Technician['expertise'],
+  city: '', street_address: '', street_address_2:'', state:'',country:'',postal_code:'',
+  specialization: 'Engine' as Technician['specialization'],
+  expertise: 'Junior' as Technician['expertise'],
+  status: 'Available',
+  station: '' as string
 };
 
 export default function TechniciansPage() {
@@ -63,18 +65,41 @@ export default function TechniciansPage() {
     technicianApi.getAll().then(setTechs).finally(() => setLoading(false));
   }, []);
 
+  // const filtered = techs.filter(t => {
+  //   const q = search.toLowerCase();
+  //   const matchSearch = !search ||
+  //     t.first_name?.toLowerCase().includes(q) ||
+  //     t.last_name?.toLowerCase().includes(q) ||
+  //     t.specialization?.includes(q) ||
+  //     t.city?.toLowerCase().includes(q) ||
+  //     t.expertise?.includes(q);
+  //   const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;
+  //   const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
+  //   return matchSearch && matchSpec && matchExpertise;
+  // });
   const filtered = techs.filter(t => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
-      t.first_name?.toLowerCase().includes(q) ||
-      t.last_name?.toLowerCase().includes(q) ||
-      t.specialization?.includes(q) ||
-      t.city?.toLowerCase().includes(q) ||
-      t.expertise?.includes(q);
-    const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;
+      t.first_name.toLowerCase().includes(q) ||
+      t.last_name.toLowerCase().includes(q) ||
+      t.specialization.includes(q) ||      // case-sensitive match is okay
+      t.city.toLowerCase().includes(q) ||
+      t.status.includes(q) ||
+      t.expertise.includes(q);
+  
+    const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;      // exact match
     const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
+  
     return matchSearch && matchSpec && matchExpertise;
   });
+
+  const [stations, setStations] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    fetch('/api/stations/')
+      .then(res => res.json())
+      .then(data => setStations(data))
+      .catch(err => console.error('Failed to fetch stations', err));
+  }, []);
 
   const handleAdd = async () => {
     if (!form.first_name.trim() || !form.email.trim()) return;
@@ -86,8 +111,14 @@ export default function TechniciansPage() {
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         phone_number: form.phone.trim(),
-        city: form.city.trim(),
         street_address: form.street_address.trim(),
+        street_address_2: form.street_address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        country: form.country.trim(),
+        postal_code: form.postal_code.trim(),
+        status: form.status,
+        station: form.station,
         specialization: form.specialization,
         expertise: form.expertise,
       });
@@ -122,8 +153,8 @@ export default function TechniciansPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 flex-shrink-0">
-        {(['available', 'busy', 'off_duty'] as const).map(status => {
-          const count = techs.filter(t => t.availability === status).length;
+        {(['Available', 'Busy', 'Unavailable'] as const).map(status => {
+          const count = techs.filter(t => t.status === status).length;
           const cfg = AVAILABILITY_CONFIG[status];
           return (
             <div key={status} className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
@@ -135,6 +166,7 @@ export default function TechniciansPage() {
             </div>
           );
         })}
+  
       </div>
 
       {/* Filters */}
@@ -146,19 +178,19 @@ export default function TechniciansPage() {
         <Select value={filterSpec} onValueChange={setFilterSpec}>
           <SelectTrigger className="bg-card w-full sm:w-44"><SelectValue placeholder="Specialization" /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="General">General</SelectItem>
             <SelectItem value="all">All Specializations</SelectItem>
-            <SelectItem value="engine">Engine</SelectItem>
-            <SelectItem value="electrical">Electrical</SelectItem>
-            <SelectItem value="general">General</SelectItem>
+            <SelectItem value="Engine">Engine</SelectItem>
+            <SelectItem value="Electrical">Electrical</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterExpertise} onValueChange={setFilterExpertise}>
           <SelectTrigger className="bg-card w-full sm:w-40"><SelectValue placeholder="Expertise" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Levels</SelectItem>
-            <SelectItem value="junior">Junior</SelectItem>
-            <SelectItem value="mid">Mid-level</SelectItem>
-            <SelectItem value="senior">Senior</SelectItem>
+            <SelectItem value="Junior">Junior</SelectItem>
+            <SelectItem value="Mid">Mid-level</SelectItem>
+            <SelectItem value="Senior">Senior</SelectItem>
           </SelectContent>
         </Select>
         {/* View toggle */}
@@ -197,8 +229,8 @@ export default function TechniciansPage() {
                   const exp = EXPERTISE_CONFIG[t.expertise] ?? EXPERTISE_CONFIG['Junior'];
                   return <span className={`text-xs px-2 py-0.5 rounded-full ${exp.class}`}>{t.expertise}</span>;
                 }},
-                { label: 'Availability', render: t => {
-                  const avail = AVAILABILITY_CONFIG[t.availability] ?? AVAILABILITY_CONFIG['off_duty'];
+                { label: 'Status', render: t => {
+                  const avail = AVAILABILITY_CONFIG[t.status] ?? AVAILABILITY_CONFIG['Unavailable'];
                   return <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit ${avail.class}`}><span className={`w-1.5 h-1.5 rounded-full ${avail.dot}`} />{avail.label}</span>;
                 }},
                 { label: 'City', key: 'city' },
@@ -212,7 +244,7 @@ export default function TechniciansPage() {
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
-                const avail    = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG['off_duty'];
+                const avail    = AVAILABILITY_CONFIG[tech.status] ?? AVAILABILITY_CONFIG['Unavailable'];
                 const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['Mid'];
                 const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
                 const isActive = selected?.id === tech.id;
@@ -284,15 +316,15 @@ export default function TechniciansPage() {
                     style={{ width: 80, height: 80 }}
                     onError={e => { (e.currentTarget as HTMLImageElement).src = getAvatarUrl(selected); }}
                   />
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).dot}`} />
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(AVAILABILITY_CONFIG[selected.status] ?? AVAILABILITY_CONFIG.Unavailable).dot}`} />
                 </div>
                 <div>
                   <p className="font-bold text-sm">{selected.first_name} {selected.last_name}</p>
                   <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{selected.specialization?.replace('_', ' ')} Specialist</p>
                 </div>
                 <div className="flex gap-1.5">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).class}`}>
-                    {(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).label}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(AVAILABILITY_CONFIG[selected.status] ?? AVAILABILITY_CONFIG.Unavailable).class}`}>
+                    {(AVAILABILITY_CONFIG[selected.status] ?? AVAILABILITY_CONFIG.Unavailable).label}
                   </span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.Mid).class}`}>
                     {(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.Mid).label}
@@ -310,7 +342,7 @@ export default function TechniciansPage() {
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2.5">Contact</p>
                 <div className="space-y-2.5">
                   {[
-                    { icon: User,       value: selected.first_name + selected.last_name},
+                    { icon: User,       value: selected.first_name + ' ' + selected.last_name},
                     { icon: Mail,       value: selected.email },
                     { icon: Phone,      value: selected.phone_number },
                     { icon: MapPin,     value: selected.station },
@@ -364,39 +396,94 @@ export default function TechniciansPage() {
                 <Input placeholder="Doe" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Email *</Label>
-              <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email *</Label>
+                  <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Phone <Number></Number></Label>
+                  <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Street Address *</Label>
+                <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Street Address 2 *</Label>
+                <Input placeholder="Apt D" value={form.street_address_2} onChange={e => setForm(f => ({ ...f, street_address_2: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"> 
+                  <Label className="text-xs">City</Label>
+                  <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">State</Label>
+                  <Input placeholder="+Indiana" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"> 
+                  <Label className="text-xs">City</Label>
+                  <Input placeholder="New York" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">State</Label>
+                  <Input placeholder="+Indiana" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} />
+                </div>
+              </div>  
             </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Phone</Label>
-                <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">City</Label>
-                <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-              </div>
+              <Label className="text-xs">Specialization</Label>
+              <Label className="text-xs">Expertise</Label>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Street Address</Label>
-              <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} />
-            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Select value={form.specialization} onValueChange={v => setForm(f => ({ ...f, specialization: v as Technician['specialization'] }))}>
                 <SelectTrigger><SelectValue placeholder="Specialization" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="engine">Engine</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="Engine">Engine</SelectItem>
+                  <SelectItem value="Electrical">Electrical</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={form.expertise} onValueChange={v => setForm(f => ({ ...f, expertise: v as Technician['expertise'] }))}>
                 <SelectTrigger><SelectValue placeholder="Expertise" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="junior">Junior</SelectItem>
-                  <SelectItem value="mid">Mid-level</SelectItem>
-                  <SelectItem value="senior">Senior</SelectItem>
+                  <SelectItem value="Junior">Junior</SelectItem>
+                  <SelectItem value="Mid">Mid-level</SelectItem>
+                  <SelectItem value="Senior">Senior</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Label className="text-xs">Status</Label>
+              <Label className="text-xs">Sation</Label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as Technician['status'] }))}>
+                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Available">Available</SelectItem>
+                  <SelectItem value="Unavailable">Unavailable</SelectItem>
+                  <SelectItem value="Busy">Busy</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={form.station || ''}
+                onValueChange={v => setForm(f => ({ ...f, station: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
+                <SelectContent>
+                  {stations.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -7,7 +7,7 @@ export interface Technician {
   email: string;
   specialization: string;
   // 'engine' | 'electrical' | 'general';
-  availability: string;
+  status: string;
   //'available' | 'busy' | 'off_duty';
   street_address: string;
   street_address_2?: string;
@@ -32,7 +32,6 @@ export interface TechTask {
   description: string;
   completed_at: string;
   duration_hours: number;
-  status: string;
   // 'completed' | 'cancelled';
   priority: string
   //'low' | 'medium' | 'high' | 'urgent';
@@ -68,7 +67,7 @@ export const technicianApi = {
         postal_code: c.postal_code ?? '',
         specialization: c.specialization ?? 'None',
         expertise: c.expertise ?? 'None',
-        status: c.is_active ? 'active' : 'inactive',
+        status: c.status ?? '',
         station: c.station ?? '',
         notes: c.notes ?? '',
         created_at: c.created_at,

@@ -54,7 +54,7 @@ export default function OverviewPage() {
 
   const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'urgent').length;
   const urgentTickets = tickets.filter(t => t.status === 'urgent').length;
-  const availableTechs = technicians.filter(t => t.availability === 'available').length;
+  const availableTechs = technicians.filter(t => t.status === 'available').length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
   const closedTickets = tickets.filter(t => t.status === 'closed').length;
   const inProgressTickets = tickets.filter(t => t.status === 'in_progress').length;
@@ -174,7 +174,7 @@ export default function OverviewPage() {
                   <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
                       <User className="h-3.5 w-3.5 text-primary" />
                     </div>
-                    <div className={`w-2 h-2 rounded-full ${t.availability === 'available' ? 'bg-[hsl(var(--success))]' : t.availability === 'busy' ? 'bg-[hsl(var(--warning))]' : 'bg-muted-foreground'}`} />
+                    <div className={`w-2 h-2 rounded-full ${t.status === 'available' ? 'bg-[hsl(var(--success))]' : t.status === 'busy' ? 'bg-[hsl(var(--warning))]' : 'bg-muted-foreground'}`} />
                     <div>
                       <p className="text-xs font-medium">{t.first_name} {t.last_name}</p>
                       <p className="text-[10px] text-muted-foreground capitalize">{t.specialization?.replace('_', ' ') || 'N/A'}{t.specialization?.replace('_', ' ') || 'N/A'}</p>
