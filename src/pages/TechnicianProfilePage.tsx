@@ -39,27 +39,52 @@ export default function TechnicianProfilePage() {
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(true);
 
+  // useEffect(() => {
+  //   if (!id) return;
+  //   const techId = parseInt(id, 10);
+  //   // Use getById to call GET /technicians/{id}/ directly
+  //   technicianApi.getById(techId)
+  //     .then(found => {
+  //       setTech(found);
+  //       return technicianApi.getTaskHistory(techId);
+  //     })
+  //     .then(t => setTasks(t))
+  //     .catch(() => setTech(null))
+  //     .finally(() => { setLoading(false); setTasksLoading(false); });
+  // }, [id]);
+
+  // if (loading) {
+  //   return (
+  //     <div className="flex justify-center items-center py-24">
+  //       <Loader2 className="h-7 w-7 animate-spin text-primary" />
+  //     </div>
+  //   );
+  // }
   useEffect(() => {
     if (!id) return;
-    const techId = parseInt(id, 10);
-    // Use getById to call GET /technicians/{id}/ directly
-    technicianApi.getById(techId)
-      .then(found => {
-        setTech(found);
-        return technicianApi.getTaskHistory(techId);
-      })
-      .then(t => setTasks(t))
-      .catch(() => setTech(null))
-      .finally(() => { setLoading(false); setTasksLoading(false); });
+  
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setTasksLoading(true);
+  
+        const tech = await technicianApi.getById(id); // 🔥 no parseInt
+        setTech(tech);
+        console.log(id)
+        const taskHistory = await technicianApi.getTaskHistory(id);
+        setTasks(taskHistory);
+  
+      } catch (error) {
+        console.error("Error loading technician:", error);
+        setTech(null);
+      } finally {
+        setLoading(false);
+        setTasksLoading(false);
+      }
+    };
+  
+    loadData();
   }, [id]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-24">
-        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   if (!tech) {
     return (

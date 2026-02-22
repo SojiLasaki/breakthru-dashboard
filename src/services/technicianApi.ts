@@ -5,8 +5,10 @@ export interface Technician {
   first_name?: string;
   last_name?: string;
   email: string;
-  specialization: 'engine' | 'electrical' | 'general';
-  availability: 'available' | 'busy' | 'off_duty';
+  specialization: string;
+  // 'engine' | 'electrical' | 'general';
+  availability: string;
+  //'available' | 'busy' | 'off_duty';
   street_address: string;
   street_address_2?: string;
   city: string;
@@ -18,19 +20,22 @@ export interface Technician {
   station: string;
   active_tickets: number;
   phone_number: string;
-  expertise: 'junior' | 'mid' | 'senior';
+  expertise: string;
+  //'junior' | 'mid' | 'senior';
   photo: string;
 }
 
 export interface TechTask {
-  id: number;
+  id: string;
   ticket_id: string;
   title: string;
   description: string;
   completed_at: string;
   duration_hours: number;
-  status: 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: string;
+  // 'completed' | 'cancelled';
+  priority: string
+  //'low' | 'medium' | 'high' | 'urgent';
 }
 
 const CACHE_KEY = 'technicians_cache';
@@ -47,7 +52,7 @@ function loadFromCache(): Technician[] {
 export const technicianApi = {
   getAll: async (): Promise<Technician[]> => {
     try {
-      const { data } = await api.get('/customers/');
+      const { data } = await api.get('/technicians/');
       const customers: Technician[] = (data.results ?? data).map(c => ({
         id: c.id,
         first_name: c.first_name_display,
@@ -61,6 +66,8 @@ export const technicianApi = {
         state: c.state ?? '',
         country: c.country ?? '',
         postal_code: c.postal_code ?? '',
+        specialization: c.specialization ?? 'None',
+        expertise: c.expertise ?? 'None',
         status: c.is_active ? 'active' : 'inactive',
         station: c.station ?? '',
         notes: c.notes ?? '',
@@ -79,15 +86,19 @@ export const technicianApi = {
     }
   },
 
-  getById: async (id: string): Promise<Technician> => {
-    try {
-      const { data } = await api.get(`/technicians/${id}/`);
-      return data;
-    } catch {
-      const cached = loadFromCache().find(t => t.id === id);
-      if (!cached) throw new Error('Technician not found');
-      return cached;
-    }
+  // getById: async (id: string): Promise<Technician> => {
+  //   try {
+  //     const { data } = await api.get(`/technicians/${id}/`);
+  //     return data;
+  //   } catch {
+  //     const cached = loadFromCache().find(t => t.id === id);
+  //     if (!cached) throw new Error('Technician not found');
+  //     return cached;
+  //   }
+  // },
+  getById: async (id: string) => {
+    const res = await api.get(`/technicians/${id}/`);
+    return res.data;
   },
 
   create: async (payload: Partial<Technician>): Promise<Technician> => {
@@ -122,7 +133,7 @@ export const technicianApi = {
     }
   },
 
-  getTaskHistory: async (technicianId: number): Promise<TechTask[]> => {
+  getTaskHistory: async (technicianId: string): Promise<TechTask[]> => {
     try {
       const { data } = await api.get(`/technicians/${technicianId}/tasks/`);
       return data.results || data;

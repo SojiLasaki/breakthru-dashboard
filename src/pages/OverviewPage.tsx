@@ -171,6 +171,9 @@ export default function OverviewPage() {
               ) : technicians.slice(0, 5).map((t, i) => (
                 <div key={t.id} className={`flex items-center justify-between px-4 py-2.5 ${i % 2 === 1 ? 'bg-muted/20' : ''} hover:bg-accent/30 transition-colors cursor-pointer`} onClick={() => navigate(`/technicians/${t.id}`)}>
                   <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
+                      <User className="h-3.5 w-3.5 text-primary" />
+                    </div>
                     <div className={`w-2 h-2 rounded-full ${t.availability === 'available' ? 'bg-[hsl(var(--success))]' : t.availability === 'busy' ? 'bg-[hsl(var(--warning))]' : 'bg-muted-foreground'}`} />
                     <div>
                       <p className="text-xs font-medium">{t.first_name} {t.last_name}</p>

@@ -27,12 +27,12 @@ const AVAILABILITY_CONFIG = {
 };
 
 const EXPERTISE_CONFIG = {
-  junior: { label: 'Junior',    stars: 1, class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20' },
-  mid:    { label: 'Mid-level', stars: 2, class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20' },
-  senior: { label: 'Senior',   stars: 3, class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
+  Junior: { label: 'Junior',    stars: 1, class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20' },
+  Mid:    { label: 'Mid-level', stars: 2, class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20' },
+  Senior: { label: 'Senior',   stars: 3, class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
 };
 
-const SPEC_ICONS = { engine: Wrench, electrical: Zap, general: Settings };
+const SPEC_ICONS = { Engine: Wrench, Electrical: Zap, General: Settings };
 
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', phone: '', 
@@ -194,8 +194,8 @@ export default function TechniciansPage() {
                   return <span className="capitalize flex items-center gap-1.5"><Icon className="h-3.5 w-3.5 text-muted-foreground" />{t.specialization?.replace('_', ' ')}</span>;
                 }},
                 { label: 'Expertise', render: t => {
-                  const exp = EXPERTISE_CONFIG[t.expertise] ?? EXPERTISE_CONFIG['mid'];
-                  return <span className={`text-xs px-2 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>;
+                  const exp = EXPERTISE_CONFIG[t.expertise] ?? EXPERTISE_CONFIG['Junior'];
+                  return <span className={`text-xs px-2 py-0.5 rounded-full ${exp.class}`}>{t.expertise}</span>;
                 }},
                 { label: 'Availability', render: t => {
                   const avail = AVAILABILITY_CONFIG[t.availability] ?? AVAILABILITY_CONFIG['off_duty'];
@@ -213,7 +213,7 @@ export default function TechniciansPage() {
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
                 const avail    = AVAILABILITY_CONFIG[tech.availability] ?? AVAILABILITY_CONFIG['off_duty'];
-                const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
+                const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['Mid'];
                 const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
                 const isActive = selected?.id === tech.id;
 
@@ -294,8 +294,8 @@ export default function TechniciansPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).class}`}>
                     {(AVAILABILITY_CONFIG[selected.availability] ?? AVAILABILITY_CONFIG.off_duty).label}
                   </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.mid).class}`}>
-                    {(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.mid).label}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.Mid).class}`}>
+                    {(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.Mid).label}
                   </span>
                 </div>
                 <div className="flex items-center gap-0.5">
