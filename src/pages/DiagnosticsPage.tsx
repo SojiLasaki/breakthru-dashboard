@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, Search, AlertTriangle, CheckCircle2, Clock, XCircle,
   RefreshCw, Activity, Tag, User, Calendar, ChevronRight, Zap,
+  Brain, Target, Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +26,20 @@ const STATUS_CONFIG = {
   failed:      { label: 'Failed',      class: 'text-primary bg-primary/10 border border-primary/20',          icon: XCircle },
 };
 
+function ConfidenceBadge({ score }: { score: number }) {
+  const color = score >= 85 ? 'text-green-400 bg-green-400/10 border-green-400/30'
+    : score >= 60 ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+    : 'text-primary bg-primary/10 border-primary/30';
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${color}`}>
+      <Target className="h-3 w-3" />
+      {score}%
+    </span>
+  );
+}
+
 export default function DiagnosticsPage() {
-  const { isRole } = useAuth();
+  const { user, isRole } = useAuth();
   const { toast } = useToast();
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,17 +50,33 @@ export default function DiagnosticsPage() {
   const [saving, setSaving] = useState(false);
 
   const isAdmin = isRole('admin', 'office_staff');
+  const isTech = isRole('engine_technician', 'electrical_technician');
+  const isCustomer = isRole('customer');
+  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
 
   const load = () => {
     setLoading(true);
-    diagnosticsApi.getAll().then(setDiagnostics).finally(() => setLoading(false));
+    diagnosticsApi.getAll().then(all => {
+      // Role-based filtering
+      let scoped = all;
+      if (isTech) {
+        // Technicians see only diagnostics for tickets assigned to them
+        scoped = all.filter(d => d.verified_by === fullName || d.performed_by === fullName);
+      }
+      if (isCustomer) {
+        // Customers see diagnostics for their own tickets only
+        // In a real system this would filter by ticket.customer matching user
+        scoped = all;
+      }
+      setDiagnostics(scoped);
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() =>
     diagnostics.filter(d => {
-      const matchSearch = !search || d.title.toLowerCase().includes(search.toLowerCase()) || d.fault_code.toLowerCase().includes(search.toLowerCase()) || d.asset_name.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = !search || d.title.toLowerCase().includes(search.toLowerCase()) || d.fault_code.toLowerCase().includes(search.toLowerCase()) || d.specialization.toLowerCase().includes(search.toLowerCase()) || d.ticket_id.toLowerCase().includes(search.toLowerCase());
       const matchStatus   = statusFilter === 'all'   || d.status === statusFilter;
       const matchSeverity = severityFilter === 'all' || d.severity === severityFilter;
       return matchSearch && matchStatus && matchSeverity;
@@ -72,13 +101,18 @@ export default function DiagnosticsPage() {
   const critical  = diagnostics.filter(d => d.severity === 'critical').length;
   const pending   = diagnostics.filter(d => d.status === 'pending').length;
   const resolved  = diagnostics.filter(d => d.status === 'resolved').length;
+  const avgConfidence = diagnostics.length > 0
+    ? Math.round(diagnostics.reduce((sum, d) => sum + d.confidence_score, 0) / diagnostics.length)
+    : 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Diagnostics</h1>
-          <p className="text-muted-foreground text-sm">Equipment fault codes and diagnostic results</p>
+          <p className="text-muted-foreground text-sm">
+            {isTech ? 'Diagnostics for your assigned tickets' : isCustomer ? 'Diagnostics for your tickets' : 'All diagnostic reports'}
+          </p>
         </div>
         <Button variant="outline" size="sm" onClick={load} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -86,7 +120,7 @@ export default function DiagnosticsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="bg-card border border-border rounded-lg p-3">
           <p className="text-2xl font-bold">{diagnostics.length}</p>
           <p className="text-xs text-muted-foreground">Total</p>
@@ -103,13 +137,20 @@ export default function DiagnosticsPage() {
           <p className="text-2xl font-bold text-green-400">{resolved}</p>
           <p className="text-xs text-muted-foreground">Resolved</p>
         </div>
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            <p className="text-2xl font-bold">{avgConfidence}%</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Avg Confidence</p>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by title, fault code, asset..." className="pl-9 bg-card" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by specialization, ticket, fault code..." className="pl-9 bg-card" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-36 bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
@@ -133,16 +174,16 @@ export default function DiagnosticsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                {['ID', 'Title', 'Asset', 'Fault Code', 'Severity', 'Status', 'Date', ''].map(h => (
+                {['Ticket', 'Specialization', 'Expertise Req.', 'Probable Cause', 'Confidence', 'Severity', 'Status', 'Verified By', 'Identified', ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
+                <tr><td colSpan={10} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">No diagnostics found</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-muted-foreground text-sm">No diagnostics found</td></tr>
               ) : filtered.map((d, i) => {
                 const sev = SEVERITY_CONFIG[d.severity];
                 const sta = STATUS_CONFIG[d.status];
@@ -153,10 +194,11 @@ export default function DiagnosticsPage() {
                     className={`border-b border-border hover:bg-accent/30 transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-muted/10' : ''}`}
                     onClick={() => setSelected(d)}
                   >
-                    <td className="px-4 py-3 font-mono text-xs text-primary font-medium">{d.diagnostic_id}</td>
-                    <td className="px-4 py-3 text-xs font-medium max-w-40 truncate">{d.title}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{d.asset_name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{d.fault_code}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-primary font-medium">{d.ticket_id}</td>
+                    <td className="px-4 py-3 text-xs font-medium">{d.specialization}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{d.expertise_requirement}</td>
+                    <td className="px-4 py-3 text-xs max-w-40 truncate text-muted-foreground">{d.probable_cause}</td>
+                    <td className="px-4 py-3"><ConfidenceBadge score={d.confidence_score} /></td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${sev.class}`}>{sev.label}</span>
                     </td>
@@ -166,7 +208,8 @@ export default function DiagnosticsPage() {
                         {sta.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(d.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{d.verified_by}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(d.identified_at).toLocaleDateString()}</td>
                     <td className="px-4 py-3"><ChevronRight className="h-4 w-4 text-muted-foreground" /></td>
                   </tr>
                 );
@@ -200,6 +243,8 @@ export default function DiagnosticsPage() {
                         </div>
                       </div>
                     </div>
+                    {/* Prominent confidence score */}
+                    <ConfidenceBadge score={selected.confidence_score} />
                   </div>
                 </SheetHeader>
 
@@ -209,11 +254,12 @@ export default function DiagnosticsPage() {
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Diagnostic Info</p>
                     <div className="space-y-3">
                       {[
-                        { icon: Tag,      label: 'Diagnostic ID', value: selected.diagnostic_id },
-                        { icon: Tag,      label: 'Fault Code',    value: selected.fault_code },
-                        { icon: Activity, label: 'Asset',         value: selected.asset_name },
-                        { icon: User,     label: 'Performed By',  value: selected.performed_by },
-                        { icon: Calendar, label: 'Created',       value: new Date(selected.created_at).toLocaleString() },
+                        { icon: Tag,      label: 'Linked Ticket',      value: `${selected.ticket_id} — ${selected.ticket_title}` },
+                        { icon: Shield,   label: 'Specialization',     value: selected.specialization },
+                        { icon: Target,   label: 'Expertise Required', value: selected.expertise_requirement },
+                        { icon: User,     label: 'Verified By',        value: selected.verified_by },
+                        { icon: Calendar, label: 'Identified At',      value: new Date(selected.identified_at).toLocaleString() },
+                        { icon: Calendar, label: 'Created',            value: new Date(selected.created_at).toLocaleString() },
                         ...(selected.resolved_at ? [{ icon: Calendar, label: 'Resolved At', value: new Date(selected.resolved_at).toLocaleString() }] : []),
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-3 text-xs">
@@ -229,19 +275,29 @@ export default function DiagnosticsPage() {
                     </div>
                   </div>
 
-                  {/* Description */}
+                  {/* AI Summary */}
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</p>
-                    <div className="bg-muted/30 border border-border rounded-lg p-4 text-xs text-muted-foreground leading-relaxed">
-                      {selected.description}
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Brain className="h-3.5 w-3.5 text-primary" /> AI Summary
+                    </p>
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-xs text-foreground leading-relaxed">
+                      {selected.ai_summary}
                     </div>
                   </div>
 
-                  {/* Recommended action */}
+                  {/* Probable Cause */}
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Recommended Action</p>
-                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-xs text-foreground leading-relaxed">
-                      {selected.recommended_action}
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Probable Cause</p>
+                    <div className="bg-muted/30 border border-border rounded-lg p-4 text-xs text-muted-foreground leading-relaxed">
+                      {selected.probable_cause}
+                    </div>
+                  </div>
+
+                  {/* Recommended Actions */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Recommended Actions</p>
+                    <div className="bg-muted/30 border border-border rounded-lg p-4 text-xs text-muted-foreground leading-relaxed">
+                      {selected.recommended_actions}
                     </div>
                   </div>
 

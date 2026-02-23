@@ -32,9 +32,8 @@ export interface TechTask {
   description: string;
   completed_at: string;
   duration_hours: number;
-  // 'completed' | 'cancelled';
-  priority: string
-  //'low' | 'medium' | 'high' | 'urgent';
+  status: 'completed' | 'cancelled' | 'in_progress' | 'pending';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
 }
 
 const CACHE_KEY = 'technicians_cache';
