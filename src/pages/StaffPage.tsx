@@ -377,86 +377,82 @@ export default function StaffPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">First Name *</Label>
-                <Input placeholder="John" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} />
+                <Input placeholder="John" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Last Name</Label>
-                <Input placeholder="Doe" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
+                <Input placeholder="Doe" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} className="bg-background" />
               </div>
             </div>
-
-            <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Email *</Label>
-                  <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-                  </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Phone Number</Label>
-                  <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-                </div>
-              </div>
-
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Street Address *</Label>
-                <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} />
+                <Label className="text-xs">Email *</Label>
+                <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Street Address 2 *</Label>
-                <Input placeholder="Apt D" value={form.street_address_2} onChange={e => setForm(f => ({ ...f, street_address_2: e.target.value }))} />
+                <Label className="text-xs">Phone Number</Label>
+                <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="bg-background" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"> 
-                  <Label className="text-xs">City</Label>
-                  <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">State</Label>
-                  <Input placeholder="+Indiana" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
-                </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Street Address</Label>
+              <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} className="bg-background" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Street Address 2</Label>
+              <Input placeholder="Apt D" value={form.street_address_2} onChange={e => setForm(f => ({ ...f, street_address_2: e.target.value }))} className="bg-background" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">City</Label>
+                <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="bg-background" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"> 
-                  <Label className="text-xs">Country</Label>
-                  <Input placeholder="New York" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Postal / Zip COde</Label>
-                  <Input placeholder="+Indiana" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} />
-                </div>
-              </div>  
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Label className="text-xs">Specialization</Label>
-              <Label className="text-xs">Expertise</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">State</Label>
+                <Input placeholder="Indiana" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} className="bg-background" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Label className="text-xs">Status</Label>
-              <Label className="text-xs">Sation</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Country</Label>
+                <Input placeholder="USA" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} className="bg-background" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Postal / Zip Code</Label>
+                <Input placeholder="12345" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} className="bg-background" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as StaffProfile['status'] }))}>
-                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Unavailable">Unavailable</SelectItem>
-                  <SelectItem value="Busy">Busy</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={form.station || ''} onValueChange={v => setForm(f => ({ ...f, station: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Select a Station</SelectItem> {/* optional */}
-                {stations.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Status</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as StaffProfile['status'] }))}>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Available">Available</SelectItem>
+                    <SelectItem value="Unavailable">Unavailable</SelectItem>
+                    <SelectItem value="Busy">Busy</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Station</Label>
+                <Select value={form.station || ''} onValueChange={v => setForm(f => ({ ...f, station: v }))}>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder="Select Station" /></SelectTrigger>
+                  <SelectContent>
+                    {stations.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving}>
-              <Plus className="h-4 w-4" /> {saving ? 'Saving...' : 'Add Staff'}
-            </Button>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving || !form.first_name.trim() || !form.email.trim()}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Add Staff
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
