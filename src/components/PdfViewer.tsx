@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Download, Maximize2, Minimize2, AlertTriangle, RefreshCw } from 'lucide-react';
+import {
+  Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw,
+  Download, Maximize2, Minimize2, AlertTriangle, RefreshCw, Search, X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface PdfViewerProps {
   url: string;
   title?: string;
   version?: string;
-  /** Called when fullscreen is toggled so parent can hide sidebar etc. */
   onFullscreenChange?: (isFullscreen: boolean) => void;
   className?: string;
 }
@@ -24,6 +27,13 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const renderTasksRef = useRef<{ cancel: () => void }[]>([]);
 
+  // Search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ page: number; count: number }[]>([]);
+  const [currentMatch, setCurrentMatch] = useState(0);
+  const pdfDocRef = useRef<any>(null);
+
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => {
       const next = !prev;
@@ -39,11 +49,17 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
         setIsFullscreen(false);
         onFullscreenChange?.(false);
       }
+      // Ctrl+F to open search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && numPages > 0) {
+        e.preventDefault();
+        setShowSearch(true);
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isFullscreen, onFullscreenChange]);
+  }, [isFullscreen, onFullscreenChange, numPages]);
 
+  // PDF Loading
   useEffect(() => {
     let cancelled = false;
     canvasRefs.current = [];
@@ -64,6 +80,7 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
 
         if (cancelled) return;
 
+        pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
         setLoading(false);
 
@@ -98,8 +115,38 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
       cancelled = true;
       renderTasksRef.current.forEach(t => t.cancel());
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, scale, retryKey]);
+
+  // Text search
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim() || !pdfDocRef.current) {
+      setSearchResults([]);
+      return;
+    }
+    const pdf = pdfDocRef.current;
+    const results: { page: number; count: number }[] = [];
+    const q = searchQuery.toLowerCase();
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const text = textContent.items.map((item: any) => item.str).join(' ').toLowerCase();
+      const count = text.split(q).length - 1;
+      if (count > 0) results.push({ page: i, count });
+    }
+
+    setSearchResults(results);
+    setCurrentMatch(0);
+    if (results.length > 0) scrollToPage(results[0].page);
+  }, [searchQuery]);
+
+  const navigateMatch = (dir: 1 | -1) => {
+    if (searchResults.length === 0) return;
+    const next = (currentMatch + dir + searchResults.length) % searchResults.length;
+    setCurrentMatch(next);
+    scrollToPage(searchResults[next].page);
+  };
 
   const scrollToPage = (page: number) => {
     const canvas = canvasRefs.current[page - 1];
@@ -116,6 +163,8 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
     a.click();
     document.body.removeChild(a);
   };
+
+  const totalMatches = searchResults.reduce((s, r) => s + r.count, 0);
 
   return (
     <div
@@ -137,8 +186,7 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
 
         {/* Center: page navigation + zoom */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <Button
-            variant="ghost" size="icon" className="h-7 w-7"
+          <Button variant="ghost" size="icon" className="h-7 w-7"
             onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
             disabled={currentPage <= 1 || numPages === 0}
           >
@@ -147,8 +195,7 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
           <span className="text-xs text-muted-foreground min-w-[52px] text-center tabular-nums">
             {numPages > 0 ? `${currentPage} / ${numPages}` : '—'}
           </span>
-          <Button
-            variant="ghost" size="icon" className="h-7 w-7"
+          <Button variant="ghost" size="icon" className="h-7 w-7"
             onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
             disabled={currentPage >= numPages || numPages === 0}
           >
@@ -169,8 +216,16 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
           </Button>
         </div>
 
-        {/* Right: download + fullscreen */}
+        {/* Right: search + download + fullscreen */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          <Button
+            variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
+            onClick={() => setShowSearch(v => !v)}
+            disabled={numPages === 0}
+            title="Search (Ctrl+F)"
+          >
+            <Search className="h-3.5 w-3.5" />
+          </Button>
           <Button
             variant="ghost" size="sm"
             className="h-7 gap-1.5 text-xs px-2.5 hover:bg-primary/10 hover:text-primary transition-colors"
@@ -189,6 +244,41 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
         </div>
       </div>
 
+      {/* ── Search Bar ─────────────────────────────────────────────── */}
+      {showSearch && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30 flex-shrink-0">
+          <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <Input
+            autoFocus
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleSearch();
+              if (e.key === 'Escape') { setShowSearch(false); setSearchQuery(''); setSearchResults([]); }
+            }}
+            placeholder="Search in document…"
+            className="h-7 text-xs bg-background flex-1"
+          />
+          <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={handleSearch}>Find</Button>
+          {searchResults.length > 0 && (
+            <>
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {totalMatches} match{totalMatches !== 1 ? 'es' : ''} on {searchResults.length} page{searchResults.length !== 1 ? 's' : ''}
+              </span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigateMatch(-1)}>
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigateMatch(1)}>
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]); }}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+
       {/* ── PDF Canvas Area ──────────────────────────────────────────── */}
       <div
         ref={containerRef}
@@ -198,7 +288,6 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
         )}
         style={{ minHeight: isFullscreen ? undefined : '70vh' }}
       >
-        {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -206,7 +295,6 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
           </div>
         )}
 
-        {/* Error */}
         {error && !loading && (
           <div className="flex flex-col items-center justify-center py-24 text-center px-6 gap-4">
             <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
@@ -226,11 +314,13 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
           </div>
         )}
 
-        {/* Pages */}
         {!loading && !error && numPages > 0 && Array.from({ length: numPages }, (_, i) => (
           <div
             key={i}
-            className="flex justify-center"
+            className={cn(
+              'flex justify-center',
+              searchResults.some(r => r.page === i + 1) && 'ring-2 ring-primary/50 rounded-xl',
+            )}
             onMouseEnter={() => setCurrentPage(i + 1)}
           >
             <canvas
