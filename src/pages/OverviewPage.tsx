@@ -14,9 +14,11 @@ import { useNavigate } from 'react-router-dom';
 
 const STATUS_CLASSES: Record<string, string> = {
   open: 'status-open',
+  assigned: 'status-open',
   in_progress: 'status-in-progress',
-  closed: 'status-closed',
-  urgent: 'status-urgent',
+  awaiting_parts: 'status-in-progress',
+  awaiting_approval: 'status-urgent',
+  completed: 'status-closed',
 };
 
 export default function OverviewPage() {
@@ -36,7 +38,7 @@ export default function OverviewPage() {
   const tickets = isAdminOrStaff
     ? allTickets
     : isTech
-    ? allTickets.filter(t => t.assigned_technician === fullName)
+    ? allTickets.filter(t => t.assigned_to === fullName)
     : allTickets.filter(t => t.created_by === fullName);
 
   useEffect(() => {
@@ -52,11 +54,11 @@ export default function OverviewPage() {
     Promise.all(fetches).finally(() => setLoading(false));
   }, [isAdminOrStaff, isCustomer]);
 
-  const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'urgent').length;
-  const urgentTickets = tickets.filter(t => t.status === 'urgent').length;
+  const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'assigned').length;
+  const urgentTickets = tickets.filter(t => t.priority === 'severe').length;
   const availableTechs = technicians.filter(t => t.status === 'available').length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
-  const closedTickets = tickets.filter(t => t.status === 'closed').length;
+  const completedTickets = tickets.filter(t => t.status === 'completed').length;
   const inProgressTickets = tickets.filter(t => t.status === 'in_progress').length;
 
   const statCards = isAdminOrStaff
@@ -71,13 +73,13 @@ export default function OverviewPage() {
         { label: 'My Open Tickets',   value: openTickets,       icon: TicketIcon,  color: 'text-[hsl(var(--info))]',    bg: 'bg-[hsl(var(--info))]/10' },
         { label: 'Urgent / Priority', value: urgentTickets,     icon: AlertCircle, color: 'text-primary',               bg: 'bg-primary/10' },
         { label: 'In Progress',       value: inProgressTickets, icon: Wrench,      color: 'text-[hsl(var(--warning))]', bg: 'bg-[hsl(var(--warning))]/10' },
-        { label: 'Completed',         value: closedTickets,     icon: TicketIcon,  color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10' },
+        { label: 'Completed',         value: completedTickets,  icon: TicketIcon,  color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10' },
       ]
     : [
         { label: 'My Tickets',  value: tickets.length,    icon: TicketIcon,  color: 'text-[hsl(var(--info))]',    bg: 'bg-[hsl(var(--info))]/10' },
         { label: 'Open',        value: openTickets,       icon: AlertCircle, color: 'text-primary',               bg: 'bg-primary/10' },
         { label: 'In Progress', value: inProgressTickets, icon: Wrench,      color: 'text-[hsl(var(--warning))]', bg: 'bg-[hsl(var(--warning))]/10' },
-        { label: 'Resolved',    value: closedTickets,     icon: TicketIcon,  color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10' },
+        { label: 'Resolved',    value: completedTickets,  icon: TicketIcon,  color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10' },
       ];
 
   const greeting = isTech
@@ -203,7 +205,7 @@ export default function OverviewPage() {
                 <div key={t.id} className={`flex items-center justify-between px-4 py-2.5 ${i % 2 === 1 ? 'bg-muted/20' : ''} hover:bg-accent/30 transition-colors`}>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{t.ticket_id}: {t.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_technician}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_to}</p>
                   </div>
                   <Badge className={`text-[10px] flex-shrink-0 ml-2 ${STATUS_CLASSES[t.status]}`}>
                     {t.status.replace('_', ' ')}
@@ -295,7 +297,7 @@ export default function OverviewPage() {
                 <div key={t.id} className={`flex items-center justify-between px-4 py-2.5 ${i % 2 === 1 ? 'bg-muted/20' : ''} hover:bg-accent/30 transition-colors`}>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{t.ticket_id}: {t.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_technician}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_to}</p>
                   </div>
                   <Badge className={`text-[10px] flex-shrink-0 ml-2 ${STATUS_CLASSES[t.status]}`}>
                     {t.status.replace('_', ' ')}

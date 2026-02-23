@@ -80,11 +80,11 @@ export default function TechnicianProfilePage() {
     );
   }
 
-  const avail    = AVAILABILITY_CONFIG[tech.status] ?? AVAILABILITY_CONFIG['off_duty'];
-  const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
-  const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
+  const avail    = AVAILABILITY_CONFIG[tech.status as keyof typeof AVAILABILITY_CONFIG] ?? AVAILABILITY_CONFIG['off_duty'];
+  const exp      = EXPERTISE_CONFIG[tech.expertise as keyof typeof EXPERTISE_CONFIG] ?? EXPERTISE_CONFIG['Junior'];
+  const SpecIcon = SPEC_ICONS[tech.specialization as keyof typeof SPEC_ICONS] ?? Settings;
 
-  const completedTasks = tasks.filter(t => t.status === 'completed' || "complete");
+  const completedTasks = tasks.filter(t => t.status === 'completed');
   const totalHours     = tasks.reduce((sum, t) => sum + t.duration_hours, 0);
   const urgentCount    = tasks.filter(t => t.priority === 'urgent' || t.priority === 'high').length;
 
@@ -118,7 +118,7 @@ export default function TechnicianProfilePage() {
               </div>
 
               <div className="text-center">
-                <h1 className="font-bold text-lg leading-tight">{tech.first_name_display} {tech.last_name_display}</h1>
+                <h1 className="font-bold text-lg leading-tight">{tech.first_name} {tech.last_name}</h1>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-muted-foreground">
                   <SpecIcon className="h-3.5 w-3.5" />
                   <span className="text-xs capitalize">{tech.specialization.replace('_', ' ')}</span>
@@ -159,8 +159,7 @@ export default function TechnicianProfilePage() {
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <MapPin className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <span>{tech.station_name}</span>
-                  <span>{tech.station.street_address} {tech.station.street_address_2} {tech.station.city} {tech.station.state} {tech.station.country} {tech.station.postal_code}</span>
+                  <span>{tech.station}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -246,9 +245,11 @@ export default function TechnicianProfilePage() {
                   <div key={task.id} className="bg-muted/30 border border-border rounded-lg p-4 space-y-2 card-hover">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        {task.status === 'completed'
+                         {task.status === 'completed'
                           ? <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
-                          : <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                          : task.status === 'cancelled'
+                          ? <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          : <Clock className="h-4 w-4 text-yellow-400 flex-shrink-0" />}
                         <span className="text-sm font-medium">{task.title}</span>
                       </div>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${priority.class}`}>
