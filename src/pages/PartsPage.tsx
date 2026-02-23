@@ -73,7 +73,7 @@ export default function PartsPage() {
       orderApi.getAll().then(data => setOrders(Array.isArray(data) ? data : [])).catch(() => setOrders([])),
       manualApi.getAll().then(manuals => {
         const allComponents = new Set<string>();
-        manuals.forEach(m => m.components?.forEach(c => allComponents.add(c)));
+        manuals.forEach(m => m.component?.forEach(c => allComponents.add(c.name)));
         setManualComponents(Array.from(allComponents).sort());
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
