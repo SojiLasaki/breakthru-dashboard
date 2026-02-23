@@ -260,9 +260,9 @@ export default function DiagnosticsPage() {
                         { icon: Shield,   label: 'Specialization',     value: selected.specialization },
                         { icon: Target,   label: 'Expertise Required', value: selected.expertise_requirement },
                         { icon: User,     label: 'Verified By',        value: selected.assigned_technician },
-                        { icon: Calendar, label: 'Identified At',      value: new Date(selected.identified_at).toLocaleString() },
-                        { icon: Calendar, label: 'Created',            value: new Date(selected.created_at).toLocaleString() },
-                        ...(selected.Resolved_at ? [{ icon: Calendar, label: 'Resolved At', value: new Date(selected.Resolved_at).toLocaleString() }] : []),
+                        { icon: Calendar, label: 'Identified At',      value: selected.identified_at ? new Date(selected.identified_at).toLocaleString() : "N/A" },
+                        { icon: Calendar, label: 'Created',            value: selected.created_at ? new Date(selected.created_at).toLocaleString(): "N/A" },
+                        ...(selected.resolved_at ? [{ icon: Calendar, label: 'Resolved At',  value: selected.resolved_at ? new Date(selected.resolved_at).toLocaleString(): "N/A" }] : []),
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-3 text-xs">
                           <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -308,7 +308,7 @@ export default function DiagnosticsPage() {
                     <div>
                       <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-3 block">Update Status</Label>
                       <div className="flex flex-wrap gap-2">
-                        {(['in_progress', 'Resolved', 'failed'] as Diagnostic['status'][]).map(s => {
+                        {(['Pending','In_Progress', 'Resolved', 'Failed'] as Diagnostic['status'][]).map(s => {
                           if (s === selected.status) return null;
                           const cfg = STATUS_CONFIG[s];
                           return (
