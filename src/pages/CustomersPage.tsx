@@ -327,7 +327,7 @@ export default function CustomersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">First Name *</Label>
-                <Input placeholder="Enter First Name ``" value={newCustomer.first_name} onChange={e => setNewCustomer(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
+                <Input placeholder="Enter First Name" value={newCustomer.first_name} onChange={e => setNewCustomer(f => ({ ...f, first_name: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Last Name</Label>
