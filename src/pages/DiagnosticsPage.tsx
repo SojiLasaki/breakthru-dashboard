@@ -174,16 +174,16 @@ export default function DiagnosticsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                {['Ticket', 'Specialization', 'Expertise Req.', 'Probable Cause', 'Confidence', 'Severity', 'Status', 'Verified By', 'Identified', ''].map(h => (
+                {['Ticket', 'Specialization', 'Expertise Req.', 'Customer', 'Location', 'Probable Cause', 'Confidence', 'Severity', 'Status', 'Verified By', 'Identified', ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
+                <tr><td colSpan={12} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-muted-foreground text-sm">No diagnostics found</td></tr>
+                <tr><td colSpan={12} className="text-center py-12 text-muted-foreground text-sm">No diagnostics found</td></tr>
               ) : filtered.map((d, i) => {
                 const sev = SEVERITY_CONFIG[d.severity];
                 const sta = STATUS_CONFIG[d.status];
@@ -197,6 +197,8 @@ export default function DiagnosticsPage() {
                     <td className="px-4 py-3 font-mono text-xs text-primary font-medium">{d.ticket_id}</td>
                     <td className="px-4 py-3 text-xs font-medium">{d.specialization}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{d.expertise_requirement}</td>
+                    <td className="px-4 py-3 text-xs font-medium">{d.customer_name}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{d.customer_location}</td>
                     <td className="px-4 py-3 text-xs max-w-40 truncate text-muted-foreground">{d.probable_cause}</td>
                     <td className="px-4 py-3"><ConfidenceBadge score={d.confidence_score} /></td>
                     <td className="px-4 py-3">
