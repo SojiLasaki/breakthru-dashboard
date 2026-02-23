@@ -205,7 +205,7 @@ export default function ComponentsPage() {
                     </div>
                     <div>
                       <SheetTitle className="text-base leading-tight">{selected.name}</SheetTitle>
-                      <p className="text-xs font-mono text-muted-foreground">{selected.component_number} · {selected.engine_model}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{selected.component_number} · {selected.group}</p>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.active).class}`}>
                         {(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.active).label}
                       </span>
@@ -239,7 +239,7 @@ export default function ComponentsPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Engine Model</Label>
-                      <Input value={editForm.engine_model ?? selected.engine_model} onChange={e => setEditForm(f => ({ ...f, engine_model: e.target.value }))} className="bg-background" />
+                      <Input value={editForm.group ?? selected.group} onChange={e => setEditForm(f => ({ ...f, group: e.target.value }))} className="bg-background" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Status</Label>
@@ -272,7 +272,7 @@ export default function ComponentsPage() {
                       {[
                         { icon: Tag,      label: 'component_number',         value: selected.component_number },
                         { icon: Layers,   label: 'group',     value: selected.group },
-                        { icon: Package,  label: 'Engine Model', value: selected.engine_model },
+                        { icon: Package,  label: 'Engine Model', value: selected.group },
                         { icon: Calendar, label: 'Created',      value: selected.created_at ? new Date(selected.created_at).toLocaleDateString() : '—' },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-center gap-3 text-xs">
@@ -348,7 +348,7 @@ export default function ComponentsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Engine Model</Label>
-                <Input placeholder="ISX15" value={newForm.engine_model} onChange={e => setNewForm(f => ({ ...f, engine_model: e.target.value }))} className="bg-background" />
+                <Input placeholder="ISX15" value={newForm.group} onChange={e => setNewForm(f => ({ ...f, engine_model: e.target.value }))} className="bg-background" />
               </div>
             </div>
             <div className="space-y-1.5">

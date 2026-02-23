@@ -11,8 +11,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Loader2, Search, User, Mail, Calendar, Shield, ShieldCheck, Plus,
-  LayoutGrid, List, X, MapPin
+  Loader2, Search, User, Mail, Calendar, Shield, ShieldCheck, Plus, Home,
+  LayoutGrid, List, X, MapPin,
+  Phone
 } from 'lucide-react';
 import { DataTable, Column } from '@/components/DataTable';
 import {
@@ -34,6 +35,7 @@ const STATUS_CONFIG = {
   active:   { label: 'Active',   class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
   inactive: { label: 'Inactive', class: 'text-muted-foreground bg-muted/50 border border-border',    dot: 'bg-muted-foreground' },
 };
+
 interface Station {
   id: string;
   name: string;
@@ -87,7 +89,13 @@ export default function StaffPage() {
   const [stations, setStations] = useState<{ id: string; name: string }[]>([]);
   const activeCount = staff.filter(s => s.status).length;
 
-
+  const STATUS_CONFIG = {
+    active:   { label: 'Active', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
+    inactive: { label: 'Inactive', class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
+    busy:     { label: 'Busy', class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
+    unavailable: { label: 'Unavailable', class: 'text-red-400 bg-red-400/10 border border-red-400/20', dot: 'bg-red-400' },
+  };
+  
     const handleAdd = async () => {
       if (!form.first_name.trim() || !form.email.trim()) return;
       setSaving(true);
@@ -226,15 +234,19 @@ export default function StaffPage() {
                 { label: 'Username', render: (s) => (
                   <span className="font-medium">{s.username}</span>
                 )},
+                { label: 'Phone', render: (s) => (
+                  <span className="font-medium">{s.phone_number}</span>
+                )},
                 { label: 'Role', render: (s) => {
                   const cfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office_staff;
                   return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
                 }},
                 { label: 'Status', render: (s) => {
-                  const cfg = s.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
+                  // const cfg = s.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
+                  const cfg = STATUS_CONFIG[s.status.toLowerCase()] ?? STATUS_CONFIG.inactive;
                   return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
                 }},
-                { label: 'Joined', render: (s) => <span className="text-muted-foreground">{new Date(s.date_joined).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span> },
+                { label: 'Statiom', render: (s) => <span className="text-muted-foreground">{s.station}</span> },
               ] as Column<StaffProfile>[]}
               data={filtered}
               rowKey={(s) => s.id}
@@ -260,7 +272,7 @@ export default function StaffPage() {
                         <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[120px]">
                           <div className="relative">
                             <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/30">
-                              <span className="text-lg font-bold text-primary">{s.first_name[0]}{s.last_name[0]}</span>
+                              <span className="text-lg font-bold text-primary">{s.first_name}{s.last_name}</span>
                             </div>
                             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${statusCfg.dot}`} />
                           </div>
@@ -282,7 +294,9 @@ export default function StaffPage() {
                           <div className="space-y-1.5 text-xs text-muted-foreground">
                             <div className="flex items-center gap-2"><Mail className="h-3 w-3 flex-shrink-0 text-primary/60" /><span className="truncate">{s.email}</span></div>
                             <div className="flex items-center gap-2"><User className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>@{s.username}</span></div>
-                            <div className="flex items-center gap-2"><Calendar className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>Joined {new Date(s.date_joined).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span></div>
+                            <div className="flex items-center gap-2"><Phone className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>{s.phone_number}</span></div>
+                            <div className="flex items-center gap-2"><MapPin className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>{s.station}</span></div>
+                            <div className="flex items-center gap-2"><Home className="h-3 w-3 flex-shrink-0 text-primary/60" /><span>{s.station}</span></div>
                           </div>
                           <div className="mt-3 pt-2 border-t border-border flex items-center justify-between">
                             <span className="text-[10px] text-muted-foreground">Last login: {s.last_login ? new Date(s.last_login).toLocaleDateString() : 'Never'}</span>
@@ -310,7 +324,7 @@ export default function StaffPage() {
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/30">
-                    <span className="text-xl font-bold text-primary">{selected.first_name[0]}{selected.last_name[0]}</span>
+                    <span className="text-xl font-bold text-primary">{selected.first_name}{selected.last_name}</span>
                   </div>
                   <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(selected.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive).dot}`} />
                 </div>
