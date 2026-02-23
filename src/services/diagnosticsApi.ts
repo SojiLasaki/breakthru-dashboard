@@ -14,6 +14,8 @@ export interface Diagnostic {
   identified_at: string;
   created_at: string;
   verified_by: string;
+  customer_name: string;
+  customer_location: string;
   status: 'pending' | 'in_progress' | 'resolved' | 'failed';
   severity: 'info' | 'warning' | 'critical';
   // legacy fields kept for compatibility
@@ -34,7 +36,7 @@ const MOCK_DIAGNOSTICS: Diagnostic[] = [
     ai_summary: 'Coolant temperature sensor reading above threshold (105°C). Engine entering protection mode. Likely thermostat failure or coolant system blockage.',
     probable_cause: 'Thermostat failure causing insufficient coolant flow under load.',
     recommended_actions: 'Inspect cooling system, check coolant level, verify thermostat operation. Replace thermostat if stuck closed.',
-    confidence_score: 92, identified_at: '2024-02-15T08:45:00Z', verified_by: 'John Smith',
+    confidence_score: 92, identified_at: '2024-02-15T08:45:00Z', verified_by: 'John Smith', customer_name: 'Acme Corp', customer_location: 'Houston, TX',
     status: 'in_progress', severity: 'critical',
     title: 'Engine Overheat Warning', asset_name: 'Generator Unit #4', asset_id: 1,
     fault_code: 'E-2301', description: 'Coolant temperature sensor reading above threshold (105°C). Engine entering protection mode.',
@@ -47,7 +49,7 @@ const MOCK_DIAGNOSTICS: Diagnostic[] = [
     ai_summary: 'Oil pressure reading 18 PSI below minimum threshold during normal operation. Possible oil pump wear or relief valve issue.',
     probable_cause: 'Oil pump wear causing reduced pressure output.',
     recommended_actions: 'Check oil level and quality. Inspect oil pump and pressure relief valve.',
-    confidence_score: 78, identified_at: '2024-02-14T10:30:00Z', verified_by: 'John Smith',
+    confidence_score: 78, identified_at: '2024-02-14T10:30:00Z', verified_by: 'John Smith', customer_name: 'Delta Co', customer_location: 'Dallas, TX',
     status: 'pending', severity: 'warning',
     title: 'Oil Pressure Low', asset_name: 'Engine Unit #2', asset_id: 2,
     fault_code: 'E-1102', description: 'Oil pressure reading 18 PSI below minimum threshold during normal operation.',
@@ -60,7 +62,7 @@ const MOCK_DIAGNOSTICS: Diagnostic[] = [
     ai_summary: 'Irregular fuel consumption detected. Injector spray pattern analysis shows degradation on cylinders 2 and 4.',
     probable_cause: 'Injector nozzle wear causing poor atomization.',
     recommended_actions: 'Replace fuel injectors on cylinders 2 and 4. Perform fuel system pressure test after replacement.',
-    confidence_score: 95, identified_at: '2024-02-12T13:00:00Z', verified_by: 'Maria Garcia',
+    confidence_score: 95, identified_at: '2024-02-12T13:00:00Z', verified_by: 'Maria Garcia', customer_name: 'Beta Industries', customer_location: 'San Antonio, TX',
     status: 'resolved', severity: 'warning',
     title: 'Fuel System Anomaly', asset_name: 'Generator Unit #1', asset_id: 3,
     fault_code: 'F-0501', description: 'Irregular fuel consumption detected. Possible injector wear.',
@@ -73,7 +75,7 @@ const MOCK_DIAGNOSTICS: Diagnostic[] = [
     ai_summary: 'ECM reporting a non-critical fault. Alternator output at low end of specification range.',
     probable_cause: 'Alternator brush wear reducing output efficiency.',
     recommended_actions: 'Monitor alternator output. Schedule inspection within 30 days.',
-    confidence_score: 65, identified_at: '2024-02-11T07:30:00Z', verified_by: 'Bob Wilson',
+    confidence_score: 65, identified_at: '2024-02-11T07:30:00Z', verified_by: 'Bob Wilson', customer_name: 'Gamma LLC', customer_location: 'Austin, TX',
     status: 'pending', severity: 'info',
     title: 'Electrical Fault Code', asset_name: 'Engine Unit #3', asset_id: 4,
     fault_code: 'EL-800', description: 'ECM reporting a non-critical fault. Alternator output at low end of specification.',
@@ -86,7 +88,7 @@ const MOCK_DIAGNOSTICS: Diagnostic[] = [
     ai_summary: 'Turbocharger boost pressure 40% below nominal. Analysis indicates possible bearing failure or seal leak.',
     probable_cause: 'Turbocharger bearing failure causing reduced boost pressure.',
     recommended_actions: 'Remove and inspect turbocharger. Replace if bearing play exceeds 0.5mm.',
-    confidence_score: 88, identified_at: '2024-02-10T14:15:00Z', verified_by: 'Bob Wilson',
+    confidence_score: 88, identified_at: '2024-02-10T14:15:00Z', verified_by: 'Bob Wilson', customer_name: 'Beta Industries', customer_location: 'San Antonio, TX',
     status: 'failed', severity: 'critical',
     title: 'Turbocharger Boost Loss', asset_name: 'Generator Unit #5', asset_id: 5,
     fault_code: 'T-3301', description: 'Turbocharger boost pressure 40% below nominal. Possible bearing failure or seal leak.',
