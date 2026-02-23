@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; 
 import { technicianApi, Technician } from '@/services/technicianApi';
+// import { stationApi } from '@/services/stationApi';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +34,11 @@ const EXPERTISE_CONFIG = {
 };
 
 const SPEC_ICONS = { Engine: Wrench, Electrical: Zap, General: Settings };
-
+                                                                                                                                                                                                                                                                                                                                                                                                  
+interface Station {
+  id: string;
+  name: string;
+}
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', phone: '', 
   city: '', street_address: '', street_address_2:'', state:'',country:'',postal_code:'',
@@ -47,7 +52,7 @@ export default function TechniciansPage() {
   const navigate = useNavigate();
   const { isRole } = useAuth();
   const { defaultView } = useTheme();
-  const [techs, setTechs] = useState<Technician[]>([]);
+  const [techs, StaffProfilechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterSpec, setFilterSpec] = useState<string>('all');
@@ -62,7 +67,7 @@ export default function TechniciansPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    technicianApi.getAll().then(setTechs).finally(() => setLoading(false));
+    technicianApi.getAll().then(StaffProfilechs).finally(() => setLoading(false));
   }, []);
 
   // const filtered = techs.filter(t => {
@@ -94,12 +99,12 @@ export default function TechniciansPage() {
   });
 
   const [stations, setStations] = useState<{ id: string; name: string }[]>([]);
-  useEffect(() => {
-    fetch('/api/stations/')
-      .then(res => res.json())
-      .then(data => setStations(data))
-      .catch(err => console.error('Failed to fetch stations', err));
-  }, []);
+
+  // useEffect(() => {
+  //   stationApi.getAll()
+  //     .then(setStations)
+  //     .catch(console.error);
+  // }, []);
 
   const handleAdd = async () => {
     if (!form.first_name.trim() || !form.email.trim()) return;
@@ -122,7 +127,7 @@ export default function TechniciansPage() {
         specialization: form.specialization,
         expertise: form.expertise,
       });
-      setTechs(prev => [newTech, ...prev]);
+      StaffProfilechs(prev => [newTech, ...prev]);
       setForm(EMPTY_FORM);
       setAddOpen(false);
       toast({ title: 'Technician added', description: `${fullName} has been registered.` });
@@ -233,8 +238,8 @@ export default function TechniciansPage() {
                   const avail = AVAILABILITY_CONFIG[t.status] ?? AVAILABILITY_CONFIG['Unavailable'];
                   return <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit ${avail.class}`}><span className={`w-1.5 h-1.5 rounded-full ${avail.dot}`} />{avail.label}</span>;
                 }},
-                { label: 'City', key: 'city' },
-                { label: 'Tickets', render: t => <span>{t.active_tickets}</span> },
+                { label: 'Station', key: 'station' },
+                { label: 'Tickets', render: t => <span>{t.active_tickets || 0}</span> },
               ] as Column<Technician>[]}
               data={filtered}
               rowKey={t => t.id}
@@ -429,11 +434,11 @@ export default function TechniciansPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"> 
-                  <Label className="text-xs">City</Label>
+                  <Label className="text-xs">Country</Label>
                   <Input placeholder="New York" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">State</Label>
+                  <Label className="text-xs">Postal / Zip COde</Label>
                   <Input placeholder="+Indiana" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} />
                 </div>
               </div>  
@@ -475,17 +480,15 @@ export default function TechniciansPage() {
                   <SelectItem value="Busy">Busy</SelectItem>
                 </SelectContent>
               </Select>
-              <Select
-                value={form.station || ''}
-                onValueChange={v => setForm(f => ({ ...f, station: v }))}
-              >
-                <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
-                <SelectContent>
-                  {stations.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select value={form.station || ''} onValueChange={v => setForm(f => ({ ...f, station: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Select a Station</SelectItem> {/* optional */}
+                {stations.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             </div>
             <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving}>
               <Plus className="h-4 w-4" /> {saving ? 'Saving...' : 'Add Technician'}

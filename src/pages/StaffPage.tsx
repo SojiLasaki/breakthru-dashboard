@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { usersApi, UserProfile } from '@/services/usersApi';
+// import { usersApi, UserProfile } from '@/services/usersApi';
+import { staffApi, StaffProfile } from '@/services/staffApi';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Input } from '@/components/ui/input';
@@ -9,10 +11,19 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Loader2, Search, User, Mail, Calendar, Shield, ShieldCheck,
-  LayoutGrid, List, X,
+  Loader2, Search, User, Mail, Calendar, Shield, ShieldCheck, Plus,
+  LayoutGrid, List, X, MapPin
 } from 'lucide-react';
 import { DataTable, Column } from '@/components/DataTable';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+
 
 const ROLE_CONFIG: Record<string, { label: string; class: string; dot: string }> = {
   admin:        { label: 'Admin',        class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20', dot: 'bg-amber-400' },
@@ -23,27 +34,42 @@ const STATUS_CONFIG = {
   active:   { label: 'Active',   class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
   inactive: { label: 'Inactive', class: 'text-muted-foreground bg-muted/50 border border-border',    dot: 'bg-muted-foreground' },
 };
+interface Station {
+  id: string;
+  name: string;
+}
+const EMPTY_FORM = {
+  first_name: '', last_name: '', email: '', phone: '', 
+  city: '', street_address: '', street_address_2:'', state:'',country:'',postal_code:'',
+  status: 'Available',
+  station: '' as string
+};
+
 
 export default function StaffPage() {
   const { user, isRole } = useAuth();
   const { defaultView } = useTheme();
-  const [staff, setStaff] = useState<UserProfile[]>([]);
+  const [staff, setStaffs] = useState<StaffProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(defaultView);
-  const [selected, setSelected] = useState<UserProfile | null>(null);
-
+  const [selected, setSelected] = useState<StaffProfile | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
   const isAdmin = isRole('admin');
+  const [saving, setSaving] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const { toast } = useToast();
+
 
   useEffect(() => {
-    usersApi.getAll().then(users => {
+    staffApi.getAll().then(users => {
       // Admins see all staff (admin + office_staff); office_staff see only office_staff
       const staffUsers = users.filter(u => {
-        if (isAdmin) return u.role === 'admin' || u.role === 'office_staff';
-        return u.role === 'office_staff';
+        if (isAdmin) return u.role === 'admin' || u.role === 'office';
+        return u.role === 'office';
       });
-      setStaff(staffUsers);
+      setStaffs(staffUsers);
     }).finally(() => setLoading(false));
   }, [isAdmin]);
 
@@ -58,8 +84,43 @@ export default function StaffPage() {
     return matchSearch && matchRole;
   });
 
-  const activeCount = staff.filter(s => s.is_active).length;
+  const [stations, setStations] = useState<{ id: string; name: string }[]>([]);
+  const activeCount = staff.filter(s => s.status).length;
 
+
+    const handleAdd = async () => {
+      if (!form.first_name.trim() || !form.email.trim()) return;
+      setSaving(true);
+      const fullName = `${form.first_name.trim()} ${form.last_name.trim()}`.trim();
+      try {
+        const newStaff = await staffApi.create({
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          email: form.email.trim(),
+          phone_number: form.phone.trim(),
+          street_address: form.street_address.trim(),
+          street_address_2: form.street_address.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          country: form.country.trim(),
+          postal_code: form.postal_code.trim(),
+          status: form.status,
+          station: form.station,
+        });
+        setStaffs(prev => [newStaff, ...prev]);
+        setForm(EMPTY_FORM);
+        setAddOpen(false);
+        toast({ title: 'Staff added', description: `${fullName} has been registered.` });
+      } catch {
+        toast({ title: 'Error', description: 'Failed to add staff.', variant: 'destructive' });
+      } finally {
+        setSaving(false);
+      }
+    };
+  
+    const getAvatarUrl = (s: StaffProfile) =>
+      s.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((s.first_name ?? '') + ' ' + (s.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`;
+  
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Header */}
@@ -70,6 +131,11 @@ export default function StaffPage() {
             {isAdmin ? 'Admins & Office Staff' : 'Office Staff members'}
           </p>
         </div>
+        {isAdmin && (
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> Add Staff
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -101,7 +167,7 @@ export default function StaffPage() {
           <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-400" />
             <div>
-              <p className="text-lg font-bold">{staff.filter(s => s.role === 'office_staff').length}</p>
+              <p className="text-lg font-bold">{staff.filter(s => s.role === 'office').length}</p>
               <p className="text-xs text-muted-foreground">Office Staff</p>
             </div>
           </div>
@@ -120,7 +186,7 @@ export default function StaffPage() {
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="admin">Admins</SelectItem>
-              <SelectItem value="office_staff">Office Staff</SelectItem>
+              <SelectItem value="office">Office Staff</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -146,31 +212,30 @@ export default function StaffPage() {
               <p className="text-xs text-muted-foreground/60 mt-1">No staff match your current filters.</p>
             </div>
           ) : viewMode === 'table' ? (
-            <DataTable<UserProfile>
-              columns={[
-                {
-                  label: 'Name',
-                  render: (s) => (
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-                        <span className="text-[10px] font-bold text-primary">{s.first_name[0]}{s.last_name[0]}</span>
-                      </div>
-                      <span className="font-medium">{s.first_name} {s.last_name}</span>
-                    </div>
-                  ),
-                },
-                { label: 'Email', key: 'email' },
-                { label: 'Username', key: 'username' },
+            <DataTable<StaffProfile>
+            columns={[
+              { label: 'Name', render: s => (
+                <div className="flex items-center gap-2">
+                  <img src={getAvatarUrl(s)} alt="" className="w-7 h-7 rounded-full object-cover" />
+                  <span className="font-medium">{s.first_name} {s.last_name}</span>
+                </div>
+              )},
+                { label: 'Email', render: (s) => (
+                  <span className="font-medium">{s.email}</span>
+                )},
+                { label: 'Username', render: (s) => (
+                  <span className="font-medium">{s.username}</span>
+                )},
                 { label: 'Role', render: (s) => {
                   const cfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office_staff;
                   return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
                 }},
                 { label: 'Status', render: (s) => {
-                  const cfg = s.is_active ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
+                  const cfg = s.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
                   return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
                 }},
                 { label: 'Joined', render: (s) => <span className="text-muted-foreground">{new Date(s.date_joined).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span> },
-              ] as Column<UserProfile>[]}
+              ] as Column<StaffProfile>[]}
               data={filtered}
               rowKey={(s) => s.id}
               onRowClick={(s) => setSelected(selected?.id === s.id ? null : s)}
@@ -180,7 +245,7 @@ export default function StaffPage() {
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(s => {
                 const roleCfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office_staff;
-                const statusCfg = s.is_active ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
+                const statusCfg = s.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
                 const isActive = selected?.id === s.id;
                 const RoleIcon = s.role === 'admin' ? ShieldCheck : Shield;
                 return (
@@ -247,15 +312,15 @@ export default function StaffPage() {
                   <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/30">
                     <span className="text-xl font-bold text-primary">{selected.first_name[0]}{selected.last_name[0]}</span>
                   </div>
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(selected.is_active ? STATUS_CONFIG.active : STATUS_CONFIG.inactive).dot}`} />
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(selected.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive).dot}`} />
                 </div>
                 <div>
                   <p className="font-bold text-sm">{selected.first_name} {selected.last_name}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">@{selected.username}</p>
                 </div>
                 <div className="flex gap-1.5">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(selected.is_active ? STATUS_CONFIG.active : STATUS_CONFIG.inactive).class}`}>
-                    {selected.is_active ? 'Active' : 'Inactive'}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(selected.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive).class}`}>
+                    {selected.status ? 'Active' : 'Inactive'}
                   </span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${(ROLE_CONFIG[selected.role] ?? ROLE_CONFIG.office_staff).class}`}>
                     {(ROLE_CONFIG[selected.role] ?? ROLE_CONFIG.office_staff).label}
@@ -270,6 +335,7 @@ export default function StaffPage() {
                     { icon: Mail,     value: selected.email },
                     { icon: Calendar, value: `Joined ${new Date(selected.date_joined).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}` },
                     { icon: Calendar, value: `Last login: ${selected.last_login ? new Date(selected.last_login).toLocaleDateString() : 'Never'}` },
+                    { icon: MapPin,     value: selected.station },
                   ].map(({ icon: Icon, value }) => (
                     <div key={value} className="flex items-start gap-2 text-xs text-muted-foreground">
                       <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -284,6 +350,102 @@ export default function StaffPage() {
           </div>
         )}
       </div>
+      {/* Add Staff Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" /> Add New Staff
+            </DialogTitle>
+            <DialogDescription>Fill in the details to register a new staff.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">First Name *</Label>
+                <Input placeholder="John" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Last Name</Label>
+                <Input placeholder="Doe" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email *</Label>
+                  <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Phone Number</Label>
+                  <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Street Address *</Label>
+                <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Street Address 2 *</Label>
+                <Input placeholder="Apt D" value={form.street_address_2} onChange={e => setForm(f => ({ ...f, street_address_2: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"> 
+                  <Label className="text-xs">City</Label>
+                  <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">State</Label>
+                  <Input placeholder="+Indiana" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"> 
+                  <Label className="text-xs">Country</Label>
+                  <Input placeholder="New York" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Postal / Zip COde</Label>
+                  <Input placeholder="+Indiana" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} />
+                </div>
+              </div>  
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Label className="text-xs">Specialization</Label>
+              <Label className="text-xs">Expertise</Label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Label className="text-xs">Status</Label>
+              <Label className="text-xs">Sation</Label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as StaffProfile['status'] }))}>
+                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Available">Available</SelectItem>
+                  <SelectItem value="Unavailable">Unavailable</SelectItem>
+                  <SelectItem value="Busy">Busy</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={form.station || ''} onValueChange={v => setForm(f => ({ ...f, station: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Select a Station</SelectItem> {/* optional */}
+                {stations.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            </div>
+            <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving}>
+              <Plus className="h-4 w-4" /> {saving ? 'Saving...' : 'Add Staff'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

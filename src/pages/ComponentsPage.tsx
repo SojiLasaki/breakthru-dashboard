@@ -26,7 +26,7 @@ const PART_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   discontinued: { label: 'Discontinued', class: 'text-muted-foreground bg-muted/50 border border-border' },
 };
 
-const BLANK_FORM = { name: '', code: '', category: '', engine_model: '', description: '' };
+const BLANK_FORM = { name: '', component_number: '', group: '', description: '' };
 
 export default function ComponentsPage() {
   const { isRole } = useAuth();
@@ -87,7 +87,7 @@ export default function ComponentsPage() {
   };
 
   const handleCreate = async () => {
-    if (!newForm.name.trim() || !newForm.code.trim()) return;
+    if (!newForm.name.trim() || !newForm.component_number.trim()) return;
     setCreating(true);
     try {
       const created = await componentApi.create(newForm);
@@ -106,16 +106,15 @@ export default function ComponentsPage() {
     components.filter(c =>
       !search ||
       c.name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.code?.toLowerCase().includes(search.toLowerCase()) ||
-      c.category?.toLowerCase().includes(search.toLowerCase()) ||
-      c.engine_model?.toLowerCase().includes(search.toLowerCase())
+      c.component_number?.toLowerCase().includes(search.toLowerCase()) ||
+      c.group?.toLowerCase().includes(search.toLowerCase())
     ),
     [components, search]
   );
 
   const columns: Column<Component>[] = [
     {
-      label: 'Component Group',
+      label: 'Component Name',
       render: row => (
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -128,15 +127,15 @@ export default function ComponentsPage() {
         </div>
       ),
     },
-    { label: 'Code',         render: row => <span className="font-mono text-xs text-muted-foreground">{row.code}</span> },
-    { label: 'Category',     render: row => <span className="text-xs text-muted-foreground">{row.category}</span> },
-    { label: 'Engine Model', render: row => <span className="text-xs text-muted-foreground">{row.engine_model}</span> },
+    { label: 'Component Number',         render: row => <span className="font-mono text-xs text-muted-foreground">{row.component_number}</span> },
+    { label: 'Group',     render: row => <span className="text-xs text-muted-foreground">{row.group}</span> },
+    { label: "Quantity Available", render: row => <span className="text-xs text-muted-foreground">{row.quantity_available ?? 0}</span> },
     {
       label: 'Parts',
       render: row => (
         <div className="flex items-center gap-1 text-xs">
           <Package className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{row.part_count ?? 0}</span>
+          <span className="font-medium">{row.parts_count ?? 0}</span>
         </div>
       ),
     },
@@ -173,14 +172,14 @@ export default function ComponentsPage() {
           <p className="text-xs text-muted-foreground">Active</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-2xl font-bold">{components.reduce((s, c) => s + (c.part_count ?? 0), 0)}</p>
+          <p className="text-2xl font-bold">{components.reduce((s, c) => s + (c.quantity_available ?? 0), 0)}</p>
           <p className="text-xs text-muted-foreground">Total Parts</p>
         </div>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, code, category, or engine model..." className="pl-9 bg-card" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, component number, group, or engine model..." className="pl-9 bg-card" />
       </div>
 
       <DataTable
@@ -206,7 +205,7 @@ export default function ComponentsPage() {
                     </div>
                     <div>
                       <SheetTitle className="text-base leading-tight">{selected.name}</SheetTitle>
-                      <p className="text-xs font-mono text-muted-foreground">{selected.code} · {selected.engine_model}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{selected.component_number} · {selected.engine_model}</p>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.active).class}`}>
                         {(STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.active).label}
                       </span>
@@ -230,12 +229,12 @@ export default function ComponentsPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Code</Label>
-                        <Input value={editForm.code ?? selected.code} onChange={e => setEditForm(f => ({ ...f, code: e.target.value }))} className="bg-background" />
+                        <Label className="text-xs">Component Number</Label>
+                        <Input value={editForm.component_number ?? selected.component_number} onChange={e => setEditForm(f => ({ ...f, component_number: e.target.value }))} className="bg-background" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Category</Label>
-                        <Input value={editForm.category ?? selected.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+                        <Label className="text-xs">group</Label>
+                        <Input value={editForm.group ?? selected.group} onChange={e => setEditForm(f => ({ ...f, group: e.target.value }))} className="bg-background" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -271,8 +270,8 @@ export default function ComponentsPage() {
                   <>
                     <div className="space-y-3">
                       {[
-                        { icon: Tag,      label: 'Code',         value: selected.code },
-                        { icon: Layers,   label: 'Category',     value: selected.category },
+                        { icon: Tag,      label: 'component_number',         value: selected.component_number },
+                        { icon: Layers,   label: 'group',     value: selected.group },
                         { icon: Package,  label: 'Engine Model', value: selected.engine_model },
                         { icon: Calendar, label: 'Created',      value: selected.created_at ? new Date(selected.created_at).toLocaleDateString() : '—' },
                       ].map(({ icon: Icon, label, value }) => (
@@ -338,14 +337,14 @@ export default function ComponentsPage() {
                 <Input placeholder="Fuel Injection System" value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Code *</Label>
-                <Input placeholder="FIS-6700" value={newForm.code} onChange={e => setNewForm(f => ({ ...f, code: e.target.value }))} className="bg-background" />
+                <Label className="text-xs">component_number *</Label>
+                <Input placeholder="FIS-6700" value={newForm.component_number} onChange={e => setNewForm(f => ({ ...f, component_number: e.target.value }))} className="bg-background" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Category</Label>
-                <Input placeholder="Fuel System" value={newForm.category} onChange={e => setNewForm(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+                <Label className="text-xs">group</Label>
+                <Input placeholder="Fuel System" value={newForm.group} onChange={e => setNewForm(f => ({ ...f, group: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Engine Model</Label>
@@ -358,7 +357,7 @@ export default function ComponentsPage() {
             </div>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newForm.name.trim() || !newForm.code.trim()}>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleCreate} disabled={creating || !newForm.name.trim() || !newForm.component_number.trim()}>
                 {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                 Add Component
               </Button>

@@ -84,7 +84,7 @@ export default function TechnicianProfilePage() {
   const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['mid'];
   const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
 
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  const completedTasks = tasks.filter(t => t.status === 'completed' || "complete");
   const totalHours     = tasks.reduce((sum, t) => sum + t.duration_hours, 0);
   const urgentCount    = tasks.filter(t => t.priority === 'urgent' || t.priority === 'high').length;
 
@@ -159,8 +159,8 @@ export default function TechnicianProfilePage() {
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <MapPin className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <span>{tech.station}</span>
-                  <span>{tech.street_address} {tech.street_address_2} {tech.city} {tech.state} {tech.country} {tech.postal_code}</span>
+                  <span>{tech.station_name}</span>
+                  <span>{tech.station.street_address} {tech.station.street_address_2} {tech.station.city} {tech.station.state} {tech.station.country} {tech.station.postal_code}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
