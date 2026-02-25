@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Label } from '@/components/ui/label';
 
 const SEVERITY_CONFIG = {
-  Low:     { label: 'Info',     class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',       dot: 'bg-blue-400',     icon: Activity },
+  Low:     { label: 'Low',     class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',       dot: 'bg-blue-400',     icon: Activity },
   Medium:  { label: 'Warning',  class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400',   icon: AlertTriangle },
   Critical: { label: 'Critical', class: 'text-primary bg-primary/10 border border-primary/20',          dot: 'bg-primary',      icon: Zap },
 };
@@ -174,7 +174,7 @@ export default function DiagnosticsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                {['Specialization', 'Expertise Req.', 'Customer', 'Location', 'Probable Cause', 'Confidence', 'Severity', 'Status', 'Verified By', 'Identified', ''].map(h => (
+                {['Title', 'Specialization', 'Expertise Req.', 'Customer', 'Location', 'Probable Cause', 'Confidence', 'Severity', 'Status', 'Verified By', 'Identified', ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -195,6 +195,7 @@ export default function DiagnosticsPage() {
                     onClick={() => setSelected(d)}
                   >
                     {/* <td className="px-4 py-3 font-mono text-xs text-primary font-medium">{d.ticket_id}</td> */}
+                    <td className="px-4 py-3 text-xs font-medium">{d.title}</td>
                     <td className="px-4 py-3 text-xs font-medium">{d.specialization}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{d.expertise_requirement}</td>
                     <td className="px-4 py-3 text-xs font-medium">{d.company_name}</td>

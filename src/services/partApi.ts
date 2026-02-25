@@ -1,39 +1,105 @@
 import { api } from './apiClient';
 
 export interface Part {
-  id: number;
+  id: string;
   part_number: string;
   name: string;
-  component_id?: number;
-  component_name?: string;
-  components: string;
+  components_id: string[];
+  components_name: string[];
+  // componentss: string;
   category: string;
   cost_price: number;
   resale_price: number;
   weight_kg: number;
-  compatibility: string;
-  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'discontinued';
+  // compatibility: string;
+  status: string;
   quantity_available: number;
+  description: string;
   reorder_threshold: number;
+  inventory_deducted: boolean;
+  created_at: string;
   supplier: string;
-  last_ordered?: string;
+  last_ordered?: string; 
 }
 
 const MOCK_PARTS: Part[] = [
-  { id: 1,  part_number: 'FI-4021-A', name: 'Fuel Injector 6.7L',          component_id: 1, component_name: 'Fuel Injection System',     components: 'Fuel Injection System', category: 'Fuel System',   cost_price: 185.00, resale_price: 245.00, weight_kg: 0.4, compatibility: 'ISB6.7',   status: 'in_stock',      quantity_available: 12, reorder_threshold: 5,  supplier: 'Cummins Direct', last_ordered: '2025-01-10' },
-  { id: 2,  part_number: 'FI-4022-B', name: 'Injection Pump High-Press',    component_id: 1, component_name: 'Fuel Injection System',     components: 'Fuel Injection System', category: 'Fuel System',   cost_price: 640.00, resale_price: 890.00, weight_kg: 2.1, compatibility: 'ISB6.7',   status: 'in_stock',      quantity_available: 4,  reorder_threshold: 2,  supplier: 'Bosch',          last_ordered: '2025-01-05' },
-  { id: 3,  part_number: 'FI-4023-C', name: 'Fuel Rail Assembly',           component_id: 1, component_name: 'Fuel Injection System',     components: 'Fuel Injection System', category: 'Fuel System',   cost_price: 230.00, resale_price: 320.00, weight_kg: 1.2, compatibility: 'ISB6.7',   status: 'low_stock',     quantity_available: 2,  reorder_threshold: 3,  supplier: 'Bosch',          last_ordered: '2024-12-20' },
-  { id: 4,  part_number: 'EC-0881-A', name: 'Thermostat 82°C',              component_id: 2, component_name: 'Engine Cooling Assembly',   components: 'Engine Cooling Assembly', category: 'Cooling',       cost_price: 55.00,  resale_price: 89.00,  weight_kg: 0.3, compatibility: 'ISX15',    status: 'in_stock',      quantity_available: 8,  reorder_threshold: 4,  supplier: 'Cummins Direct', last_ordered: '2025-01-15' },
-  { id: 5,  part_number: 'EC-0882-B', name: 'Coolant Hose Kit',             component_id: 2, component_name: 'Engine Cooling Assembly',   components: 'Engine Cooling Assembly', category: 'Cooling',       cost_price: 40.00,  resale_price: 65.00,  weight_kg: 0.8, compatibility: 'ISX15',    status: 'low_stock',     quantity_available: 1,  reorder_threshold: 5,  supplier: 'OEM Parts Co',   last_ordered: '2024-12-01' },
-  { id: 6,  part_number: 'EC-0883-C', name: 'Water Pump Assembly',          component_id: 2, component_name: 'Engine Cooling Assembly',   components: 'Engine Cooling Assembly', category: 'Cooling',       cost_price: 145.00, resale_price: 210.00, weight_kg: 1.5, compatibility: 'ISX15',    status: 'in_stock',      quantity_available: 6,  reorder_threshold: 3,  supplier: 'Cummins Direct', last_ordered: '2025-01-08' },
-  { id: 7,  part_number: 'EL-5501-A', name: 'Alternator 24V 120A',          component_id: 3, component_name: 'Electrical Control Module', components: 'Electrical Control Module', category: 'Electrical',    cost_price: 370.00, resale_price: 520.00, weight_kg: 4.2, compatibility: 'All',      status: 'in_stock',      quantity_available: 5,  reorder_threshold: 2,  supplier: 'Delco Remy',     last_ordered: '2025-01-12' },
-  { id: 8,  part_number: 'EL-5502-B', name: 'ECM Control Unit',             component_id: 3, component_name: 'Electrical Control Module', components: 'Electrical Control Module', category: 'Electrical',    cost_price: 900.00, resale_price: 1250.00,weight_kg: 1.0, compatibility: 'ISX15',    status: 'in_stock',      quantity_available: 2,  reorder_threshold: 1,  supplier: 'Cummins Direct', last_ordered: '2024-11-30' },
-  { id: 9,  part_number: 'LU-1101-A', name: 'Oil Filter Assembly',          component_id: 4, component_name: 'Lubrication System Group', components: 'Lubrication System Group', category: 'Lubrication',   cost_price: 18.00,  resale_price: 28.50,  weight_kg: 0.5, compatibility: 'QSK60',    status: 'low_stock',     quantity_available: 3,  reorder_threshold: 10, supplier: 'OEM Parts Co',   last_ordered: '2025-01-18' },
-  { id: 10, part_number: 'LU-1102-B', name: 'Oil Pressure Regulator',       component_id: 4, component_name: 'Lubrication System Group', components: 'Lubrication System Group', category: 'Lubrication',   cost_price: 95.00,  resale_price: 145.00, weight_kg: 0.6, compatibility: 'QSK60',    status: 'in_stock',      quantity_available: 7,  reorder_threshold: 3,  supplier: 'Cummins Direct', last_ordered: '2025-01-02' },
-  { id: 11, part_number: 'DB-3301-A', name: 'Serpentine Belt',              component_id: 6, component_name: 'Drive Belt System',        components: 'Drive Belt System', category: 'Drive System',  cost_price: 28.00,  resale_price: 45.00,  weight_kg: 0.4, compatibility: 'All',      status: 'in_stock',      quantity_available: 15, reorder_threshold: 5,  supplier: 'Gates Rubber',   last_ordered: '2025-01-20' },
-  { id: 12, part_number: 'DB-3302-B', name: 'Belt Tensioner Pulley',        component_id: 6, component_name: 'Drive Belt System',        components: 'Drive Belt System', category: 'Drive System',  cost_price: 55.00,  resale_price: 85.00,  weight_kg: 0.7, compatibility: 'All',      status: 'out_of_stock',  quantity_available: 0,  reorder_threshold: 3,  supplier: 'Gates Rubber',   last_ordered: '2024-10-15' },
+  {
+    id: "dd085319-2df2-431c-a33c-8e1453447095",
+    part_number: "PRT1001",
+    name: "VGT Turbocharger",
+    description: "Highly reliable and precise design for rapid acceleration",
+    quantity_available: 5,
+    reorder_threshold: 1,
+    category: "other",
+    weight_kg: null,
+    cost_price: null,
+    resale_price: null,
+    status: "in_stock",
+    supplier: "Top Tower Technologies",
+    inventory_deducted: false,
+    created_at: "2026-02-19T23:31:33.758967Z",
+    components_id: ["11111111-aaaa-bbbb-cccc-000000000001"],
+    components_name: ["X15 Efficiency Series (2024)"],
+    last_ordered: "2026-02-24T14:30:00Z",
+  },
+  {
+    id: "aa105319-2df2-431c-a33c-8e1453447001",
+    part_number: "PRT1002",
+    name: "Fuel Injector 6.7L",
+    description: "Precision injector for ISB 6.7 engine platform",
+    quantity_available: 12,
+    reorder_threshold: 5,
+    category: "fuel_system",
+    weight_kg: 0.4,
+    cost_price: 185.0,
+    resale_price: 245.0,
+    status: "in_stock",
+    supplier: "Cummins Direct",
+    inventory_deducted: false,
+    created_at: "2026-02-20T10:12:11.000000Z",
+    components_id: ["22222222-aaaa-bbbb-cccc-000000000002"],
+    components_name: ["Fuel Injection System"],
+    last_ordered: "2026-02-24T14:30:00Z",
+  },
+  {
+    id: "bb205319-2df2-431c-a33c-8e1453447002",
+    part_number: "PRT1003",
+    name: "Water Pump Assembly",
+    description: "Heavy-duty cooling system water pump",
+    quantity_available: 2,
+    reorder_threshold: 3,
+    category: "cooling",
+    weight_kg: 1.5,
+    cost_price: 145.0,
+    resale_price: 210.0,
+    status: "low_stock",
+    supplier: "Cummins Direct",
+    inventory_deducted: false,
+    created_at: "2026-02-18T08:20:45.000000Z",
+    components_id: ["33333333-aaaa-bbbb-cccc-000000000003"],
+    components_name: ["Engine Cooling Assembly"],
+    last_ordered: "2026-02-24T14:30:00Z",
+  },
+  {
+    id: "cc305319-2df2-431c-a33c-8e1453447003",
+    part_number: "PRT1004",
+    name: "Alternator 24V 120A",
+    description: "High-output alternator for heavy-duty engines",
+    quantity_available: 0,
+    reorder_threshold: 2,
+    category: "electrical",
+    weight_kg: 4.2,
+    cost_price: 370.0,
+    resale_price: 520.0,
+    status: "out_of_stock",
+    supplier: "Delco Remy",
+    inventory_deducted: false,
+    created_at: "2026-02-15T14:55:00.000000Z",
+    components_id: ["44444444-aaaa-bbbb-cccc-000000000004"],
+    components_name: ["Electrical Control Module"],
+    last_ordered: "2026-02-24T14:30:00Z",
+  },
 ];
-
 let mockParts = [...MOCK_PARTS];
 
 export const partApi = {
@@ -45,7 +111,7 @@ export const partApi = {
       return mockParts;
     }
   },
-  getById: async (id: number): Promise<Part> => {
+  getById: async (id: string): Promise<Part> => {
     try {
       const { data } = await api.get(`/parts/${id}/`);
       return data;
@@ -55,16 +121,16 @@ export const partApi = {
       return p;
     }
   },
-  getByComponent: async (componentId: number): Promise<Part[]> => {
+  getBycomponents: async (componentsId: string): Promise<Part[]> => {
     try {
-      const { data } = await api.get(`/parts/?component=${componentId}`);
+      const { data } = await api.get(`/parts/?components=${componentsId}`);
       return data.results || data;
     } 
     catch {
-      return mockParts.filter(p => p.components.includes(componentId.toString()));
+      return mockParts.filter(p => p.components_id.includes(componentsId.toString()));
     }
     // catch {
-    //   return mockParts.filter(p => p.components.includes(componentId));    }
+    //   return mockParts.filter(p => p.componentss.includes(componentsId));    }
   },
   create: async (payload: Partial<Part>): Promise<Part> => {
     try {
@@ -72,27 +138,31 @@ export const partApi = {
       return data;
     } catch {
       const newPart: Part = {
-        id: Date.now(),
+        id: Date.now().toString(),
         part_number: payload.part_number ?? '',
         name: payload.name ?? '',
-        // component_id: payload.component_id ?? 0,
-        components: payload.components ?? '',
+        description: payload.description ?? '',
+        components_id: payload.components_id ?? [],
+        components_name: payload.components_name ?? [],
+        // componentss: payload.componentss ?? '',
         category: payload.category ?? '',
         cost_price: payload.cost_price ?? 0,
         resale_price: payload.resale_price ?? 0,
         weight_kg: payload.weight_kg ?? 0,
-        compatibility: payload.compatibility ?? '',
+        // compatibility: payload.compatibility ?? '',
         status: 'in_stock',
+        inventory_deducted: false,
         quantity_available: payload.quantity_available ?? 0,
         reorder_threshold: payload.reorder_threshold ?? 0,
         supplier: payload.supplier ?? '',
+        created_at: new Date().toISOString(),
         last_ordered: payload.last_ordered,
       };
       mockParts = [newPart, ...mockParts];
       return newPart;
     }
   },
-  update: async (id: number, payload: Partial<Part>): Promise<Part> => {
+  update: async (id: string, payload: Partial<Part>): Promise<Part> => {
     try {
       const { data } = await api.patch(`/parts/${id}/`, payload);
       return data;

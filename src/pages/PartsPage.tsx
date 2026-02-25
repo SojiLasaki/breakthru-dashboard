@@ -35,9 +35,9 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; class: string; icon: 
 };
 
 const BLANK_FORM: Partial<Part> = {
-  name: '', part_number: '', component_id: 0, component_name: '', components: '', category: '',
-  cost_price: 0, resale_price: 0, weight_kg: 0, compatibility: '', supplier: '',
-  quantity_available: 0, reorder_threshold: 5, last_ordered: '',
+  name: '', part_number: '', components_id: [], components_name: [], category: '',
+  cost_price: 0, resale_price: 0, weight_kg: 0, supplier: '',
+  quantity_available: 0, reorder_threshold: 5,  last_ordered: '',
 };
 
 const BLANK_ORDER = { item_name: '', quantity: 1, unit_price: 0, assigned_ticket: '', notes: '' };
@@ -46,9 +46,9 @@ export default function PartsPage() {
   const { isRole, user } = useAuth();
   const { toast } = useToast();
   const [parts, setParts] = useState<Part[]>([]);
-  const [components, setComponents] = useState<Component[]>([]);
+  const [components_id, setcomponents_id] = useState<Component[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [manualComponents, setManualComponents] = useState<string[]>([]);
+  const [manualcomponents_id, setManualcomponents_id] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [componentFilter, setComponentFilter] = useState('all');
@@ -69,12 +69,12 @@ export default function PartsPage() {
   useEffect(() => {
     Promise.all([
       partApi.getAll().then(data => setParts(Array.isArray(data) ? data : [])).catch(() => setParts([])),
-      componentApi.getAll().then(data => setComponents(Array.isArray(data) ? data : [])).catch(() => setComponents([])),
+      componentApi.getAll().then(data => setcomponents_id(Array.isArray(data) ? data : [])).catch(() => setcomponents_id([])),
       orderApi.getAll().then(data => setOrders(Array.isArray(data) ? data : [])).catch(() => setOrders([])),
       manualApi.getAll().then(manuals => {
-        const allComponents = new Set<string>();
-        manuals.forEach(m => m.component?.forEach(c => allComponents.add(c.name)));
-        setManualComponents(Array.from(allComponents).sort());
+        const allcomponents_id = new Set<string>();
+        manuals.forEach(m => m.component?.forEach(c => allcomponents_id.add(c.name)));
+        setManualcomponents_id(Array.from(allcomponents_id).sort());
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
@@ -84,7 +84,7 @@ export default function PartsPage() {
       const matchSearch = !search ||
         p.name?.toLowerCase().includes(search.toLowerCase()) ||
         p.part_number?.toLowerCase().includes(search.toLowerCase());
-      const matchComp = componentFilter === 'all' || p.component_id === Number(componentFilter) || p.components?.includes(componentFilter);
+        const matchComp = componentFilter === 'all' || p.components_id === componentFilter;
       const matchStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchSearch && matchComp && matchStatus;
     }),
@@ -96,7 +96,7 @@ export default function PartsPage() {
     setEditing(false);
     setEditForm({
       name: p.name, part_number: p.part_number, category: p.category,
-      supplier: p.supplier, compatibility: p.compatibility, status: p.status,
+      supplier: p.supplier, status: p.status,
       quantity_available: p.quantity_available, reorder_threshold: p.reorder_threshold,
       cost_price: p.cost_price, resale_price: p.resale_price,
       last_ordered: p.last_ordered ?? '',
@@ -120,23 +120,57 @@ export default function PartsPage() {
     }
   };
 
-  const handleCreate = async () => {
-    if (!newForm.name?.trim() || !newForm.part_number?.trim()) return;
-    setCreating(true);
-    try {
-      const comp = components.find(c => c.id === newForm.component_id);
-      const created = await partApi.create({ ...newForm, component_name: comp?.name ?? newForm.component_name ?? '' });
-      setParts(prev => [created, ...prev]);
-      setAddOpen(false);
-      setNewForm({ ...BLANK_FORM });
-      toast({ title: 'Part added', description: `${created.name} has been registered.` });
-    } catch {
-      toast({ title: 'Error', description: 'Failed to add part.', variant: 'destructive' });
-    } finally {
-      setCreating(false);
-    }
-  };
+  // const handleCreate = async () => {
+  //   if (!newForm.name?.trim() || !newForm.part_number?.trim()) return;
+  //   setCreating(true);
+  //   try {
+  //     const comp = components_id.find(c => c.id === newForm.components_id);
+  //     const created = await partApi.create({ ...newForm, components_name: comp?.name ?? newForm.components_name ?? [] });
+  //     setParts(prev => [created, ...prev]);
+  //     setAddOpen(false);
+  //     setNewForm({ ...BLANK_FORM });
+  //     toast({ title: 'Part added', description: `${created.name} has been registered.` });
+  //   } catch {
+  //     toast({ title: 'Error', description: 'Failed to add part.', variant: 'destructive' });
+  //   } finally {
+  //     setCreating(false);
+  //   }
+  // };
+    const handleCreate = async () => {
+      if (!newForm.name?.trim() || !newForm.part_number?.trim()) return;
+      setCreating(true);
+      try {
+        // Find the selected component object by ID
+        const comp = components_id.find(c => c.id === newForm.components_id);
+    
+        // Ensure components_id and components_name are arrays
+        // const created = await partApi.create({
+        //   ...newForm,
+        //   components_id: comp ? [comp.id] : [],
+        //   components_name: comp ? [comp.name] : [],
+        // });
+        const selectedComponents = components_id.filter(c => 
+          newForm.components_id?.includes(c.id)
+        );
 
+        setParts(prev => [created, ...prev]);
+        setAddOpen(false);
+        setNewForm({ ...BLANK_FORM });
+    
+        toast({
+          title: 'Part added',
+          description: `${created.name} has been registered.`,
+        });
+      } catch {
+        toast({
+          title: 'Error',
+          description: 'Failed to add part.',
+          variant: 'destructive',
+        });
+      } finally {
+        setCreating(false);
+      }
+  };
   const handleOrder = async () => {
     if (!orderForm.item_name.trim() || orderForm.quantity < 1) return;
     setOrdering(true);
@@ -301,10 +335,10 @@ export default function PartsPage() {
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search parts..." className="pl-9 bg-card" />
             </div>
             <Select value={componentFilter} onValueChange={setComponentFilter}>
-              <SelectTrigger className="w-52 bg-card"><SelectValue placeholder="All Components" /></SelectTrigger>
+              <SelectTrigger className="w-52 bg-card"><SelectValue placeholder="All components_id" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Components</SelectItem>
-                {components.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                <SelectItem value="all">All components_id</SelectItem>
+                {components_id?.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -479,7 +513,7 @@ export default function PartsPage() {
                   <div className="space-y-3">
                     {[
                       { icon: Hash,         label: 'Part Number',       value: selected.part_number },
-                      { icon: Tag,          label: 'Component Group',   value: selected.components },
+                      { icon: Tag,          label: 'Component Group',   value: selected.components_id },
                       { icon: Building2,    label: 'Supplier',          value: selected.supplier },
                       { icon: CalendarDays, label: 'Last Ordered',      value: selected.last_ordered ? new Date(selected.last_ordered).toLocaleDateString() : '—' },
                       { icon: DollarSign,   label: 'Cost',              value: `$${Number(selected.cost_price).toFixed(2)}` },
@@ -541,24 +575,35 @@ export default function PartsPage() {
             <div className="space-y-1.5">
               <Label className="text-xs">Component Group <span className="text-muted-foreground">(from manuals)</span></Label>
               <Select
-                value={newForm.component_name ? String(newForm.component_name) : newForm.component_name || 'none'}
-                onValueChange={v => {
-                  if (v === 'none') { setNewForm(f => ({ ...f, component_id: 0, component_name: '' })); return; }
-                  const comp = components.find(c => c.id === Number(v));
+                value={newForm.components_id || 'none'}
+                onValueChange={(v) => {
+                  if (v === 'none') {
+                    setNewForm(f => ({
+                      ...f,
+                      components_id: '',
+                      components_name: '',
+                    }));
+                    return;
+                  }
+
+                  const comp = components_id.find(c => c.id === v);
+
                   if (comp) {
-                    setNewForm(f => ({ ...f, component_id: comp.id, component_name: comp.name }));
-                  } else {
-                    setNewForm(f => ({ ...f, component_id: 0, component_name: v }));
+                    setNewForm(f => ({
+                      ...f,
+                      components_id: comp.id,       // string
+                      components_name: comp.name,
+                    }));
                   }
                 }}
-              >
+>
                 <SelectTrigger className="bg-background"><SelectValue placeholder="Select component…" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No component</SelectItem>
-                  {components.length > 0 && components.map(c => (
+                  {components_id.length > 0 && components_id.map(c => (
                     <SelectItem key={`comp-${c.id}`} value={String(c.id)}>{c.name}</SelectItem>
                   ))}
-                  {manualComponents.filter(mc => !components.some(c => c.name.toLowerCase() === mc.toLowerCase())).map(mc => (
+                  {manualcomponents_id.filter(mc => !components_id.some(c => c.name.toLowerCase() === mc.toLowerCase())).map(mc => (
                     <SelectItem key={`manual-${mc}`} value={mc}>{mc}</SelectItem>
                   ))}
                 </SelectContent>
