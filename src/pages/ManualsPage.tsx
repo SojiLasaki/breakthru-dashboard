@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   Loader2, Search, BookOpen, Download, Plus, X,
   ArrowLeft, Tag, Cpu, User, CalendarDays, FileText, Paperclip, FileCheck,
-  Package, Image as ImageIcon, Archive, HardDrive,
+  Package, Image as ImageIcon, Archive, HardDrive, Hammer, WrenchIcon, Settings2,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -35,10 +35,19 @@ function TagChip({ label, className = '' }: { label: string; className?: string 
   );
 }
 
-// Helper to get author display name from created_by profile
 function authorName(manual: Manual): string {
   if (!manual.created_by) return '—';
   return `${manual.created_by.first_name} ${manual.created_by.last_name}`.trim() || manual.created_by.username;
+}
+
+// Build action payload from manual
+function buildActionPayload(manual: Manual) {
+  return {
+    component_name: manual.component.length > 0 ? manual.component[0].name : '',
+    component_id: manual.component.length > 0 ? String(manual.component[0].id) : '',
+    part_name: manual.parts_needed.length > 0 ? manual.parts_needed[0].name : '',
+    part_id: manual.parts_needed.length > 0 ? String(manual.parts_needed[0].id) : '',
+  };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -49,7 +58,8 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
   const { toast } = useToast();
   const hasPdf = !!manual.file;
   const colorClass = CATEGORY_COLORS[manual.category] || 'text-muted-foreground bg-muted/50 border-border';
-  const [activeTab, setActiveTab] = useState<'content' | 'pdf'>(hasPdf ? 'pdf' : 'content');
+  const [activeTab, setActiveTab] = useState<'content' | 'pdf'>('content');
+  const [showPdf, setShowPdf] = useState(false);
   const [pdfFullscreen, setPdfFullscreen] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
 
@@ -99,6 +109,14 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
     }
   };
 
+  const handleAction = (action: string) => {
+    const payload = buildActionPayload(manual);
+    console.log(`[Manual Action] ${action}:`, payload);
+    toast({ title: `${action} initiated`, description: `Sending ${action.toLowerCase()} request for ${payload.component_name || manual.title}` });
+    // In production, send to external app:
+    // fetch('https://external-app.example.com/api/actions', { method: 'POST', body: JSON.stringify({ action, ...payload }) });
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* ── Top Bar ── */}
@@ -112,14 +130,21 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
             <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
             <span className="text-sm font-medium truncate">{manual.title}</span>
             <span className="text-xs text-muted-foreground flex-shrink-0">{manual.version}</span>
-            {hasPdf && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-primary/10 text-primary border-primary/30 flex-shrink-0">
-                <FileCheck className="h-2.5 w-2.5" /> PDF Available
-              </span>
-            )}
           </div>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-blue-400/30 text-blue-400 hover:bg-blue-400/10" onClick={() => handleAction('Assembly')}>
+              <Hammer className="h-3.5 w-3.5" /> Assembly
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-orange-400/30 text-orange-400 hover:bg-orange-400/10" onClick={() => handleAction('Disassembly')}>
+              <WrenchIcon className="h-3.5 w-3.5" /> Disassembly
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-green-400/30 text-green-400 hover:bg-green-400/10" onClick={() => handleAction('Maintenance')}>
+              <Settings2 className="h-3.5 w-3.5" /> Maintenance
+            </Button>
+          </div>
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* ZIP Download */}
             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadZip} disabled={downloadingZip}>
               {downloadingZip ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
               Download ZIP
@@ -140,20 +165,16 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
         {/* ── Left Info Panel ── */}
         {!pdfFullscreen && (
           <div className="w-72 border-r border-border bg-card flex-shrink-0 overflow-y-auto p-4 space-y-4 hidden lg:block">
+            {/* Show PDF button */}
             {hasPdf && (
-              <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
-                {(['pdf', 'content'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 text-[10px] py-1 rounded-md capitalize font-medium transition-colors ${
-                      activeTab === tab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {tab === 'pdf' ? 'PDF' : 'Content'}
-                  </button>
-                ))}
-              </div>
+              <Button
+                size="sm"
+                className="w-full gap-2 bg-primary hover:bg-primary/90"
+                onClick={() => setShowPdf(v => !v)}
+              >
+                <FileCheck className="h-3.5 w-3.5" />
+                {showPdf ? 'Hide PDF' : 'Show PDF'}
+              </Button>
             )}
 
             {/* Meta info */}
@@ -252,7 +273,7 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
 
         {/* ── Main Content Area ── */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto">
-          {activeTab === 'pdf' && hasPdf ? (
+          {showPdf && hasPdf ? (
             <div className="flex-1 p-4 lg:p-6 flex flex-col gap-4 bg-muted/10 min-h-0">
               {!pdfFullscreen && (
                 <div className="flex flex-wrap items-center gap-2">
@@ -293,6 +314,19 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
                         {manual.created_at ? new Date(manual.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                       </p>
                     </div>
+                  </div>
+
+                  {/* Mobile action buttons */}
+                  <div className="lg:hidden mb-6 flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-blue-400/30 text-blue-400" onClick={() => handleAction('Assembly')}>
+                      <Hammer className="h-3 w-3" /> Assembly
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-orange-400/30 text-orange-400" onClick={() => handleAction('Disassembly')}>
+                      <WrenchIcon className="h-3 w-3" /> Disassembly
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-green-400/30 text-green-400" onClick={() => handleAction('Maintenance')}>
+                      <Settings2 className="h-3 w-3" /> Maintenance
+                    </Button>
                   </div>
 
                   {/* Chips row */}
@@ -375,6 +409,11 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
                   <div className="text-center max-w-md">
                     <h2 className="text-lg font-semibold mb-2">{manual.title}</h2>
                     <p className="text-sm text-muted-foreground leading-relaxed mb-4">{manual.description}</p>
+                    {hasPdf && (
+                      <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => setShowPdf(true)}>
+                        <FileCheck className="h-3.5 w-3.5" /> Open PDF Viewer
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -561,7 +600,7 @@ export default function ManualsPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewingManual, setViewingManual] = useState<Manual | null>(null);
 
-  const canCreate = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
+  const canCreate = user && ['admin', 'office_staff'].includes(user.role);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -591,7 +630,6 @@ export default function ManualsPage() {
     return () => { cancelled = true; };
   }, [debouncedSearch]);
 
-  // Derived filter options
   const categories = useMemo(() => ['All', ...Array.from(new Set(manuals.map(m => m.category)))], [manuals]);
   const components = useMemo(() => {
     const names = new Set<string>();
@@ -626,15 +664,12 @@ export default function ManualsPage() {
         )}
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search manuals by title, category, or description…" className="pl-9 bg-card" />
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-4">
-        {/* Category chips */}
         <div className="flex flex-wrap gap-1.5">
           {categories.map(cat => (
             <button key={cat} onClick={() => setCategoryFilter(cat)}
@@ -644,7 +679,6 @@ export default function ManualsPage() {
           ))}
         </div>
 
-        {/* Component filter */}
         {components.length > 1 && (
           <Select value={componentFilter} onValueChange={setComponentFilter}>
             <SelectTrigger className="w-[180px] h-8 text-xs bg-card">
@@ -657,7 +691,6 @@ export default function ManualsPage() {
           </Select>
         )}
 
-        {/* Tag filter */}
         {tagNames.length > 1 && (
           <Select value={tagFilter} onValueChange={setTagFilter}>
             <SelectTrigger className="w-[160px] h-8 text-xs bg-card">
@@ -706,7 +739,6 @@ export default function ManualsPage() {
                     </div>
                   </div>
 
-                  {/* Category / version chips */}
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${colorClass}`}>{manual.category}</span>
                     <span className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full border border-border">{manual.version}</span>
@@ -717,7 +749,6 @@ export default function ManualsPage() {
                     ) : null}
                   </div>
 
-                  {/* Components */}
                   {manual.component.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {manual.component.slice(0, 2).map(c => (
@@ -729,11 +760,10 @@ export default function ManualsPage() {
                     </div>
                   )}
 
-                  {/* Tags */}
                   {manual.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {manual.tags.slice(0, 3).map(t => (
-                        <span key={t.id} className="text-[9px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-border/50">#{t.name}</span>
+                        <span key={t.id} className="text-[9px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded border border-border">#{t.name}</span>
                       ))}
                       {manual.tags.length > 3 && (
                         <span className="text-[9px] text-muted-foreground">+{manual.tags.length - 3}</span>
@@ -741,13 +771,9 @@ export default function ManualsPage() {
                     </div>
                   )}
 
-                  {/* Footer */}
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                    <div className="flex items-center gap-1.5">
-                      <User className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{authorName(manual)}</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{new Date(manual.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Updated: {new Date(manual.updated_at).toLocaleDateString()}</span>
+                    <span>{authorName(manual)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -756,11 +782,7 @@ export default function ManualsPage() {
         </div>
       )}
 
-      <AddManualDialog
-        open={showForm}
-        onOpenChange={setShowForm}
-        onCreated={m => setManuals(prev => [m, ...prev])}
-      />
+      <AddManualDialog open={showForm} onOpenChange={setShowForm} onCreated={m => setManuals(prev => [m, ...prev])} />
     </div>
   );
 }
