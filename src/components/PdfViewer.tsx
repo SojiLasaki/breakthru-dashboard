@@ -73,7 +73,7 @@ export default function PdfViewer({ url, title, version, onFullscreenChange, cla
       try {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
 
         const loadingTask = pdfjsLib.getDocument(url);
         const pdf = await loadingTask.promise;
