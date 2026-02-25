@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Ticket, Users, BookOpen, X, Bot,
   User, Wrench, FileText, ChevronDown, ChevronRight,
   Activity, Cpu, Sparkles, ShoppingCart, ArrowLeftRight,
-  Settings, HeadphonesIcon, Package,
+  Settings, HeadphonesIcon, Package, CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,6 +45,7 @@ const ADMIN_NAV: NavGroup[] = [
       { to: '/staff',        label: 'Staff',        icon: Users },
       { to: '/orders',       label: 'Orders',       icon: ShoppingCart },
       { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
+      { to: '/schedules',    label: 'Schedules',    icon: CalendarDays },
     ],
   },
   {
@@ -88,6 +89,7 @@ const STAFF_NAV: NavGroup[] = [
       { to: '/staff',        label: 'Staff',        icon: Users },
       { to: '/orders',       label: 'Orders',       icon: ShoppingCart },
       { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
+      { to: '/schedules',    label: 'Schedules',    icon: CalendarDays },
     ],
   },
   {
@@ -119,9 +121,10 @@ const TECHNICIAN_NAV: NavGroup[] = [
   {
     label: 'My Work',
     items: [
-      { to: '/',       label: 'Dashboard',  icon: LayoutDashboard },
-      { to: '/tickets', label: 'My Tickets', icon: Ticket },
-      { to: '/assets',  label: 'My Assets',  icon: Cpu },
+      { to: '/',          label: 'Dashboard',    icon: LayoutDashboard },
+      { to: '/tickets',   label: 'My Tickets',   icon: Ticket },
+      { to: '/schedules', label: 'My Schedules', icon: CalendarDays },
+      { to: '/assets',    label: 'My Assets',    icon: Cpu },
     ],
   },
   {
