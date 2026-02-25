@@ -60,7 +60,7 @@ export default function ComponentsPage() {
     setLoadingParts(true);
     setParts([]);
     try {
-      const p = await partApi.getByComponent(comp.id);
+      const p = await partApi.getBycomponents(String(comp.id));
       setParts(Array.isArray(p) ? p : []);
     } catch {
       setParts([]);
