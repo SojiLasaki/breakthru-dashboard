@@ -131,18 +131,18 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
             <span className="text-sm font-medium truncate">{manual.title}</span>
             <span className="text-xs text-muted-foreground flex-shrink-0">{manual.version}</span>
           </div>
-          {/* Action Buttons */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-blue-400/30 text-blue-400 hover:bg-blue-400/10" onClick={() => handleAction('Assembly')}>
-              <Hammer className="h-3.5 w-3.5" /> Assembly
+          {/* View PDF button in top nav */}
+          {hasPdf && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary/10 flex-shrink-0"
+              onClick={() => setShowPdf(v => !v)}
+            >
+              <FileCheck className="h-3.5 w-3.5" />
+              {showPdf ? 'Hide PDF' : 'View PDF'}
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-orange-400/30 text-orange-400 hover:bg-orange-400/10" onClick={() => handleAction('Disassembly')}>
-              <WrenchIcon className="h-3.5 w-3.5" /> Disassembly
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8 border-green-400/30 text-green-400 hover:bg-green-400/10" onClick={() => handleAction('Maintenance')}>
-              <Settings2 className="h-3.5 w-3.5" /> Maintenance
-            </Button>
-          </div>
+          )}
           <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleDownloadZip} disabled={downloadingZip}>
@@ -316,15 +316,15 @@ function ManualViewer({ manual, onBack }: { manual: Manual; onBack: () => void }
                     </div>
                   </div>
 
-                  {/* Mobile action buttons */}
-                  <div className="lg:hidden mb-6 flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-blue-400/30 text-blue-400" onClick={() => handleAction('Assembly')}>
+                  {/* Action buttons */}
+                  <div className="mb-6 flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-blue-400/30 text-blue-400 hover:bg-blue-400/10" onClick={() => handleAction('Assembly')}>
                       <Hammer className="h-3 w-3" /> Assembly
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-orange-400/30 text-orange-400" onClick={() => handleAction('Disassembly')}>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-orange-400/30 text-orange-400 hover:bg-orange-400/10" onClick={() => handleAction('Disassembly')}>
                       <WrenchIcon className="h-3 w-3" /> Disassembly
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-green-400/30 text-green-400" onClick={() => handleAction('Maintenance')}>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-green-400/30 text-green-400 hover:bg-green-400/10" onClick={() => handleAction('Maintenance')}>
                       <Settings2 className="h-3 w-3" /> Maintenance
                     </Button>
                   </div>
