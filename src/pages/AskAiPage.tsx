@@ -110,7 +110,7 @@ export default function AskAiPage() {
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: 'Request failed' }));
         if (resp.status === 429 || resp.status === 402) {
-          toast({ title: 'Felix unavailable', description: err.error, variant: 'destructive' });
+          toast({ title: 'Fix it Felix unavailable', description: err.error, variant: 'destructive' });
         } else {
           toast({ title: 'Error', description: err.error || 'Something went wrong.', variant: 'destructive' });
         }
@@ -154,7 +154,7 @@ export default function AskAiPage() {
         }
       }
     } catch (e) {
-      toast({ title: 'Connection error', description: 'Could not reach Felix. Please try again.', variant: 'destructive' });
+      toast({ title: 'Connection error', description: 'Could not reach Fix it Felix. Please try again.', variant: 'destructive' });
     } finally {
       setIsStreaming(false);
     }
@@ -177,7 +177,7 @@ export default function AskAiPage() {
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[hsl(142,70%,55%)] border-2 border-card" />
           </div>
           <div>
-            <p className="font-semibold text-sm">Felix</p>
+            <p className="font-semibold text-sm">Fix it Felix</p>
             <p className="text-[10px] text-muted-foreground">Breakthru AI Assistant · Online</p>
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function AskAiPage() {
               <Sparkles className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold mb-1">Hi, I'm Felix</h2>
+              <h2 className="text-lg font-semibold mb-1">Hi, I'm Fix it Felix</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
                 Your Breakthru AI assistant. Ask me anything about equipment, diagnostics, parts, or upload a photo for analysis.
               </p>
@@ -334,7 +334,7 @@ export default function AskAiPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Felix anything… (Enter to send, Shift+Enter for new line)"
+            placeholder="Ask Fix it Felix anything… (Enter to send, Shift+Enter for new line)"
             className="flex-1 min-h-[40px] max-h-32 resize-none bg-background text-sm"
             rows={1}
           />
@@ -354,7 +354,7 @@ export default function AskAiPage() {
         </div>
 
         <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-          Felix can make mistakes. Always verify critical information.
+          Fix it Felix can make mistakes. Always verify critical information.
         </p>
       </div>
 
