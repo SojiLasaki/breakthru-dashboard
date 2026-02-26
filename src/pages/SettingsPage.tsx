@@ -11,7 +11,7 @@ export default function SettingsPage() {
   const { theme, toggleTheme, defaultView, setDefaultView } = useTheme();
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 w-full p-6">
       <div>
         <h1 className="text-xl font-semibold flex items-center gap-2">
           <Settings className="h-5 w-5 text-primary" /> Settings
