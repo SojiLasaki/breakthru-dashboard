@@ -36,7 +36,7 @@ export default function DiagnosticReportModal({ diagnostic, open, onClose }: Pro
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto bg-card p-0 sm:rounded-2xl">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto bg-card p-0 sm:rounded-2xl [&>button]:z-20 [&>button]:top-5 [&>button]:right-5 [&>button]:text-foreground">
         {/* Fault Summary Header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-5 pb-4">
           <DialogHeader className="space-y-0">
