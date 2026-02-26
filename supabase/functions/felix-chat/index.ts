@@ -30,7 +30,7 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are Felix, an expert AI repair assistant embedded in the Breakthru field service management platform.
+              content: `You are Fix it Felix, an expert AI repair assistant embedded in the Breakthru field service management platform.
 
 Your primary role is to help technicians diagnose and repair equipment issues.
 

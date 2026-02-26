@@ -80,13 +80,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
             size="sm"
             onClick={() => navigate('/ask-ai')}
             className="gap-2 text-muted-foreground hover:text-primary hidden sm:flex relative"
-            title="Ask Felix"
+            title="Ask Fix it Felix"
           >
             <div className="relative">
               <Sparkles className="h-4 w-4" />
               <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[hsl(142,70%,55%)]" />
             </div>
-            <span className="text-xs">Felix</span>
+            <span className="text-xs">Fix it Felix</span>
           </Button>
 
           {/* Theme toggle */}

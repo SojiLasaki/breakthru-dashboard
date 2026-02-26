@@ -183,7 +183,7 @@ export default function TechnicianDashboard() {
                 <Sparkles className="h-7 w-7 text-primary" />
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground text-center">
-                Felix Repair Assistant
+                Fix it Felix
               </h1>
               <p className="text-muted-foreground text-sm text-center max-w-md mt-1">
                 Describe a fault code, symptom, or equipment issue. I'll find diagnostics, parts, manuals, and repair steps.
@@ -274,7 +274,7 @@ export default function TechnicianDashboard() {
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-primary font-semibold mb-1">Felix</p>
+                      <p className="text-[10px] text-primary font-semibold mb-1">Fix it Felix</p>
                       <div className="prose prose-sm prose-invert max-w-none text-sm text-foreground/90 leading-relaxed [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:text-foreground [&_ul]:space-y-1 [&_ol]:space-y-1 [&_li]:text-xs [&_p]:text-xs [&_strong]:text-foreground">
                         <MessageContent content={msg.content} />
                       </div>
@@ -341,7 +341,7 @@ export default function TechnicianDashboard() {
                 <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
                 </div>
-                <span className="text-xs text-muted-foreground">Felix is analyzing your issue...</span>
+                <span className="text-xs text-muted-foreground">Fix it Felix is analyzing your issue...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -358,7 +358,7 @@ export default function TechnicianDashboard() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-              placeholder="Ask Felix about a fault code, symptom, or equipment issue..."
+              placeholder="Ask Fix it Felix about a fault code, symptom, or equipment issue..."
               rows={1}
               className="w-full bg-transparent px-4 py-3 pr-12 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
               disabled={isLoading}
@@ -367,7 +367,7 @@ export default function TechnicianDashboard() {
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">Powered by Felix AI · Searches manuals, parts, diagnostics & components</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-2">Powered by Fix it Felix · Searches manuals, parts, diagnostics & components</p>
         </div>
       </div>
 
