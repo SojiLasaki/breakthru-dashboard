@@ -84,15 +84,18 @@ export default function LoginPage() {
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground text-center mb-2">Demo logins (username = password)</p>
             <div className="grid grid-cols-3 gap-1">
-              {['admin', 'office', 'engine', 'electrical', 'customer'].map(role => (
+              {['admin', 'office', 'engine', 'electrical', 'customer'].map(role => {
+                const label = role === 'engine' ? 'technician' : role === 'electrical' ? 'technician 2' : role;
+                return (
                 <button
                   key={role}
                   onClick={() => { setUsername(role); setPassword(role); }}
                   className="text-[10px] px-2 py-1.5 rounded bg-accent hover:bg-accent/70 text-muted-foreground transition-colors capitalize"
                 >
-                  {role}
+                  {label}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
