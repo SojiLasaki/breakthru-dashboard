@@ -5,23 +5,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Mail, Shield, Wrench, Zap, Settings, Users, BookOpen, Bot, Search, Clock, CheckCircle2, AlertCircle, Loader2, TrendingUp } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  User, Mail, Shield, Wrench, Zap, Settings, Users, Search, Clock,
+  CheckCircle2, AlertCircle, Loader2, TrendingUp, Phone, MapPin, Award, Star
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const ROLE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; description: string }> = {
-  admin:                  { label: 'Administrator',          icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access. Manages users, roles, and all operational data.' },
+  admin:                  { label: 'Administrator',          icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access.' },
   office_staff:           { label: 'Office Staff',           icon: Users,    color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',   description: 'Manages tickets, orders, and customer interactions.' },
   engine_technician:      { label: 'Engine Technician',      icon: Wrench,   color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',description: 'Handles engine-related service tickets and maintenance.' },
   electrical_technician:  { label: 'Electrical Technician',  icon: Zap,      color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20', description: 'Diagnoses and repairs electrical system faults.' },
-  customer:               { label: 'Customer',               icon: User,     color: 'text-green-400 bg-green-400/10 border-green-400/20',description: 'Can submit and track support tickets and access manuals.' },
+  customer:               { label: 'Customer',               icon: User,     color: 'text-green-400 bg-green-400/10 border-green-400/20',description: 'Can submit and track support tickets.' },
 };
 
-const ACCESS_MAP: Record<string, string[]> = {
-  admin:                 ['Dashboard', 'All Tickets', 'All Assets', 'Customers', 'Orders', 'Technicians', 'Transactions', 'Components', 'Parts', 'Manuals', 'AI Agents', 'Ask Felix', 'Logs', 'Settings'],
-  office_staff:          ['Dashboard', 'All Tickets', 'All Assets', 'Customers', 'Orders', 'Technicians', 'Transactions', 'Components', 'Parts', 'Manuals', 'AI Agents', 'Ask Felix', 'Logs'],
-  engine_technician:     ['Dashboard', 'My Tickets', 'My Assets', 'Manuals', 'Ask Felix (Tutor Mode)'],
-  electrical_technician: ['Dashboard', 'My Tickets', 'My Assets', 'Manuals', 'Ask Felix (Tutor Mode)'],
-  customer:              ['Dashboard', 'My Tickets', 'My Assets', 'Support'],
+const SPECIALIZATION_MAP: Record<string, string> = {
+  engine_technician: 'Engine',
+  electrical_technician: 'Electrical',
+  admin: 'General',
+  office_staff: 'Operations',
+  customer: '—',
+};
+
+const EXPERTISE_MAP: Record<string, string> = {
+  admin: 'Senior',
+  office_staff: 'Mid',
+  engine_technician: 'Mid',
+  electrical_technician: 'Mid',
+  customer: '—',
 };
 
 const EXP_MAP: Record<string, number> = {
@@ -32,13 +44,40 @@ const EXP_MAP: Record<string, number> = {
   customer: 20,
 };
 
+// Mock certifications — will be fetched from API in production
+const MOCK_CERTIFICATIONS: Record<string, { name: string; issuer: string; date: string; expires: string; status: 'active' | 'expiring' | 'expired' }[]> = {
+  engine_technician: [
+    { name: 'Cummins ISX15 Certified Technician', issuer: 'Cummins Inc.', date: '2023-03-15', expires: '2025-03-15', status: 'active' },
+    { name: 'Diesel Engine Overhaul Level II', issuer: 'ASE', date: '2022-08-20', expires: '2024-08-20', status: 'expiring' },
+    { name: 'EPA 608 Certification', issuer: 'EPA', date: '2021-01-10', expires: '—', status: 'active' },
+    { name: 'Heavy-Duty Engine Diagnostics', issuer: 'Cummins Training Center', date: '2023-11-05', expires: '2025-11-05', status: 'active' },
+    { name: 'Fuel System Specialist', issuer: 'Bosch Automotive', date: '2022-06-18', expires: '2024-06-18', status: 'expired' },
+  ],
+  electrical_technician: [
+    { name: 'Electrical Systems Diagnostics Level III', issuer: 'ASE', date: '2023-05-12', expires: '2025-05-12', status: 'active' },
+    { name: 'High Voltage Safety Certification', issuer: 'NFPA', date: '2023-01-20', expires: '2025-01-20', status: 'active' },
+    { name: 'PLC Programming Fundamentals', issuer: 'Siemens', date: '2022-09-30', expires: '2024-09-30', status: 'expiring' },
+    { name: 'Generator Control Panel Specialist', issuer: 'Cummins Inc.', date: '2023-07-14', expires: '2025-07-14', status: 'active' },
+  ],
+  admin: [
+    { name: 'Project Management Professional', issuer: 'PMI', date: '2022-02-10', expires: '2025-02-10', status: 'active' },
+    { name: 'ITIL Foundation', issuer: 'Axelos', date: '2021-11-05', expires: '—', status: 'active' },
+  ],
+  office_staff: [
+    { name: 'Customer Service Excellence', issuer: 'Internal', date: '2023-04-01', expires: '2025-04-01', status: 'active' },
+  ],
+  customer: [],
+};
+
+const CERT_STATUS_CLASS: Record<string, string> = {
+  active: 'text-green-400 bg-green-400/10 border-green-400/20',
+  expiring: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  expired: 'text-muted-foreground bg-muted/50 border-border',
+};
+
 const STATUS_ICON: Record<string, React.FC<{ className?: string }>> = {
-  open: AlertCircle,
-  assigned: Clock,
-  in_progress: Clock,
-  awaiting_parts: Clock,
-  awaiting_approval: Clock,
-  completed: CheckCircle2,
+  open: AlertCircle, assigned: Clock, in_progress: Clock,
+  awaiting_parts: Clock, awaiting_approval: Clock, completed: CheckCircle2,
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -84,9 +123,11 @@ export default function ProfilePage() {
 
   const cfg = ROLE_CONFIG[user.role] ?? ROLE_CONFIG['customer'];
   const RoleIcon = cfg.icon;
-  const access = ACCESS_MAP[user.role] ?? [];
   const expScore = EXP_MAP[user.role] ?? 0;
   const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase();
+  const specialization = SPECIALIZATION_MAP[user.role] ?? '—';
+  const expertise = EXPERTISE_MAP[user.role] ?? '—';
+  const certifications = MOCK_CERTIFICATIONS[user.role] ?? [];
 
   const completedCount = tickets.filter(t => t.status === 'completed').length;
   const openCount = tickets.filter(t => t.status !== 'completed').length;
@@ -95,15 +136,16 @@ export default function ProfilePage() {
     <div className="space-y-6 w-full">
       <div>
         <h1 className="text-xl font-semibold">My Profile</h1>
-        <p className="text-muted-foreground text-sm">Your account details, experience, and ticket history</p>
+        <p className="text-muted-foreground text-sm">Account details, certifications, and ticket history</p>
       </div>
 
-      {/* Top row: Identity + Experience + Stats */}
+      {/* Top row: Identity + Experience */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Identity */}
+        {/* Identity card with extended fields */}
         <Card className="bg-card border-border lg:col-span-2">
           <CardContent className="p-0">
             <div className="flex flex-col sm:flex-row">
+              {/* Avatar panel */}
               <div className="flex flex-col items-center justify-center gap-3 p-8 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[180px]">
                 <div className="w-20 h-20 rounded-full bg-primary/15 ring-2 ring-primary/30 flex items-center justify-center">
                   <span className="text-2xl font-bold text-primary">{initials || <User className="h-8 w-8" />}</span>
@@ -116,29 +158,63 @@ export default function ProfilePage() {
                   {cfg.label}
                 </span>
               </div>
+
+              {/* Details grid */}
               <div className="flex-1 p-6 space-y-4">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Contact</p>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-primary/60" />
-                    <span>{user.email}</span>
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Mail className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Email</p>
+                      <p className="text-sm">{user.email}</p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Role</p>
-                  <div className="flex items-start gap-2">
-                    <RoleIcon className="h-4 w-4 text-primary/60 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-muted-foreground">{cfg.description}</p>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Phone className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Phone</p>
+                      <p className="text-sm">+234 801 234 5678</p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Permissions</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {access.map(item => (
-                      <Badge key={item} variant="outline" className="text-[10px] border-border text-muted-foreground">
-                        {item}
-                      </Badge>
-                    ))}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Station</p>
+                      <p className="text-sm">Lagos HQ</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Wrench className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Specialization</p>
+                      <p className="text-sm">{specialization}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Star className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Expertise</p>
+                      <p className="text-sm">{expertise}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <RoleIcon className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Role</p>
+                      <p className="text-sm">{cfg.description}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -169,107 +245,160 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-card border border-border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-green-400">{completedCount}</p>
+              <p className="text-2xl font-bold text-primary">{completedCount}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Completed</p>
             </div>
             <div className="bg-card border border-border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-yellow-400">{openCount}</p>
+              <p className="text-2xl font-bold text-primary">{openCount}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Open</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-primary">{certifications.filter(c => c.status === 'active').length}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Certs</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tickets Section */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Settings className="h-4 w-4 text-primary" />
-              Ticket History
-              <Badge variant="outline" className="text-[10px] ml-1">{filtered.length}</Badge>
-            </CardTitle>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search tickets…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-8 h-8 text-xs w-48 bg-muted/30"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-8 text-xs w-[130px] bg-muted/30">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="assigned">Assigned</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
-                  <SelectItem value="awaiting_approval">Awaiting Approval</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="h-8 text-xs w-[120px] bg-muted/30">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="severe">Severe</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">No tickets found</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filtered.map(t => {
-                const SIcon = STATUS_ICON[t.status] ?? Clock;
-                return (
-                  <div
-                    key={t.id}
-                    onClick={() => navigate(`/tickets/${t.id}`)}
-                    className="flex items-center gap-4 p-3 rounded-lg bg-muted/20 border border-border hover:bg-muted/40 cursor-pointer transition-colors"
-                  >
-                    <SIcon className={`h-4 w-4 flex-shrink-0 ${(STATUS_CLASS[t.status] ?? '').split(' ')[0]}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-primary/70">{t.ticket_id}</span>
-                        <span className="text-sm font-medium truncate">{t.title}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.customer} · {t.category}</p>
-                    </div>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${PRIORITY_CLASS[t.priority] ?? ''}`}>
-                      {t.priority}
-                    </span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${STATUS_CLASS[t.status] ?? ''}`}>
-                      {t.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Tabs: Tickets / Certifications */}
+      <Tabs defaultValue="tickets" className="w-full">
+        <TabsList className="bg-muted/30 border border-border">
+          <TabsTrigger value="tickets" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Settings className="h-3.5 w-3.5" />
+            Tickets
+            <Badge variant="outline" className="text-[10px] ml-1 h-4 px-1.5">{filtered.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="certifications" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Award className="h-3.5 w-3.5" />
+            Certifications
+            <Badge variant="outline" className="text-[10px] ml-1 h-4 px-1.5">{certifications.length}</Badge>
+          </TabsTrigger>
+        </TabsList>
 
+        {/* Tickets Tab */}
+        <TabsContent value="tickets">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative flex-1 min-w-[180px] max-w-xs">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search tickets…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs bg-muted/30"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-8 text-xs w-[130px] bg-muted/30">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
+                    <SelectItem value="awaiting_approval">Awaiting Approval</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="h-8 text-xs w-[120px] bg-muted/30">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priority</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="severe">Severe</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No tickets found</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filtered.map(t => {
+                    const SIcon = STATUS_ICON[t.status] ?? Clock;
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => navigate(`/tickets/${t.id}`)}
+                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/20 border border-border hover:bg-muted/40 cursor-pointer transition-colors"
+                      >
+                        <SIcon className={`h-4 w-4 flex-shrink-0 ${(STATUS_CLASS[t.status] ?? '').split(' ')[0]}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-primary/70">{t.ticket_id}</span>
+                            <span className="text-sm font-medium truncate">{t.title}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.customer} · {t.category}</p>
+                        </div>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${PRIORITY_CLASS[t.priority] ?? ''}`}>
+                          {t.priority}
+                        </span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${STATUS_CLASS[t.status] ?? ''}`}>
+                          {t.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Certifications Tab */}
+        <TabsContent value="certifications">
+          <Card className="bg-card border-border">
+            <CardContent className="pt-6">
+              {certifications.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Award className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No certifications on record</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {certifications.map((cert, i) => (
+                    <div key={i} className="flex items-start gap-4 p-4 rounded-lg bg-muted/20 border border-border">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Award className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium">{cert.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{cert.issuer}</p>
+                          </div>
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 capitalize ${CERT_STATUS_CLASS[cert.status] ?? ''}`}>
+                            {cert.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground">
+                          <span>Issued: {new Date(cert.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                          <span>Expires: {cert.expires === '—' ? 'Never' : new Date(cert.expires).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
