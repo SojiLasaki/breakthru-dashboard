@@ -270,31 +270,6 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Quick links */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Quick Access</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: 'My Tickets', href: '/tickets',  icon: Settings, show: true },
-              { label: 'Manuals',    href: '/manuals',  icon: BookOpen, show: user.role !== 'customer' },
-              { label: 'AI Agents',  href: '/ai-agents', icon: Bot,     show: user.role !== 'customer' },
-              { label: 'Ask Felix',  href: '/ask-ai',   icon: Wrench,   show: user.role !== 'customer' },
-            ].filter(l => l.show).map(link => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 hover:bg-muted/70 border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <link.icon className="h-4 w-4 text-primary/60" />
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

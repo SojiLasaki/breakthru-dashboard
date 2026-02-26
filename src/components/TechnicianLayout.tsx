@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Ticket, Calendar, User, LogOut, Wrench } from 'lucide-react';
+import { Ticket, Calendar, User, LogOut, Wrench, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function TechnicianLayout() {
@@ -17,6 +17,7 @@ export default function TechnicianLayout() {
     { to: '/tickets', label: 'Tickets', icon: Ticket },
     { to: '/schedules', label: 'Schedules', icon: Calendar },
     { to: '/profile', label: 'Profile', icon: User },
+    { to: '/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
