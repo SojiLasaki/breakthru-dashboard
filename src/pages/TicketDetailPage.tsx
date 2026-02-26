@@ -106,8 +106,9 @@ export default function TicketDetailPage() {
       componentApi.getAll(),
     ]).then(([t, diags, mans, pts, comps]) => {
       setTicket(t);
-      setDiagnostics(diags.filter(d => d.title.toLowerCase().includes(t.category.toLowerCase()) || d.component_name.toLowerCase().includes(t.category.toLowerCase())));
-      setManuals(mans.filter(m => m.category.toLowerCase() === t.category.toLowerCase() || m.tags.some(tag => tag.name.toLowerCase() === t.category.toLowerCase())));
+      const cat = (t.category || '').toLowerCase();
+      setDiagnostics(diags.filter(d => (d.title || '').toLowerCase().includes(cat) || (d.component_name || '').toLowerCase().includes(cat)));
+      setManuals(mans.filter(m => (m.category || '').toLowerCase() === cat || (m.tags || []).some(tag => (tag.name || '').toLowerCase() === cat)));
       setParts(pts);
       setComponents(comps);
     }).catch(() => {
@@ -174,13 +175,14 @@ export default function TicketDetailPage() {
   if (!ticket) return null;
 
   const diag = diagnostics[0] || null;
+  const cat = (ticket.category || '').toLowerCase();
   const relatedParts = parts.filter(p =>
-    p.category.toLowerCase() === ticket.category.toLowerCase() ||
-    p.components_name.some(cn => cn.toLowerCase().includes(ticket.category.toLowerCase()))
+    (p.category || '').toLowerCase() === cat ||
+    (p.components_name || []).some(cn => (cn || '').toLowerCase().includes(cat))
   );
   const relatedComponents = components.filter(c =>
-    c.group.toLowerCase() === ticket.category.toLowerCase() ||
-    c.name.toLowerCase().includes(ticket.category.toLowerCase())
+    (c.group || '').toLowerCase() === cat ||
+    (c.name || '').toLowerCase().includes(cat)
   );
   const repairSteps = generateRepairSteps(ticket, diag);
 
@@ -364,7 +366,7 @@ export default function TicketDetailPage() {
           )}
 
           {/* Repair Checklist */}
-          <RepairChecklist steps={repairSteps} />
+          <RepairChecklist steps={repairSteps} ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.category} />
 
           {/* Technician Notes */}
           {isTech && ticket.status !== 'completed' && (
