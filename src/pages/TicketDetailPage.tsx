@@ -32,6 +32,10 @@ const STATUS_CLASSES: Record<string, string> = {
   open: 'status-open', assigned: 'status-open', in_progress: 'status-in-progress',
   awaiting_parts: 'status-in-progress', awaiting_approval: 'status-urgent', completed: 'status-closed',
 };
+const STATUS_LABELS: Record<string, string> = {
+  open: 'Open', assigned: 'Assigned', in_progress: 'In Progress',
+  awaiting_parts: 'Awaiting Parts', awaiting_approval: 'Escalated', completed: 'Completed',
+};
 const PRIORITY_CLASSES: Record<string, string> = {
   low: 'text-muted-foreground bg-muted/50 border border-border',
   medium: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
@@ -123,7 +127,7 @@ export default function TicketDetailPage() {
     try {
       const updated = await ticketApi.update(ticket.id, { status: newStatus });
       setTicket(prev => prev ? { ...prev, ...updated, status: newStatus } : null);
-      toast({ title: 'Status Updated', description: `Ticket marked as ${newStatus.replace(/_/g, ' ')}.` });
+      toast({ title: 'Status Updated', description: `Ticket marked as ${STATUS_LABELS[newStatus] ?? newStatus.replace(/_/g, ' ')}.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to update status.', variant: 'destructive' });
     } finally { setSaving(false); }
@@ -205,7 +209,7 @@ export default function TicketDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-primary text-sm font-semibold">{ticket.ticket_id}</span>
-              <Badge className={`text-[10px] ${STATUS_CLASSES[ticket.status]}`}>{ticket.status.replace(/_/g, ' ')}</Badge>
+              <Badge className={`text-[10px] ${STATUS_CLASSES[ticket.status]}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
               <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[ticket.priority]}`}>
                 {ticket.priority === 'severe' ? 'Critical' : ticket.priority}
               </span>
@@ -338,12 +342,12 @@ export default function TicketDetailPage() {
             <Button
               size="lg"
               variant="outline"
-              className="flex-1 gap-2 border-[hsl(var(--warning))]/50 text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))]/10 h-12 text-sm font-semibold"
+              className={`flex-1 gap-2 h-12 text-sm font-semibold ${ticket.status === 'awaiting_approval' ? 'border-primary/50 text-primary' : 'border-[hsl(var(--warning))]/50 text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))]/10'}`}
               onClick={() => handleStatusUpdate('awaiting_approval')}
-              disabled={saving}
+              disabled={saving || ticket.status === 'awaiting_approval'}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
-              Escalate
+              {ticket.status === 'awaiting_approval' ? 'Escalated' : 'Escalate'}
             </Button>
           </div>
         )}
@@ -368,7 +372,7 @@ export default function TicketDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-primary text-xs font-semibold">{ticket.ticket_id}</span>
-            <Badge className={`text-[9px] ${STATUS_CLASSES[ticket.status]}`}>{ticket.status.replace(/_/g, ' ')}</Badge>
+            <Badge className={`text-[9px] ${STATUS_CLASSES[ticket.status]}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
             <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASSES[ticket.priority]}`}>
               {ticket.priority === 'severe' ? 'Critical' : ticket.priority}
             </span>
