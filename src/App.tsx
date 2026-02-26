@@ -12,6 +12,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import LoginPage from "@/pages/LoginPage";
 import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
+import TicketDetailPage from "@/pages/TicketDetailPage";
+import TechnicianDashboard from "@/pages/TechnicianDashboard";
 import TechniciansPage from "@/pages/TechniciansPage";
 import TechnicianProfilePage from "@/pages/TechnicianProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
@@ -62,12 +64,13 @@ function ProtectedRoutes() {
     <Routes>
       <Route element={<DashboardLayout />}>
         {/* ── Universal ── */}
-        <Route path="/"        element={<OverviewPage />} />
+        <Route path="/"        element={isTech ? <TechnicianDashboard /> : <OverviewPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
         {/* ── Tickets: all roles see their own; techs see assigned; admins/staff see all ── */}
         <Route path="/tickets" element={<TicketsPage />} />
+        <Route path="/tickets/:id" element={<TicketDetailPage />} />
 
         {/* ── Assets: everyone except customer restriction is handled inside the page ── */}
         <Route path="/assets" element={<AssetsPage />} />
