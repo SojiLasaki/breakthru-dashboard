@@ -70,6 +70,7 @@ function ProtectedRoutes() {
           <Route path="/tickets/:id"  element={<TicketDetailPage />} />
           <Route path="/schedules"    element={<SchedulesPage />} />
           <Route path="/profile"      element={<ProfilePage />} />
+          <Route path="/settings"     element={<SettingsPage />} />
           <Route path="*"             element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
