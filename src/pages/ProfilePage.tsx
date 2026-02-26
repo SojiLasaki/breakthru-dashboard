@@ -39,7 +39,7 @@ export default function ProfilePage() {
   const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase();
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 w-full">
       <div>
         <h1 className="text-xl font-semibold">My Profile</h1>
         <p className="text-muted-foreground text-sm">Your account details and permissions</p>
