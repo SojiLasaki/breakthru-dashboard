@@ -161,12 +161,19 @@ export default function TicketDetailPage() {
     return (
       <div className="p-4 lg:p-6 space-y-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left column skeleton */}
+          <div className="space-y-4">
+            <Skeleton className="h-56 w-full rounded-lg" />
             <Skeleton className="h-48 w-full rounded-lg" />
-            <Skeleton className="h-64 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
           </div>
-          <Skeleton className="h-96 w-full rounded-lg" />
+          {/* Right column - map skeleton */}
+          <Skeleton className="h-[28rem] w-full rounded-lg" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-12 flex-1 rounded-lg" />
+          <Skeleton className="h-12 flex-1 rounded-lg" />
         </div>
       </div>
     );
@@ -189,7 +196,7 @@ export default function TicketDetailPage() {
   // ── Summary view (before clicking "View Full Repair") ──
   if (!showFullDetail) {
     return (
-      <div className="p-4 lg:p-6 space-y-6 max-w-4xl mx-auto">
+      <div className="p-4 lg:p-6 space-y-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-10 w-10">
@@ -207,91 +214,139 @@ export default function TicketDetailPage() {
           </div>
         </div>
 
-        {/* Ticket Summary */}
-        <Card className="bg-card border-border">
-          <CardContent className="p-5 space-y-4">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <InfoRow label="Category" value={ticket.category} icon={Wrench} />
-              <InfoRow label="Product ID" value={ticket.product_id} icon={Cpu} />
-              <InfoRow label="Created" value={new Date(ticket.created_at).toLocaleDateString()} icon={Clock} />
-              <InfoRow label="Assets" value={ticket.assets || 'N/A'} icon={Cpu} />
-            </div>
+        {/* Two-column layout */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* ── LEFT COLUMN ── */}
+          <div className="space-y-4">
+            {/* Top-left: Ticket Info & Customer Report */}
+            <Card className="bg-card border-border">
+              <CardContent className="p-5 space-y-4">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <InfoRow label="Category" value={ticket.category} icon={Wrench} />
+                  <InfoRow label="Product ID" value={ticket.product_id} icon={Cpu} />
+                  <InfoRow label="Created" value={new Date(ticket.created_at).toLocaleDateString()} icon={Clock} />
+                  <InfoRow label="Assets" value={ticket.assets || 'N/A'} icon={Cpu} />
+                  <InfoRow label="Assigned To" value={ticket.assigned_to || 'Unassigned'} icon={User} />
+                  <InfoRow label="Customer" value={ticket.customer} icon={Building} />
+                </div>
 
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Issue Description</p>
-              <p className="text-xs text-foreground/80 bg-muted/30 border border-border rounded-lg p-3 leading-relaxed">
-                {ticket.issue_description || ticket.description || 'No description provided.'}
-              </p>
-            </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Issue Description</p>
+                  <p className="text-xs text-foreground/80 bg-muted/30 border border-border rounded-lg p-3 leading-relaxed">
+                    {ticket.issue_description || ticket.description || 'No description provided.'}
+                  </p>
+                </div>
 
-            {/* Diagnostic alert - clickable */}
+                {/* Customer Info */}
+                <Collapsible open={customerExpanded} onOpenChange={setCustomerExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full py-2">
+                      <User className="h-3.5 w-3.5" />
+                      <span>Customer Details</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform ${customerExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="grid sm:grid-cols-2 gap-3 pt-2 pb-1">
+                      <InfoRow label="Created By" value={ticket.created_by} icon={User} />
+                      {diag && (
+                        <>
+                          <InfoRow label="Company" value={diag.company_name} icon={Building} />
+                          <InfoRow label="Address" value={`${diag.customer_street_address}${diag.customer_street_address_2 ? ', ' + diag.customer_street_address_2 : ''}`} icon={MapPin} />
+                          <InfoRow label="City" value={`${diag.customer_city}, ${diag.customer_state} ${diag.customer_postal_code}`} icon={MapPin} />
+                        </>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CardContent>
+            </Card>
+
+            {/* Bottom-left: Diagnostic Report */}
             {diag && (
-              <div
-                className="bg-primary/5 border border-primary/20 rounded-lg p-3 cursor-pointer hover:bg-primary/10 transition-colors group"
-                onClick={() => setDiagModal(diag)}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] text-primary font-semibold uppercase tracking-wider">Diagnostic Alert</p>
-                  <span className="text-[9px] text-muted-foreground group-hover:text-primary transition-colors flex items-center gap-1">
-                    <Eye className="h-3 w-3" /> View Full Report
-                  </span>
-                </div>
-                <p className="text-xs text-foreground/80">
-                  Fault Code: <span className="font-mono font-semibold text-primary">{diag.fault_code}</span> · Confidence: {diag.confidence_score}%
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">{diag.probable_cause}</p>
-              </div>
+              <Card className="bg-card border-border cursor-pointer hover:border-primary/30 transition-colors" onClick={() => setDiagModal(diag)}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-primary" /> Diagnostic Report
+                    </CardTitle>
+                    <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                      <Eye className="h-3 w-3" /> View Full Report
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-2 py-1 rounded">{diag.fault_code}</span>
+                    <Badge variant="outline" className="text-[10px]">{diag.severity}</Badge>
+                    <span className="text-[10px] text-muted-foreground">Confidence: {diag.confidence_score}%</span>
+                  </div>
+                  <p className="text-xs text-foreground/80">{diag.probable_cause}</p>
+                  <p className="text-[10px] text-muted-foreground">{diag.ai_summary}</p>
+                </CardContent>
+              </Card>
             )}
 
-            {/* Collapsible customer info */}
-            <Collapsible open={customerExpanded} onOpenChange={setCustomerExpanded}>
-              <CollapsibleTrigger asChild>
-                <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full py-2">
-                  <User className="h-3.5 w-3.5" />
-                  <span>Customer Information</span>
-                  <ChevronDown className={`h-3 w-3 transition-transform ${customerExpanded ? 'rotate-180' : ''}`} />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="grid sm:grid-cols-2 gap-3 pt-2 pb-1">
-                  <InfoRow label="Customer" value={ticket.customer} icon={User} />
-                  <InfoRow label="Created By" value={ticket.created_by} icon={User} />
-                  {diag && (
-                    <>
-                      <InfoRow label="Company" value={diag.company_name} icon={Building} />
-                      <InfoRow label="Location" value={`${diag.customer_city}, ${diag.customer_state}`} icon={MapPin} />
-                    </>
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </CardContent>
-        </Card>
+            {/* View Full Repair button */}
+            <Button className="w-full gap-2 bg-primary hover:bg-primary/90 h-12 text-sm" onClick={() => setShowFullDetail(true)}>
+              <ListChecks className="h-4 w-4" /> View Full Repair Details & Checklist
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
 
-        {/* Quick Actions */}
+          {/* ── RIGHT COLUMN: Map ── */}
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" /> Route to Customer
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {diag ? (
+                <iframe
+                  title="Route Map"
+                  className="w-full h-[24rem] lg:h-[28rem] border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps/embed/v1/directions?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&destination=${encodeURIComponent(`${diag.customer_street_address}, ${diag.customer_city}, ${diag.customer_state} ${diag.customer_postal_code}`)}&origin=current+location&mode=driving`}
+                  allowFullScreen
+                />
+              ) : (
+                <div className="h-[24rem] lg:h-[28rem] flex items-center justify-center bg-muted/30">
+                  <div className="text-center space-y-2">
+                    <MapPin className="h-8 w-8 text-muted-foreground mx-auto" />
+                    <p className="text-xs text-muted-foreground">No customer address available for routing.</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom action buttons */}
         {isTech && ticket.status !== 'completed' && (
-          <div className="flex gap-2 flex-wrap">
-            {ticket.status !== 'in_progress' && (
-              <Button size="sm" className="gap-2 bg-[hsl(var(--info))] hover:bg-[hsl(var(--info))]/80 text-white" onClick={() => handleStatusUpdate('in_progress')} disabled={saving}>
-                <Play className="h-3.5 w-3.5" /> Start Work
-              </Button>
-            )}
-            {ticket.status !== 'awaiting_parts' && (
-              <Button size="sm" variant="outline" className="gap-2" onClick={() => handleStatusUpdate('awaiting_parts')} disabled={saving}>
-                <Package className="h-3.5 w-3.5" /> Waiting for Parts
-              </Button>
-            )}
-            <Button size="sm" className="gap-2 bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/80 text-white" onClick={() => handleStatusUpdate('completed')} disabled={saving}>
-              <CheckCircle2 className="h-3.5 w-3.5" /> Complete
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              className="flex-1 gap-2 bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/80 text-white h-12 text-sm font-semibold"
+              onClick={() => handleStatusUpdate('completed')}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Mark as Complete
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="flex-1 gap-2 border-[hsl(var(--warning))]/50 text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))]/10 h-12 text-sm font-semibold"
+              onClick={() => handleStatusUpdate('awaiting_approval')}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+              Escalate
             </Button>
           </div>
         )}
-
-        {/* View Full Details */}
-        <Button className="w-full gap-2 bg-primary hover:bg-primary/90 h-12 text-sm" onClick={() => setShowFullDetail(true)}>
-          <ListChecks className="h-4 w-4" /> View Full Repair Details & Checklist
-          <ChevronRight className="h-4 w-4" />
-        </Button>
 
         {/* Diagnostic Modal */}
         <DiagnosticReportModal diagnostic={diagModal} open={!!diagModal} onClose={() => setDiagModal(null)} />
