@@ -12,14 +12,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import PdfViewer from '@/components/PdfViewer';
 import {
-  ArrowLeft, Search as SearchIcon, User, Phone, Mail, MapPin, Building,
+  ArrowLeft, Search as SearchIcon, User, MapPin, Building,
   Cpu, Wrench, BookOpen, ShieldAlert, Clock, FileText, Save,
   Play, Package, CheckCircle2, Loader2, ExternalLink, AlertTriangle,
+  ListChecks, ChevronRight,
 } from 'lucide-react';
 
 const STATUS_CLASSES: Record<string, string> = {
@@ -32,12 +33,33 @@ const PRIORITY_CLASSES: Record<string, string> = {
   high: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
   severe: 'text-primary bg-primary/10 border border-primary/20',
 };
-
 const STOCK_CLASSES: Record<string, { label: string; cls: string }> = {
   in_stock: { label: 'In Stock', cls: 'text-[hsl(var(--success))] bg-[hsl(var(--success))]/10' },
   low_stock: { label: 'Low Stock', cls: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10' },
   out_of_stock: { label: 'Out of Stock', cls: 'text-primary bg-primary/10' },
 };
+
+// Generate repair steps from diagnostic + manual data
+function generateRepairSteps(ticket: Ticket, diag: Diagnostic | null, manual: Manual | null): string[] {
+  const steps: string[] = [];
+  steps.push('Verify ticket details and review diagnostic report');
+  steps.push('Gather required PPE and safety equipment');
+  if (diag) {
+    steps.push(`Confirm fault code ${diag.fault_code} on equipment`);
+    if (diag.recommended_actions) {
+      diag.recommended_actions.split('.').filter(s => s.trim()).forEach(s => steps.push(s.trim()));
+    }
+  } else {
+    steps.push(`Inspect ${ticket.category || 'system'} for reported issue`);
+    steps.push('Run diagnostic scan to identify fault codes');
+  }
+  steps.push('Test affected components after repair');
+  steps.push('Verify system operates within normal parameters');
+  steps.push('Clean work area and return tools');
+  steps.push('Log repair notes, parts used, and time spent');
+  steps.push('Update ticket status to completed');
+  return steps;
+}
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -53,11 +75,13 @@ export default function TicketDetailPage() {
   const [components, setComponents] = useState<Component[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showFullDetail, setShowFullDetail] = useState(false);
 
-  // Technician actions state
+  // Technician actions
   const [repairNotes, setRepairNotes] = useState('');
   const [timeSpent, setTimeSpent] = useState('');
   const [pdfModal, setPdfModal] = useState<Manual | null>(null);
+  const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -70,7 +94,6 @@ export default function TicketDetailPage() {
       componentApi.getAll(),
     ]).then(([t, diags, mans, pts, comps]) => {
       setTicket(t);
-      // Filter diagnostics related to this ticket's category
       setDiagnostics(diags.filter(d => d.title.toLowerCase().includes(t.category.toLowerCase()) || d.component_name.toLowerCase().includes(t.category.toLowerCase())));
       setManuals(mans.filter(m => m.category.toLowerCase() === t.category.toLowerCase() || m.tags.some(tag => tag.name.toLowerCase() === t.category.toLowerCase())));
       setParts(pts);
@@ -90,16 +113,15 @@ export default function TicketDetailPage() {
       toast({ title: 'Status Updated', description: `Ticket marked as ${newStatus.replace(/_/g, ' ')}.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to update status.', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleSaveNotes = async () => {
     if (!ticket) return;
     setSaving(true);
     try {
-      const desc = `${ticket.description}\n\n--- Technician Notes (${new Date().toLocaleString()}) ---\n${repairNotes}${timeSpent ? `\nTime logged: ${timeSpent} hrs` : ''}`;
+      const completedCount = Object.values(checkedSteps).filter(Boolean).length;
+      const desc = `${ticket.description}\n\n--- Technician Notes (${new Date().toLocaleString()}) ---\n${repairNotes}${timeSpent ? `\nTime logged: ${timeSpent} hrs` : ''}\nChecklist: ${completedCount} steps completed`;
       await ticketApi.update(ticket.id, { description: desc });
       setTicket(prev => prev ? { ...prev, description: desc } : null);
       setRepairNotes('');
@@ -107,68 +129,181 @@ export default function TicketDetailPage() {
       toast({ title: 'Notes Saved', description: 'Repair notes have been logged.' });
     } catch {
       toast({ title: 'Error', description: 'Failed to save notes.', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
+  };
+
+  const toggleStep = (idx: number) => {
+    setCheckedSteps(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="p-4 lg:p-6 space-y-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 w-full rounded-lg" />)}
-          </div>
-          <Skeleton className="h-96 rounded-lg" />
-        </div>
+        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     );
   }
 
   if (!ticket) return null;
 
-  // Find related diagnostic
   const diag = diagnostics[0] || null;
-  // Related parts based on category match
   const relatedParts = parts.filter(p =>
     p.category.toLowerCase() === ticket.category.toLowerCase() ||
     p.components_name.some(cn => cn.toLowerCase().includes(ticket.category.toLowerCase()))
   );
-  // Related components
   const relatedComponents = components.filter(c =>
     c.group.toLowerCase() === ticket.category.toLowerCase() ||
     c.name.toLowerCase().includes(ticket.category.toLowerCase())
   );
+  const repairSteps = generateRepairSteps(ticket, diag, manuals[0] || null);
+  const completedSteps = Object.values(checkedSteps).filter(Boolean).length;
+  const progress = repairSteps.length > 0 ? Math.round((completedSteps / repairSteps.length) * 100) : 0;
 
+  // ── Initial summary view ──
+  if (!showFullDetail) {
+    return (
+      <div className="p-4 lg:p-6 space-y-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-9 w-9">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="font-mono text-primary text-sm font-semibold">{ticket.ticket_id}</span>
+              <Badge className={`text-[10px] ${STATUS_CLASSES[ticket.status]}`}>{ticket.status.replace(/_/g, ' ')}</Badge>
+              <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[ticket.priority]}`}>
+                {ticket.priority === 'severe' ? 'Critical' : ticket.priority}
+              </span>
+            </div>
+            <h1 className="text-lg font-semibold text-foreground mt-1">{ticket.title}</h1>
+          </div>
+        </div>
+
+        {/* Ticket Summary Card */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-5 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <InfoRow label="Customer" value={ticket.customer} icon={User} />
+              <InfoRow label="Category" value={ticket.category} icon={Wrench} />
+              <InfoRow label="Product ID" value={ticket.product_id} icon={Cpu} />
+              <InfoRow label="Created" value={new Date(ticket.created_at).toLocaleDateString()} icon={Clock} />
+            </div>
+
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Issue Description</p>
+              <p className="text-xs text-foreground/80 bg-muted/30 border border-border rounded-lg p-3 leading-relaxed">
+                {ticket.issue_description || ticket.description || 'No description provided.'}
+              </p>
+            </div>
+
+            {diag && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-1">Diagnostic Alert</p>
+                <p className="text-xs text-foreground/80">
+                  Fault Code: <span className="font-mono font-semibold text-primary">{diag.fault_code}</span> · Confidence: {diag.confidence_score}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{diag.probable_cause}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        {isTech && ticket.status !== 'completed' && (
+          <div className="flex gap-2 flex-wrap">
+            {ticket.status !== 'in_progress' && (
+              <Button size="sm" className="gap-2 bg-[hsl(var(--info))] hover:bg-[hsl(var(--info))]/80 text-white" onClick={() => handleStatusUpdate('in_progress')} disabled={saving}>
+                <Play className="h-3.5 w-3.5" /> Start Work
+              </Button>
+            )}
+            {ticket.status !== 'awaiting_parts' && (
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => handleStatusUpdate('awaiting_parts')} disabled={saving}>
+                <Package className="h-3.5 w-3.5" /> Waiting for Parts
+              </Button>
+            )}
+            <Button size="sm" className="gap-2 bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/80 text-white" onClick={() => handleStatusUpdate('completed')} disabled={saving}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> Complete
+            </Button>
+          </div>
+        )}
+
+        {/* View Full Details Button */}
+        <Button
+          className="w-full gap-2 bg-primary hover:bg-primary/90"
+          onClick={() => setShowFullDetail(true)}
+        >
+          <ListChecks className="h-4 w-4" /> View Full Repair Details & Checklist
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Full detail view with checklist ──
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-9 w-9">
+        <Button variant="ghost" size="icon" onClick={() => setShowFullDetail(false)} className="h-9 w-9">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="font-mono text-primary text-sm font-semibold">{ticket.ticket_id}</span>
             <Badge className={`text-[10px] ${STATUS_CLASSES[ticket.status]}`}>{ticket.status.replace(/_/g, ' ')}</Badge>
-            <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[ticket.priority]}`}>
-              {ticket.priority === 'severe' ? 'Critical' : ticket.priority}
-            </span>
           </div>
           <h1 className="text-lg font-semibold text-foreground mt-1">{ticket.title}</h1>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left – Main content */}
         <div className="lg:col-span-2 space-y-6">
+
+          {/* Repair Checklist */}
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-primary" /> Repair Checklist
+                </CardTitle>
+                <span className="text-xs text-muted-foreground">{completedSteps}/{repairSteps.length} · {progress}%</span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-muted rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {repairSteps.map((step, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${checkedSteps[i] ? 'bg-[hsl(var(--success))]/5' : 'hover:bg-muted/30'}`}
+                  onClick={() => toggleStep(i)}
+                >
+                  <Checkbox
+                    checked={!!checkedSteps[i]}
+                    onCheckedChange={() => toggleStep(i)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <p className={`text-xs ${checkedSteps[i] ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                      <span className="font-semibold text-primary mr-1.5">Step {i + 1}.</span>
+                      {step}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
 
           {/* Diagnostic Information */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <SearchIcon className="h-4 w-4 text-primary" /> Diagnostic Information
+                <SearchIcon className="h-4 w-4 text-primary" /> Diagnostic Report
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -229,7 +364,7 @@ export default function TicketDetailPage() {
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-primary" /> Components & Parts
+                <Wrench className="h-4 w-4 text-primary" /> Components & Parts Required
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -249,20 +384,12 @@ export default function TicketDetailPage() {
                   </div>
                 </div>
               )}
-
               {relatedParts.length > 0 ? (
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Required Parts</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Parts Needed</p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border text-muted-foreground">
-                          <th className="text-left py-2 pr-3">Part</th>
-                          <th className="text-left py-2 pr-3">Part #</th>
-                          <th className="text-center py-2 pr-3">Qty</th>
-                          <th className="text-right py-2">Stock</th>
-                        </tr>
-                      </thead>
+                      <thead><tr className="border-b border-border text-muted-foreground"><th className="text-left py-2 pr-3">Part</th><th className="text-left py-2 pr-3">Part #</th><th className="text-center py-2 pr-3">Qty</th><th className="text-right py-2">Stock</th></tr></thead>
                       <tbody>
                         {relatedParts.map(p => {
                           const stock = STOCK_CLASSES[p.status] || STOCK_CLASSES.in_stock;
@@ -271,9 +398,7 @@ export default function TicketDetailPage() {
                               <td className="py-2 pr-3 font-medium">{p.name}</td>
                               <td className="py-2 pr-3 font-mono text-muted-foreground">{p.part_number}</td>
                               <td className="py-2 pr-3 text-center">{p.quantity_available}</td>
-                              <td className="py-2 text-right">
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${stock.cls}`}>{stock.label}</span>
-                              </td>
+                              <td className="py-2 text-right"><span className={`text-[10px] px-2 py-0.5 rounded-full ${stock.cls}`}>{stock.label}</span></td>
                             </tr>
                           );
                         })}
@@ -282,16 +407,16 @@ export default function TicketDetailPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-2 text-center">No parts data available for this category.</p>
+                <p className="text-sm text-muted-foreground py-2 text-center">No parts data available.</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Manuals / Repair Steps */}
+          {/* Manuals */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary" /> Manuals & Repair Guides
+                <BookOpen className="h-4 w-4 text-primary" /> Repair Manuals & Guides
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -310,7 +435,7 @@ export default function TicketDetailPage() {
                               <FileText className="h-3 w-3" /> Preview
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={() => window.open(m.file!, '_blank')}>
-                              <ExternalLink className="h-3 w-3" /> Open
+                              <ExternalLink className="h-3 w-3" />
                             </Button>
                           </>
                         )}
@@ -319,7 +444,7 @@ export default function TicketDetailPage() {
                   ))}
                   {manuals[0]?.content && (
                     <div className="mt-3">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Repair Notes from Manual</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Manual Content</p>
                       <div className="text-xs text-foreground/80 bg-muted/30 border border-border rounded-lg p-3 leading-relaxed whitespace-pre-wrap">
                         {manuals[0].content}
                       </div>
@@ -327,33 +452,17 @@ export default function TicketDetailPage() {
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">No manuals found for this ticket category.</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">No manuals found for this category.</p>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Issue Description */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-primary" /> Issue Description & Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-foreground/80 bg-muted/30 border border-border rounded-lg p-3 leading-relaxed whitespace-pre-wrap">
-                {ticket.issue_description || ticket.description || 'No description provided.'}
-              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right sidebar – Actions */}
+        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Quick Info */}
+          {/* Ticket Details */}
           <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Ticket Details</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">Ticket Details</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <InfoRow label="Ticket ID" value={ticket.ticket_id} />
               <InfoRow label="Category" value={ticket.category} />
@@ -372,7 +481,6 @@ export default function TicketDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Status Actions */}
                 <div className="space-y-2">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Update Status</p>
                   <div className="grid grid-cols-1 gap-2">
@@ -392,38 +500,17 @@ export default function TicketDetailPage() {
                   </div>
                 </div>
 
-                {/* Repair Notes */}
                 <div className="space-y-2">
                   <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Repair Notes</Label>
-                  <Textarea
-                    placeholder="Describe the work performed..."
-                    value={repairNotes}
-                    onChange={e => setRepairNotes(e.target.value)}
-                    rows={3}
-                    className="bg-background resize-none text-xs"
-                  />
+                  <Textarea placeholder="Describe the work performed..." value={repairNotes} onChange={e => setRepairNotes(e.target.value)} rows={3} className="bg-background resize-none text-xs" />
                 </div>
 
-                {/* Time Logging */}
                 <div className="space-y-2">
                   <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Time Spent (hours)</Label>
-                  <input
-                    type="number"
-                    step="0.25"
-                    min="0"
-                    placeholder="e.g. 2.5"
-                    value={timeSpent}
-                    onChange={e => setTimeSpent(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  />
+                  <input type="number" step="0.25" min="0" placeholder="e.g. 2.5" value={timeSpent} onChange={e => setTimeSpent(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
                 </div>
 
-                <Button
-                  className="w-full gap-2 bg-primary hover:bg-primary/90"
-                  size="sm"
-                  onClick={handleSaveNotes}
-                  disabled={saving || (!repairNotes.trim() && !timeSpent)}
-                >
+                <Button className="w-full gap-2 bg-primary hover:bg-primary/90" size="sm" onClick={handleSaveNotes} disabled={saving || (!repairNotes.trim() && !timeSpent)}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Save Notes
                 </Button>
@@ -431,7 +518,7 @@ export default function TicketDetailPage() {
             </Card>
           )}
 
-          {/* Safety Precautions */}
+          {/* Safety */}
           <Card className="bg-card border-border border-[hsl(var(--warning))]/30">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[hsl(var(--warning))]">
@@ -451,7 +538,7 @@ export default function TicketDetailPage() {
         </div>
       </div>
 
-      {/* PDF Preview Modal */}
+      {/* PDF Modal */}
       <Dialog open={!!pdfModal} onOpenChange={open => { if (!open) setPdfModal(null); }}>
         <DialogContent className="max-w-4xl h-[80vh] bg-card p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-2 border-b border-border">
