@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { useAiTutor } from '@/context/AiTutorContext';
 import { useAuth } from '@/context/AuthContext';
@@ -41,6 +42,7 @@ export default function TicketsPage() {
   const { user, isRole } = useAuth();
   const { openTutor } = useAiTutor();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [tickets, setTickets]     = useState<Ticket[]>([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
@@ -97,6 +99,10 @@ export default function TicketsPage() {
   };
 
   const openDetail = (t: Ticket) => {
+    if (isTech) {
+      navigate(`/tickets/${t.id}`);
+      return;
+    }
     setSelected(t);
     setEditing(false);
     setEditForm({ status: t.status, priority: t.priority, assigned_to: t.assigned_to, description: t.description });
