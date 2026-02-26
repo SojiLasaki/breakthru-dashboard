@@ -9,6 +9,7 @@ import { AiTutorProvider } from "@/context/AiTutorContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 
 import DashboardLayout from "@/components/DashboardLayout";
+import TechnicianLayout from "@/components/TechnicianLayout";
 import LoginPage from "@/pages/LoginPage";
 import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
@@ -56,29 +57,44 @@ function ProtectedRoutes() {
   const isStaffOrTech  = isAdminOrStaff || isTech;
   const isCustomer     = role === 'customer';
 
-  // Helper: redirect unauthorized users to home
   const guard = (allowed: boolean, element: JSX.Element) =>
     allowed ? element : <Navigate to="/" replace />;
+
+  // Technician gets their own minimal layout
+  if (isTech) {
+    return (
+      <Routes>
+        <Route element={<TechnicianLayout />}>
+          <Route path="/"             element={<TechnicianDashboard />} />
+          <Route path="/tickets"      element={<TicketsPage />} />
+          <Route path="/tickets/:id"  element={<TicketDetailPage />} />
+          <Route path="/schedules"    element={<SchedulesPage />} />
+          <Route path="/profile"      element={<ProfilePage />} />
+          <Route path="*"             element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    );
+  }
 
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
         {/* ── Universal ── */}
-        <Route path="/"        element={isTech ? <TechnicianDashboard /> : <OverviewPage />} />
+        <Route path="/"        element={<OverviewPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
-        {/* ── Tickets: all roles see their own; techs see assigned; admins/staff see all ── */}
+        {/* ── Tickets ── */}
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/tickets/:id" element={<TicketDetailPage />} />
 
-        {/* ── Assets: everyone except customer restriction is handled inside the page ── */}
+        {/* ── Assets ── */}
         <Route path="/assets" element={<AssetsPage />} />
 
-        {/* ── Manuals: admins, staff, technicians only ── */}
-        <Route path="/manuals" element={guard(isStaffOrTech, <ManualsPage />)} />
+        {/* ── Manuals ── */}
+        <Route path="/manuals" element={guard(isAdminOrStaff, <ManualsPage />)} />
 
-        {/* ── Ask Felix: admin, staff, technicians only ── */}
+        {/* ── Ask Felix ── */}
         <Route path="/ask-ai" element={guard(!isCustomer, <AskAiPage />)} />
 
         {/* ── Admin + Office Staff only ── */}
@@ -91,16 +107,13 @@ function ProtectedRoutes() {
         <Route path="/logs"         element={guard(isAdminOrStaff, <LogsPage />)} />
         <Route path="/schedules"    element={<SchedulesPage />} />
 
-        {/* ── Inventory: admin, staff, technicians ── */}
-        <Route path="/components"  element={guard(isStaffOrTech, <ComponentsPage />)} />
-        <Route path="/parts"       element={guard(isStaffOrTech, <PartsPage />)} />
-        <Route path="/diagnostics" element={guard(isStaffOrTech, <DiagnosticsPage />)} />
+        {/* ── Inventory ── */}
+        <Route path="/components"  element={guard(isAdminOrStaff, <ComponentsPage />)} />
+        <Route path="/parts"       element={guard(isAdminOrStaff, <PartsPage />)} />
+        <Route path="/diagnostics" element={guard(isAdminOrStaff, <DiagnosticsPage />)} />
 
-        {/* ── AI Agents: admin, staff, technicians ── */}
-        <Route path="/ai-agents" element={guard(isStaffOrTech, <AiAgentsPage />)} />
-
-        {/* ── Admin-only settings re-uses logs page ── */}
-        {/* Removed duplicate settings route - now available to all roles above */}
+        {/* ── AI Agents ── */}
+        <Route path="/ai-agents" element={guard(isAdminOrStaff, <AiAgentsPage />)} />
 
         <Route path="*" element={<NotFound />} />
       </Route>
