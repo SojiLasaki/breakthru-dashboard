@@ -32,9 +32,9 @@ const PRIORITY_CLASSES: Record<string, string> = {
 type SortField = 'ticket_id' | 'status' | 'priority' | 'created_at';
 
 const BLANK_TICKET: Partial<Ticket> = {
-  title: '', description: '', category: '', customer: '', product_id: '', issue_description: '', assets: '',
+  title: '', description: '', customer: '', issue_description: '',
   status: 'open',
-  priority: 'medium',
+  priority: 2,
   assigned_to: '',
 };
 
