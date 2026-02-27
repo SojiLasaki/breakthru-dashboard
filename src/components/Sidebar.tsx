@@ -156,7 +156,7 @@ const CUSTOMER_NAV: NavGroup[] = [
 function getNavGroups(role: string): NavGroup[] {
   if (role === 'admin') return ADMIN_NAV;
   if (role === 'office_staff') return STAFF_NAV;
-  if (role === 'engine_technician' || role === 'electrical_technician' || role === 'tech') return TECHNICIAN_NAV;
+  if (role === 'engine_technician' || role === 'electrical_technician' || role === 'tech' || role === 'technician') return TECHNICIAN_NAV;
   return CUSTOMER_NAV;
 }
 
