@@ -36,11 +36,14 @@ const STATUS_LABELS: Record<string, string> = {
   open: 'Open', assigned: 'Assigned', in_progress: 'In Progress',
   awaiting_parts: 'Awaiting Parts', awaiting_approval: 'Escalated', completed: 'Completed',
 };
-const PRIORITY_CLASSES: Record<string, string> = {
-  low: 'text-muted-foreground bg-muted/50 border border-border',
-  medium: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
-  high: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
-  severe: 'text-primary bg-primary/10 border border-primary/20',
+
+const PRIORITY_LABEL: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical' };
+const PRIORITY_CLASS: Record<number, string> = {
+  1: 'text-muted-foreground bg-muted/50 border border-border',
+  2: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
+  3: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
+  4: 'text-primary bg-primary/10 border border-primary/20',
+  5: 'text-primary bg-primary/10 border border-primary/20',
 };
 
 function stockIndicator(status: string, qty: number) {
@@ -62,7 +65,7 @@ function generateRepairSteps(ticket: Ticket, diag: Diagnostic | null): RepairSte
       });
     }
   } else {
-    steps.push({ id: id++, label: `Inspect ${ticket.category || 'system'} for reported issue`, required: true });
+    steps.push({ id: id++, label: `Inspect ${ticket.specialization || 'system'} for reported issue`, required: true });
     steps.push({ id: id++, label: 'Run diagnostic scan to identify fault codes', required: true });
   }
   steps.push({ id: id++, label: 'Test affected components after repair', detail: 'Run system for 15 minutes under load.', required: true });
@@ -101,18 +104,17 @@ export default function TicketDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    const numId = parseInt(id);
     Promise.all([
-      ticketApi.getById(numId),
+      ticketApi.getById(id),
       diagnosticsApi.getAll(),
       manualApi.getAll(),
       partApi.getAll(),
       componentApi.getAll(),
     ]).then(([t, diags, mans, pts, comps]) => {
       setTicket(t);
-      const cat = (t.category || '').toLowerCase();
-      setDiagnostics(diags.filter(d => (d.title || '').toLowerCase().includes(cat) || (d.component_name || '').toLowerCase().includes(cat)));
-      setManuals(mans.filter(m => (m.category || '').toLowerCase() === cat || (m.tags || []).some(tag => (tag.name || '').toLowerCase() === cat)));
+      const spec = (t.specialization || '').toLowerCase();
+      setDiagnostics(diags.filter(d => (d.title || '').toLowerCase().includes(spec) || (d.component_name || '').toLowerCase().includes(spec)));
+      setManuals(mans.filter(m => (m.category || '').toLowerCase() === spec || (m.tags || []).some(tag => (tag.name || '').toLowerCase() === spec)));
       setParts(pts);
       setComponents(comps);
     }).catch(() => {
@@ -121,7 +123,7 @@ export default function TicketDetailPage() {
     }).finally(() => setLoading(false));
   }, [id]);
 
-  const handleStatusUpdate = async (newStatus: Ticket['status']) => {
+  const handleStatusUpdate = async (newStatus: string) => {
     if (!ticket) return;
     setSaving(true);
     try {
@@ -166,13 +168,11 @@ export default function TicketDetailPage() {
       <div className="p-4 lg:p-6 space-y-6">
         <Skeleton className="h-8 w-48" />
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left column skeleton */}
           <div className="space-y-4">
             <Skeleton className="h-56 w-full rounded-lg" />
             <Skeleton className="h-48 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
           </div>
-          {/* Right column - map skeleton */}
           <Skeleton className="h-[28rem] w-full rounded-lg" />
         </div>
         <div className="flex gap-3">
@@ -186,14 +186,14 @@ export default function TicketDetailPage() {
   if (!ticket) return null;
 
   const diag = diagnostics[0] || null;
-  const cat = (ticket.category || '').toLowerCase();
+  const spec = (ticket.specialization || '').toLowerCase();
   const relatedParts = parts.filter(p =>
-    (p.category || '').toLowerCase() === cat ||
-    (p.components_name || []).some(cn => (cn || '').toLowerCase().includes(cat))
+    (p.category || '').toLowerCase() === spec ||
+    (p.components_name || []).some(cn => (cn || '').toLowerCase().includes(spec))
   );
   const relatedComponents = components.filter(c =>
-    (c.group || '').toLowerCase() === cat ||
-    (c.name || '').toLowerCase().includes(cat)
+    (c.group || '').toLowerCase() === spec ||
+    (c.name || '').toLowerCase().includes(spec)
   );
   const repairSteps = generateRepairSteps(ticket, diag);
 
@@ -210,8 +210,8 @@ export default function TicketDetailPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-primary text-sm font-semibold">{ticket.ticket_id}</span>
               <Badge className={`text-[10px] ${STATUS_CLASSES[ticket.status]}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
-              <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[ticket.priority]}`}>
-                {ticket.priority === 'severe' ? 'Critical' : ticket.priority}
+              <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASS[ticket.priority] ?? ''}`}>
+                {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
               </span>
             </div>
             <h1 className="text-lg font-semibold text-foreground mt-1">{ticket.title}</h1>
@@ -222,16 +222,15 @@ export default function TicketDetailPage() {
         <div className="grid lg:grid-cols-2 gap-6">
           {/* ── LEFT COLUMN ── */}
           <div className="space-y-4">
-            {/* Top-left: Ticket Info & Customer Report */}
             <Card className="bg-card border-border">
               <CardContent className="p-5 space-y-4">
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <InfoRow label="Category" value={ticket.category} icon={Wrench} />
-                  <InfoRow label="Product ID" value={ticket.product_id} icon={Cpu} />
+                  <InfoRow label="Specialization" value={ticket.specialization} icon={Wrench} />
+                  <InfoRow label="Severity" value={String(ticket.severity)} icon={Cpu} />
                   <InfoRow label="Created" value={new Date(ticket.created_at).toLocaleDateString()} icon={Clock} />
-                  <InfoRow label="Assets" value={ticket.assets || 'N/A'} icon={Cpu} />
                   <InfoRow label="Assigned To" value={ticket.assigned_to || 'Unassigned'} icon={User} />
                   <InfoRow label="Customer" value={ticket.customer} icon={Building} />
+                  <InfoRow label="Auto Assigned" value={ticket.auto_assigned ? 'Yes' : 'No'} icon={Cpu} />
                 </div>
 
                 <div>
@@ -266,7 +265,7 @@ export default function TicketDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Bottom-left: Diagnostic Report */}
+            {/* Diagnostic Report */}
             {diag && (
               <Card className="bg-card border-border cursor-pointer hover:border-primary/30 transition-colors" onClick={() => setDiagModal(diag)}>
                 <CardHeader className="pb-2">
@@ -356,7 +355,7 @@ export default function TicketDetailPage() {
         <DiagnosticReportModal diagnostic={diagModal} open={!!diagModal} onClose={() => setDiagModal(null)} />
 
         {/* Floating Felix */}
-        <FloatingFelix ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.category} />
+        <FloatingFelix ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.specialization} />
       </div>
     );
   }
@@ -373,8 +372,8 @@ export default function TicketDetailPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-primary text-xs font-semibold">{ticket.ticket_id}</span>
             <Badge className={`text-[9px] ${STATUS_CLASSES[ticket.status]}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
-            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASSES[ticket.priority]}`}>
-              {ticket.priority === 'severe' ? 'Critical' : ticket.priority}
+            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASS[ticket.priority] ?? ''}`}>
+              {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
             </span>
           </div>
           <h1 className="text-sm font-semibold text-foreground truncate">{ticket.title}</h1>
@@ -425,7 +424,7 @@ export default function TicketDetailPage() {
           )}
 
           {/* Repair Checklist */}
-          <RepairChecklist steps={repairSteps} ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.category} />
+          <RepairChecklist steps={repairSteps} ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.specialization} />
 
           {/* Technician Notes */}
           {isTech && ticket.status !== 'completed' && (
@@ -552,7 +551,7 @@ export default function TicketDetailPage() {
                       </div>
                     </div>
                   )) : (
-                    <p className="text-[11px] text-muted-foreground text-center py-3">No manuals found for this category.</p>
+                    <p className="text-[11px] text-muted-foreground text-center py-3">No manuals found for this specialization.</p>
                   )}
                 </CardContent>
               </Card>
@@ -600,7 +599,7 @@ export default function TicketDetailPage() {
       </Dialog>
 
       {/* Floating Felix */}
-      <FloatingFelix ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.category} />
+      <FloatingFelix ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.specialization} />
     </div>
   );
 }

@@ -22,11 +22,13 @@ const STATUS_CLASSES: Record<string, string> = {
   completed:         'status-closed',
 };
 
-const PRIORITY_CLASSES: Record<string, string> = {
-  low:    'text-muted-foreground bg-muted/50 border border-border',
-  medium: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20',
-  high:   'text-orange-400 bg-orange-400/10 border border-orange-400/20',
-  severe: 'text-primary bg-primary/10 border border-primary/20',
+const PRIORITY_LABEL: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical' };
+const PRIORITY_CLASSES_NUM: Record<number, string> = {
+  1: 'text-muted-foreground bg-muted/50 border border-border',
+  2: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20',
+  3: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
+  4: 'text-primary bg-primary/10 border border-primary/20',
+  5: 'text-primary bg-primary/10 border border-primary/20',
 };
 
 type SortField = 'ticket_id' | 'status' | 'priority' | 'created_at';
@@ -82,12 +84,12 @@ export default function TicketsPage() {
       .filter(t => {
         const matchSearch = !search || t.ticket_id.toLowerCase().includes(search.toLowerCase()) || t.title.toLowerCase().includes(search.toLowerCase()) || t.assigned_to.toLowerCase().includes(search.toLowerCase());
         const matchStatus   = statusFilter === 'all'   || t.status === statusFilter;
-        const matchPriority = priorityFilter === 'all' || t.priority === priorityFilter;
+        const matchPriority = priorityFilter === 'all' || t.priority === Number(priorityFilter);
         return matchSearch && matchStatus && matchPriority;
       })
       .sort((a, b) => {
-        const va = a[sortField] as string;
-        const vb = b[sortField] as string;
+        const va = String(a[sortField]);
+        const vb = String(b[sortField]);
         return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       }),
     [tickets, search, statusFilter, priorityFilter, sortField, sortDir]
@@ -141,16 +143,14 @@ export default function TicketsPage() {
     }
   };
 
-  // Build columns: customers see assets column
   const tableHeaders = [
     { label: 'Ticket ID', field: 'ticket_id' as SortField },
-    { label: 'Product ID', field: null },
+    { label: 'Specialization', field: null },
     { label: 'Issue', field: null },
     { label: 'Status', field: 'status' as SortField },
     { label: 'Priority', field: 'priority' as SortField },
     { label: 'Technician', field: null },
     { label: 'Created By', field: null },
-    ...(isCustomer ? [{ label: 'Assets', field: null }] : []),
     { label: 'Created', field: 'created_at' as SortField },
     { label: 'Actions', field: null },
   ];
@@ -195,10 +195,11 @@ export default function TicketsPage() {
           <SelectTrigger className="w-36 bg-card"><SelectValue placeholder="Priority" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Priority</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="severe">Severe</SelectItem>
+            <SelectItem value="1">Low</SelectItem>
+            <SelectItem value="2">Medium</SelectItem>
+            <SelectItem value="3">High</SelectItem>
+            <SelectItem value="4">Severe</SelectItem>
+            <SelectItem value="5">Critical</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -228,20 +229,19 @@ export default function TicketsPage() {
               ) : filtered.map((t, i) => (
                 <tr key={t.id} className={`border-b border-border hover:bg-accent/30 transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-muted/10' : ''}`} onClick={() => openDetail(t)}>
                   <td className="px-4 py-3 font-mono text-xs text-primary font-medium">{t.ticket_id}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.product_id}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{t.specialization || '—'}</td>
                   <td className="px-4 py-3 text-xs max-w-48 truncate">{t.issue_description || t.title}</td>
                   <td className="px-4 py-3">
                     <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${STATUS_CLASSES[t.status] ?? ''}`}>{t.status.replace(/_/g, ' ')}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES[t.priority] ?? ''}`}>{t.priority}</span>
+                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES_NUM[t.priority] ?? ''}`}>{PRIORITY_LABEL[t.priority] ?? t.priority}</span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.assigned_to}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.created_by}</td>
-                  {isCustomer && <td className="px-4 py-3 text-xs text-muted-foreground">{t.assets}</td>}
                   <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-primary" onClick={e => { e.stopPropagation(); openTutor(t.id, t.title); }}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-primary" onClick={e => { e.stopPropagation(); openTutor(Number(t.id), t.title); }}>
                       <Bot className="h-3 w-3" /> AI
                     </Button>
                   </td>
@@ -267,8 +267,8 @@ export default function TicketsPage() {
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_CLASSES[editing ? (editForm.status ?? selected.status) : selected.status]}`}>
                         {(editing ? (editForm.status ?? selected.status) : selected.status).replace(/_/g, ' ')}
                       </span>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASSES[editing ? (editForm.priority ?? selected.priority) : selected.priority]}`}>
-                        {editing ? (editForm.priority ?? selected.priority) : selected.priority}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASSES_NUM[editing ? (editForm.priority ?? selected.priority) : selected.priority] ?? ''}`}>
+                        {PRIORITY_LABEL[editing ? (editForm.priority ?? selected.priority) : selected.priority] ?? (editing ? editForm.priority : selected.priority)}
                       </span>
                     </div>
                   </div>
@@ -287,7 +287,7 @@ export default function TicketsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs">Status</Label>
-                        <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as Ticket['status'] }))}>
+                        <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
                           <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
@@ -301,13 +301,14 @@ export default function TicketsPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Priority</Label>
-                        <Select value={editForm.priority} onValueChange={v => setEditForm(f => ({ ...f, priority: v as Ticket['priority'] }))}>
+                        <Select value={String(editForm.priority ?? '')} onValueChange={v => setEditForm(f => ({ ...f, priority: Number(v) }))}>
                           <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="severe">Severe</SelectItem>
+                            <SelectItem value="1">Low</SelectItem>
+                            <SelectItem value="2">Medium</SelectItem>
+                            <SelectItem value="3">High</SelectItem>
+                            <SelectItem value="4">Severe</SelectItem>
+                            <SelectItem value="5">Critical</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -336,14 +337,12 @@ export default function TicketsPage() {
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Details</p>
                       <div className="space-y-3">
                         {[
-                          { icon: Tag,      label: 'Product ID',    value: selected.product_id },
-                          { icon: User,     label: 'Customer',      value: selected.customer },
-                          { icon: Tag,      label: 'Category',      value: selected.category },
-                          { icon: User,     label: 'Technician',    value: selected.assigned_to },
-                          { icon: User,     label: 'Created By',    value: selected.created_by },
-                          { icon: Calendar, label: 'Created',       value: new Date(selected.created_at).toLocaleString() },
-                          { icon: Calendar, label: 'Last Updated',  value: new Date(selected.updated_at).toLocaleString() },
-                          ...(isCustomer ? [{ icon: Tag, label: 'Assets', value: selected.assets }] : []),
+                          { icon: Tag,      label: 'Specialization', value: selected.specialization },
+                          { icon: User,     label: 'Customer',       value: selected.customer },
+                          { icon: User,     label: 'Technician',     value: selected.assigned_to },
+                          { icon: User,     label: 'Created By',     value: selected.created_by },
+                          { icon: Calendar, label: 'Created',        value: new Date(selected.created_at).toLocaleString() },
+                          { icon: Calendar, label: 'Last Updated',   value: new Date(selected.updated_at).toLocaleString() },
                         ].map(({ icon: Icon, label, value }) => (
                           <div key={label} className="flex items-center gap-3 text-xs">
                             <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -365,7 +364,7 @@ export default function TicketsPage() {
                       </div>
                     </div>
 
-                    <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { openTutor(selected.id, selected.title); setSelected(null); }}>
+                    <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { openTutor(Number(selected.id), selected.title); setSelected(null); }}>
                       <Bot className="h-4 w-4" /> Open AI Tutor for this Ticket
                     </Button>
                   </div>
@@ -400,26 +399,36 @@ export default function TicketsPage() {
                 <Input placeholder="Customer name" value={newTicket.customer ?? ''} onChange={e => setNewTicket(f => ({ ...f, customer: e.target.value }))} className="bg-background" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Product ID</Label>
-                <Input placeholder="PRD-XXXX" value={newTicket.product_id ?? ''} onChange={e => setNewTicket(f => ({ ...f, product_id: e.target.value }))} className="bg-background" />
+                <Label className="text-xs">Specialization</Label>
+                <Input placeholder="Engine, Electrical…" value={newTicket.specialization ?? ''} onChange={e => setNewTicket(f => ({ ...f, specialization: e.target.value }))} className="bg-background" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Priority</Label>
-                <Select value={newTicket.priority} onValueChange={v => setNewTicket(f => ({ ...f, priority: v as Ticket['priority'] }))}>
+                <Select value={String(newTicket.priority ?? 2)} onValueChange={v => setNewTicket(f => ({ ...f, priority: Number(v) }))}>
                   <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="severe">Severe</SelectItem>
+                    <SelectItem value="1">Low</SelectItem>
+                    <SelectItem value="2">Medium</SelectItem>
+                    <SelectItem value="3">High</SelectItem>
+                    <SelectItem value="4">Severe</SelectItem>
+                    <SelectItem value="5">Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Category</Label>
-                <Input placeholder="Engine, Electrical…" value={newTicket.category ?? ''} onChange={e => setNewTicket(f => ({ ...f, category: e.target.value }))} className="bg-background" />
+                <Label className="text-xs">Severity</Label>
+                <Select value={String(newTicket.severity ?? 3)} onValueChange={v => setNewTicket(f => ({ ...f, severity: Number(v) }))}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 - Low</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3 - Medium</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="5">5 - Critical</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-1.5">

@@ -55,7 +55,7 @@ export default function OverviewPage() {
   }, [isAdminOrStaff, isCustomer]);
 
   const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'assigned').length;
-  const urgentTickets = tickets.filter(t => t.priority === 'severe').length;
+  const urgentTickets = tickets.filter(t => t.priority >= 4).length;
   const availableTechs = technicians.filter(t => t.status === 'available').length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
   const completedTickets = tickets.filter(t => t.status === 'completed').length;
