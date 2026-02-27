@@ -31,9 +31,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const stored = localStorage.getItem('cummins_user');
     if (stored) {
       try {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
+        // Ensure token is available for Axios interceptor
+        if (parsed.token) {
+          localStorage.setItem('access', parsed.token);
+        }
       } catch {
         localStorage.removeItem('cummins_user');
+        localStorage.removeItem('access');
       }
     }
     setLoading(false);
@@ -43,11 +49,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const userData = await authApi.login(username, password);
     setUser(userData);
     localStorage.setItem('cummins_user', JSON.stringify(userData));
+    // Store token separately so the Axios interceptor can use it
+    if (userData.token) {
+      localStorage.setItem('access', userData.token);
+    }
   };
 
   const logout = () => {
+    authApi.logout();
     setUser(null);
     localStorage.removeItem('cummins_user');
+    localStorage.removeItem('access');
   };
 
   const isRole = (...roles: UserRole[]) => {
