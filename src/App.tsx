@@ -66,7 +66,7 @@ function ProtectedRoutes() {
     return (
       <Routes>
         <Route element={<TechnicianLayout />}>
-          <Route path="/"             element={<AskAiPage />} />
+          <Route path="/"             element={<TechnicianDashboard />} />
           <Route path="/tickets"      element={<TicketsPage />} />
           <Route path="/tickets/:id"  element={<TicketDetailPage />} />
           <Route path="/schedules"    element={<SchedulesPage />} />
