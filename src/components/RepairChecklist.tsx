@@ -192,7 +192,20 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                 <div className="flex items-start gap-3 px-4 py-3">
                   <Checkbox
                     checked={s.checked}
-                    onCheckedChange={() => update(step.id, { checked: !s.checked })}
+                    onCheckedChange={() => {
+                      const nowChecked = !s.checked;
+                      if (nowChecked) {
+                        // Mark all previous steps as checked too
+                        const patch: Record<number, StepState> = {};
+                        for (let i = 0; i <= idx; i++) {
+                          const sid = steps[i].id;
+                          patch[sid] = { ...states[sid], checked: true };
+                        }
+                        setStates(prev => ({ ...prev, ...patch }));
+                      } else {
+                        update(step.id, { checked: false });
+                      }
+                    }}
                     className="mt-0.5"
                   />
                   <div className="flex-1 min-w-0">
