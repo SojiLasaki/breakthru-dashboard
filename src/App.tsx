@@ -51,18 +51,18 @@ function ProtectedRoutes() {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  const role = user.role;
+  const role = user.role?.toLowerCase?.() ?? '';
   console.log('[ProtectedRoutes] user role:', role);
   const isAdmin        = role === 'admin';
   const isAdminOrStaff = role === 'admin' || role === 'office_staff';
-  const isTech         = role === 'engine_technician' || role === 'electrical_technician' || role === 'tech' || role === 'technician';
+  const isTech         = ['engine_technician', 'electrical_technician', 'tech', 'technician'].includes(role?.toLowerCase?.() ?? '');
   const isStaffOrTech  = isAdminOrStaff || isTech;
   const isCustomer     = role === 'customer';
 
   const guard = (allowed: boolean, element: JSX.Element) =>
     allowed ? element : <Navigate to="/" replace />;
 
-  // Technician gets their own minimal layout
+  // Technician gets their own minimal layout (Fix it Felix)
   if (isTech) {
     return (
       <Routes>
@@ -79,25 +79,7 @@ function ProtectedRoutes() {
     );
   }
 
-  // Customer gets sidebar layout but customer-specific dashboard
-  if (isCustomer) {
-    return (
-      <Routes>
-        <Route element={<DashboardLayout />}>
-          <Route path="/"            element={<CustomerDashboard />} />
-          <Route path="/assets"      element={<AssetsPage />} />
-          <Route path="/tickets"     element={<TicketsPage />} />
-          <Route path="/tickets/:id" element={<TicketDetailPage />} />
-          <Route path="/ask-ai"      element={<AskAiPage />} />
-          <Route path="/profile"     element={<ProfilePage />} />
-          <Route path="/settings"    element={<SettingsPage />} />
-          <Route path="*"            element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    );
-  }
-
-  // Admin / Office Staff — full dashboard
+  // Everyone else (admin, office_staff, customer, any other role) → full sidebar dashboard
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
