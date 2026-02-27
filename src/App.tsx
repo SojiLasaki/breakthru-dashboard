@@ -52,6 +52,7 @@ function ProtectedRoutes() {
   if (!user) return <Navigate to="/login" replace />;
 
   const role = user.role;
+  console.log('[ProtectedRoutes] user role:', role);
   const isAdmin        = role === 'admin';
   const isAdminOrStaff = role === 'admin' || role === 'office_staff';
   const isTech         = role === 'engine_technician' || role === 'electrical_technician';
