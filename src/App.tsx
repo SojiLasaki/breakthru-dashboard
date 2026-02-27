@@ -55,7 +55,7 @@ function ProtectedRoutes() {
   console.log('[ProtectedRoutes] user role:', role);
   const isAdmin        = role === 'admin';
   const isAdminOrStaff = role === 'admin' || role === 'office_staff';
-  const isTech         = role === 'engine_technician' || role === 'electrical_technician' || role === 'tech';
+  const isTech         = role === 'engine_technician' || role === 'electrical_technician' || role === 'tech' || role === 'technician';
   const isStaffOrTech  = isAdminOrStaff || isTech;
   const isCustomer     = role === 'customer';
 
