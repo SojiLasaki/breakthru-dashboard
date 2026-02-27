@@ -15,6 +15,7 @@ import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
 import TicketDetailPage from "@/pages/TicketDetailPage";
 import TechnicianDashboard from "@/pages/TechnicianDashboard";
+import CustomerDashboard from "@/pages/CustomerDashboard";
 import TechniciansPage from "@/pages/TechniciansPage";
 import TechnicianProfilePage from "@/pages/TechnicianProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
@@ -77,44 +78,53 @@ function ProtectedRoutes() {
     );
   }
 
+  // Customer gets sidebar layout but customer-specific dashboard
+  if (isCustomer) {
+    return (
+      <Routes>
+        <Route element={<DashboardLayout />}>
+          <Route path="/"            element={<CustomerDashboard />} />
+          <Route path="/assets"      element={<AssetsPage />} />
+          <Route path="/tickets"     element={<TicketsPage />} />
+          <Route path="/tickets/:id" element={<TicketDetailPage />} />
+          <Route path="/ask-ai"      element={<AskAiPage />} />
+          <Route path="/profile"     element={<ProfilePage />} />
+          <Route path="/settings"    element={<SettingsPage />} />
+          <Route path="*"            element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    );
+  }
+
+  // Admin / Office Staff — full dashboard
   return (
     <Routes>
       <Route element={<DashboardLayout />}>
-        {/* ── Universal ── */}
         <Route path="/"        element={<OverviewPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
-        {/* ── Tickets ── */}
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/tickets/:id" element={<TicketDetailPage />} />
 
-        {/* ── Assets ── */}
         <Route path="/assets" element={<AssetsPage />} />
-
-        {/* ── Manuals ── */}
         <Route path="/manuals" element={guard(isAdminOrStaff, <ManualsPage />)} />
+        <Route path="/ask-ai" element={<AskAiPage />} />
 
-        {/* ── Ask Felix ── */}
-        <Route path="/ask-ai" element={guard(!isCustomer, <AskAiPage />)} />
-
-        {/* ── Admin + Office Staff only ── */}
-        <Route path="/customers"    element={guard(isAdminOrStaff, <CustomersPage />)} />
-        <Route path="/orders"       element={guard(isAdminOrStaff, <OrdersPage />)} />
-        <Route path="/technicians"  element={guard(isAdminOrStaff, <TechniciansPage />)} />
-        <Route path="/technicians/:id" element={guard(isAdminOrStaff, <TechnicianProfilePage />)} />
-        <Route path="/staff"        element={guard(isAdminOrStaff, <StaffPage />)} />
-        <Route path="/transactions" element={guard(isAdminOrStaff, <TransactionsPage />)} />
-        <Route path="/logs"         element={guard(isAdminOrStaff, <LogsPage />)} />
+        <Route path="/customers"    element={<CustomersPage />} />
+        <Route path="/orders"       element={<OrdersPage />} />
+        <Route path="/technicians"  element={<TechniciansPage />} />
+        <Route path="/technicians/:id" element={<TechnicianProfilePage />} />
+        <Route path="/staff"        element={<StaffPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/logs"         element={<LogsPage />} />
         <Route path="/schedules"    element={<SchedulesPage />} />
 
-        {/* ── Inventory ── */}
-        <Route path="/components"  element={guard(isAdminOrStaff, <ComponentsPage />)} />
-        <Route path="/parts"       element={guard(isAdminOrStaff, <PartsPage />)} />
-        <Route path="/diagnostics" element={guard(isAdminOrStaff, <DiagnosticsPage />)} />
+        <Route path="/components"  element={<ComponentsPage />} />
+        <Route path="/parts"       element={<PartsPage />} />
+        <Route path="/diagnostics" element={<DiagnosticsPage />} />
 
-        {/* ── AI Agents ── */}
-        <Route path="/ai-agents" element={guard(isAdminOrStaff, <AiAgentsPage />)} />
+        <Route path="/ai-agents" element={guard(isAdmin, <AiAgentsPage />)} />
 
         <Route path="*" element={<NotFound />} />
       </Route>
