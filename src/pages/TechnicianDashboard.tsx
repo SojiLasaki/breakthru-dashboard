@@ -25,13 +25,15 @@ const STATUS_CLASSES: Record<string, string> = {
   open: 'status-open', assigned: 'status-open', in_progress: 'status-in-progress',
   awaiting_parts: 'status-in-progress', awaiting_approval: 'status-urgent', completed: 'status-closed',
 };
-const PRIORITY_CLASSES: Record<string, string> = {
-  low: 'text-muted-foreground bg-muted/50 border border-border',
-  medium: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
-  high: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
-  severe: 'text-primary bg-primary/10 border border-primary/20',
+const PRIORITY_LABEL: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical' };
+const PRIORITY_CLASSES_NUM: Record<number, string> = {
+  1: 'text-muted-foreground bg-muted/50 border border-border',
+  2: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
+  3: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
+  4: 'text-primary bg-primary/10 border border-primary/20',
+  5: 'text-primary bg-primary/10 border border-primary/20',
 };
-const PRIORITY_ORDER: Record<string, number> = { severe: 0, high: 1, medium: 2, low: 3 };
+const PRIORITY_ORDER: Record<number, number> = { 5: 0, 4: 1, 3: 2, 2: 3, 1: 4 };
 
 interface ChatMessage {
   id: string;
@@ -76,7 +78,7 @@ export default function TechnicianDashboard() {
     ticketApi.getAll().then(all => {
       const mine = all
         .filter(t => t.assigned_to === fullName && t.status !== 'completed')
-        .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || b.created_at.localeCompare(a.created_at));
+        .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 4) - (PRIORITY_ORDER[b.priority] ?? 4) || b.created_at.localeCompare(a.created_at));
       setTickets(mine);
     }).finally(() => setTicketsLoading(false));
   }, [fullName]);
@@ -230,8 +232,8 @@ export default function TechnicianDashboard() {
                             <p className="text-[10px] font-mono text-primary font-semibold">{t.ticket_id}</p>
                             <p className="text-xs font-medium text-foreground mt-0.5 truncate">{t.title}</p>
                           </div>
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize flex-shrink-0 ml-2 ${PRIORITY_CLASSES[t.priority]}`}>
-                            {t.priority === 'severe' ? 'Critical' : t.priority}
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize flex-shrink-0 ml-2 ${PRIORITY_CLASSES_NUM[t.priority] ?? ''}`}>
+                            {PRIORITY_LABEL[t.priority] ?? t.priority}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">

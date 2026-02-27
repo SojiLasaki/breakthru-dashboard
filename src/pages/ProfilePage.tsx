@@ -114,7 +114,7 @@ export default function ProfilePage() {
       const q = search.toLowerCase();
       const matchSearch = !q || t.title.toLowerCase().includes(q) || t.ticket_id.toLowerCase().includes(q) || t.customer.toLowerCase().includes(q);
       const matchStatus = statusFilter === 'all' || t.status === statusFilter;
-      const matchPriority = priorityFilter === 'all' || t.priority === priorityFilter;
+      const matchPriority = priorityFilter === 'all' || t.priority === Number(priorityFilter);
       return matchSearch && matchStatus && matchPriority;
     });
   }, [tickets, search, statusFilter, priorityFilter]);
@@ -343,9 +343,9 @@ export default function ProfilePage() {
                             <span className="text-xs font-mono text-primary/70">{t.ticket_id}</span>
                             <span className="text-sm font-medium truncate">{t.title}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.customer} · {t.category}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.customer} · {t.specialization}</p>
                         </div>
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${PRIORITY_CLASS[t.priority] ?? ''}`}>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${PRIORITY_CLASS[t.priority] ?? PRIORITY_CLASS['low'] ?? ''}`}>
                           {t.priority}
                         </span>
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${STATUS_CLASS[t.status] ?? ''}`}>
