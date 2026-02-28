@@ -192,8 +192,8 @@ export default function ProfilePage() {
         </Card>
 
         {/* Experience + Stats — compact side column */}
-        <div className="space-y-3">
-          <Card className="bg-card border-border">
+        <div className="flex flex-col gap-3">
+          <Card className="bg-card border-border flex-1">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <TrendingUp className="h-3.5 w-3.5 text-primary" />
