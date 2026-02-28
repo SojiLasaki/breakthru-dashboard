@@ -19,9 +19,9 @@ interface HeaderProps {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator',
-  office_staff: 'Office Staff',
-  engine_technician: 'Engine Technician',
-  electrical_technician: 'Electrical Technician',
+  office: 'Office Staff',
+  technician: 'Technician',
+  // electrical_technician: 'Electrical Technician',
   customer: 'Customer',
 };
 
@@ -32,7 +32,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
-  const canUseAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
+  const canUseAiTutor = user && ['admin', 'office_staff', 'technician'].includes(user.role);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
