@@ -140,16 +140,18 @@ export default function ProfilePage() {
       </div>
 
       {/* Top row: Identity + Experience */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* Identity card with extended fields */}
-        <Card className="bg-card border-border lg:col-span-2">
+        <Card className="bg-card border-border xl:col-span-2">
           <CardContent className="p-0">
             <div className="flex flex-col sm:flex-row">
               {/* Avatar panel */}
-              <div className="flex flex-col items-center justify-center gap-3 p-8 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[180px]">
-                <div className="w-20 h-20 rounded-full bg-primary/15 ring-2 ring-primary/30 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-primary">{initials || <User className="h-8 w-8" />}</span>
-                </div>
+              <div className="flex flex-col items-center justify-center gap-3 p-6 sm:p-8 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[200px]">
+                <img
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent((user.first_name ?? '') + ' ' + (user.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`}
+                  alt={`${user.first_name} ${user.last_name}`}
+                  className="w-20 h-20 rounded-full object-cover ring-2 ring-primary/30"
+                />
                 <div className="text-center">
                   <p className="font-semibold">{user.first_name} {user.last_name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">ID #{user.id ?? '—'}</p>
