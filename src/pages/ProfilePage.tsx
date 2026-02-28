@@ -140,83 +140,50 @@ export default function ProfilePage() {
       </div>
 
       {/* Top row: Identity + Experience */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Identity card with extended fields */}
-        <Card className="bg-card border-border xl:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
+        {/* Identity card */}
+        <Card className="bg-card border-border">
           <CardContent className="p-0">
             <div className="flex flex-col sm:flex-row">
-              {/* Avatar panel */}
-              <div className="flex flex-col items-center justify-center gap-3 p-6 sm:p-8 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[200px]">
+              <div className="flex flex-col items-center justify-center gap-3 p-6 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[170px]">
                 <img
                   src={`https://ui-avatars.com/api/?name=${encodeURIComponent((user.first_name ?? '') + ' ' + (user.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`}
                   alt={`${user.first_name} ${user.last_name}`}
-                  className="w-20 h-20 rounded-full object-cover ring-2 ring-primary/30"
+                  className="w-16 h-16 rounded-full object-cover ring-2 ring-primary/30"
                 />
                 <div className="text-center">
-                  <p className="font-semibold">{user.first_name} {user.last_name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">ID #{user.id ?? '—'}</p>
+                  <p className="font-semibold text-sm">{user.first_name} {user.last_name}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">ID #{user.id ?? '—'}</p>
                 </div>
-                <span className={`text-xs font-medium px-3 py-1 rounded-full border ${cfg.color}`}>
+                <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full border ${cfg.color}`}>
                   {cfg.label}
                 </span>
               </div>
-
-              {/* Details grid */}
-              <div className="flex-1 p-6 space-y-4">
+              <div className="flex-1 p-5">
                 <div className="grid sm:grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Mail className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Email</p>
-                      <p className="text-sm">{user.email}</p>
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Mail className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Email</p><p className="text-sm">{user.email}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Phone className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Phone</p>
-                      <p className="text-sm">+234 801 234 5678</p>
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Phone className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Phone</p><p className="text-sm">+234 801 234 5678</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Station</p>
-                      <p className="text-sm">Lagos HQ</p>
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><MapPin className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Station</p><p className="text-sm">Lagos HQ</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Wrench className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Specialization</p>
-                      <p className="text-sm">{specialization}</p>
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Wrench className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Specialization</p><p className="text-sm">{specialization}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Star className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Expertise</p>
-                      <p className="text-sm">{expertise}</p>
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Star className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Expertise</p><p className="text-sm">{expertise}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <RoleIcon className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Role</p>
-                      <p className="text-sm">{cfg.description}</p>
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><RoleIcon className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Role</p><p className="text-sm">{cfg.description}</p></div>
                   </div>
                 </div>
               </div>
@@ -224,41 +191,38 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Experience + Quick Stats */}
-        <div className="space-y-4">
+        {/* Experience + Stats — compact side column */}
+        <div className="space-y-3">
           <Card className="bg-card border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Experience Level
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-end gap-3">
-                <span className="text-5xl font-black text-primary leading-none">{expScore}</span>
-                <span className="text-sm text-muted-foreground pb-1">/ 100</span>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                Experience
               </div>
-              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div className="flex items-end gap-2">
+                <span className="text-3xl font-black text-primary leading-none">{expScore}</span>
+                <span className="text-xs text-muted-foreground pb-0.5">/ 100</span>
+              </div>
+              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${expScore}%` }} />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] text-muted-foreground">
                 {expScore >= 80 ? 'Expert' : expScore >= 60 ? 'Proficient' : expScore >= 40 ? 'Intermediate' : 'Beginner'}
               </p>
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-card border border-border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-primary">{completedCount}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Completed</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-card border border-border rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-primary">{completedCount}</p>
+              <p className="text-[9px] text-muted-foreground">Completed</p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-primary">{openCount}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Open</p>
+            <div className="bg-card border border-border rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-primary">{openCount}</p>
+              <p className="text-[9px] text-muted-foreground">Open</p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-primary">{certifications.filter(c => c.status === 'active').length}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Certs</p>
+            <div className="bg-card border border-border rounded-lg p-2 text-center">
+              <p className="text-lg font-bold text-primary">{certifications.filter(c => c.status === 'active').length}</p>
+              <p className="text-[9px] text-muted-foreground">Certs</p>
             </div>
           </div>
         </div>
