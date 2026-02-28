@@ -89,7 +89,7 @@ export default function TechnicianProfilePage() {
   const urgentCount    = tasks.filter(t => t.priority === 'urgent' || t.priority === 'high').length;
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full">
       {/* Back */}
       <Button variant="ghost" size="sm" onClick={() => navigate('/technicians')} className="gap-2 text-muted-foreground hover:text-foreground -ml-2">
         <ArrowLeft className="h-4 w-4" />
