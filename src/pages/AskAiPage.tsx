@@ -68,6 +68,16 @@ const STARTERS = [
 ];
 
 const KNOWLEDGE_GRAPH_COMMAND = 'add this to my knowledge graph';
+const PROVIDER_LABELS: Record<string, string> = {
+  langgraph: 'Backend AI',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  ollama: 'Ollama',
+  vllm: 'vLLM',
+  llamacpp: 'llama.cpp',
+  local: 'Local',
+};
 
 const escapeHtml = (value: string) => value
   .replace(/&/g, '&amp;')
@@ -548,7 +558,7 @@ export default function AskAiPage() {
               <SelectContent>
                 {providers.map(provider => (
                   <SelectItem key={provider} value={provider} className="text-xs">
-                    {provider}
+                    {PROVIDER_LABELS[provider] || provider}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -79,10 +79,9 @@ export default function AiAgentsPage() {
   const [togglingMcpId, setTogglingMcpId] = useState<string | null>(null);
   const [testingMcpId, setTestingMcpId] = useState<string | null>(null);
   const [startingOauthMcpId, setStartingOauthMcpId] = useState<string | null>(null);
-  const [savingOauthMcpId, setSavingOauthMcpId] = useState<string | null>(null);
+  const [oauthPendingByAdapter, setOauthPendingByAdapter] = useState<Record<string, boolean>>({});
   const [connectionResults, setConnectionResults] = useState<Record<string, McpConnectionTestResult>>({});
   const [oauthLinks, setOauthLinks] = useState<Record<string, string>>({});
-  const [oauthTokenDrafts, setOauthTokenDrafts] = useState<Record<string, { access_token: string; refresh_token: string }>>({});
 
   const [mcpDraft, setMcpDraft] = useState<CreateMcpAdapterPayload>({
     name: '',
@@ -95,7 +94,9 @@ export default function AiAgentsPage() {
     oauth_client_id: '',
     oauth_client_secret: '',
     oauth_scopes: '',
-    oauth_callback_port: 8765,
+    oauth_authorize_url: '',
+    oauth_token_url: '',
+    oauth_issuer_url: '',
     description: '',
   });
 
@@ -242,6 +243,14 @@ export default function AiAgentsPage() {
         return;
       }
     }
+    if (mcpDraft.auth_type === 'oauth2' && !mcpDraft.oauth_client_id?.trim()) {
+      toast({
+        title: 'OAuth client ID required',
+        description: 'Provide OAuth client ID for OAuth 2.0 adapters.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSavingMcp(true);
     try {
@@ -256,7 +265,9 @@ export default function AiAgentsPage() {
         oauth_client_id: mcpDraft.oauth_client_id,
         oauth_client_secret: mcpDraft.oauth_client_secret,
         oauth_scopes: mcpDraft.oauth_scopes,
-        oauth_callback_port: mcpDraft.oauth_callback_port,
+        oauth_authorize_url: mcpDraft.oauth_authorize_url,
+        oauth_token_url: mcpDraft.oauth_token_url,
+        oauth_issuer_url: mcpDraft.oauth_issuer_url,
         description: mcpDraft.description?.trim(),
       });
       setMcpAdapters(prev => [created, ...prev]);
@@ -271,7 +282,9 @@ export default function AiAgentsPage() {
         oauth_client_id: '',
         oauth_client_secret: '',
         oauth_scopes: '',
-        oauth_callback_port: 8765,
+        oauth_authorize_url: '',
+        oauth_token_url: '',
+        oauth_issuer_url: '',
         description: '',
       });
       toast({
@@ -332,34 +345,60 @@ export default function AiAgentsPage() {
     navigate(`/ask-ai?q=${encodeURIComponent(task)}`);
   };
 
-  const updateOauthTokenDraft = (
-    adapterId: string,
-    patch: Partial<{ access_token: string; refresh_token: string }>
-  ) => {
-    setOauthTokenDrafts(prev => {
-      const current = prev[adapterId] || { access_token: '', refresh_token: '' };
-      return {
-        ...prev,
-        [adapterId]: {
-          ...current,
-          ...patch,
-        },
-      };
-    });
+  const pollMcpOAuthStatus = async (adapter: AgentMcpAdapter, state: string, attempt = 0) => {
+    const MAX_ATTEMPTS = 100;
+    const POLL_DELAY_MS = 1500;
+    const result = await aiAgentApi.getMcpAdapterOAuthStatus(adapter.id, state);
+    if (result.status === 'success' && result.has_access_token) {
+      const refreshed = await aiAgentApi.getMcpAdapters().catch(() => []);
+      setMcpAdapters(refreshed);
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
+      toast({
+        title: 'OAuth connected',
+        description: `${adapter.name} is now authorized.`,
+      });
+      return;
+    }
+    if (result.status === 'error' || result.status === 'expired') {
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
+      throw new Error(result.error || 'OAuth authorization failed.');
+    }
+    if (attempt >= MAX_ATTEMPTS) {
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
+      throw new Error('OAuth authorization timed out. Start again.');
+    }
+
+    window.setTimeout(() => {
+      pollMcpOAuthStatus(adapter, state, attempt + 1).catch(error => {
+        toast({
+          title: 'OAuth did not complete',
+          description: error instanceof Error ? error.message : 'OAuth flow ended with an error.',
+          variant: 'destructive',
+        });
+      });
+    }, POLL_DELAY_MS);
   };
 
   const startMcpOAuth = async (adapter: AgentMcpAdapter) => {
     setStartingOauthMcpId(adapter.id);
     try {
       const result = await aiAgentApi.startMcpAdapterOAuth(adapter.id);
-      if (!result.ok || !result.authorization_url) {
+      if (!result.ok || !result.authorization_url || !result.state) {
         throw new Error(result.hint || result.error || 'Could not start OAuth.');
       }
       setOauthLinks(prev => ({ ...prev, [adapter.id]: result.authorization_url }));
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: true }));
       window.open(result.authorization_url, '_blank', 'noopener,noreferrer');
       toast({
-        title: 'OAuth URL generated',
-        description: 'Authorize in the opened page, then paste the access token below.',
+        title: 'OAuth started',
+        description: 'Complete provider login in the popup. Authorization will sync automatically.',
+      });
+      pollMcpOAuthStatus(adapter, result.state).catch(error => {
+        toast({
+          title: 'OAuth did not complete',
+          description: error instanceof Error ? error.message : 'OAuth flow ended with an error.',
+          variant: 'destructive',
+        });
       });
     } catch (error) {
       toast({
@@ -367,43 +406,9 @@ export default function AiAgentsPage() {
         description: error instanceof Error ? error.message : 'Could not start OAuth flow.',
         variant: 'destructive',
       });
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
     } finally {
       setStartingOauthMcpId(null);
-    }
-  };
-
-  const saveMcpOAuthToken = async (adapter: AgentMcpAdapter) => {
-    const draft = oauthTokenDrafts[adapter.id] || { access_token: '', refresh_token: '' };
-    if (!draft.access_token.trim()) {
-      toast({
-        title: 'Access token required',
-        description: 'Paste the OAuth access token before saving.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setSavingOauthMcpId(adapter.id);
-    try {
-      await aiAgentApi.saveMcpAdapterOAuthToken(adapter.id, {
-        access_token: draft.access_token,
-        refresh_token: draft.refresh_token,
-      });
-      const refreshed = await aiAgentApi.getMcpAdapters().catch(() => []);
-      setMcpAdapters(refreshed);
-      updateOauthTokenDraft(adapter.id, { access_token: '' });
-      toast({
-        title: 'OAuth token saved',
-        description: `${adapter.name} credentials were updated.`,
-      });
-    } catch (error) {
-      toast({
-        title: 'OAuth token save failed',
-        description: error instanceof Error ? error.message : 'Could not store OAuth credentials.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSavingOauthMcpId(null);
     }
   };
 
@@ -550,10 +555,10 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                These prompts are sent to the backend LangGraph runtime and control Felix behavior.
+                These prompts are sent to the backend AI runtime and control Felix behavior.
               </p>
               <div className="space-y-1.5">
-                <Label className="text-xs">System Prompt (LangGraph Agent)</Label>
+                <Label className="text-xs">System Prompt (Felix Agent)</Label>
                 <Textarea
                   value={promptDraft.system_prompt}
                   onChange={event => setPromptDraft(prev => ({ ...prev, system_prompt: event.target.value }))}
@@ -642,7 +647,7 @@ export default function AiAgentsPage() {
                       <SelectItem value="none">None</SelectItem>
                       <SelectItem value="bearer">Bearer Token</SelectItem>
                       <SelectItem value="api_key">API Key Header</SelectItem>
-                      <SelectItem value="oauth2">OAuth2 (FastMCP)</SelectItem>
+                      <SelectItem value="oauth2">OAuth 2.0</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -696,7 +701,7 @@ export default function AiAgentsPage() {
                 {mcpDraft.auth_type === 'oauth2' ? (
                   <>
                     <div className="space-y-1">
-                      <Label className="text-xs">OAuth Client ID (optional)</Label>
+                      <Label className="text-xs">OAuth Client ID</Label>
                       <Input
                         value={mcpDraft.oauth_client_id || ''}
                         onChange={event => setMcpDraft(prev => ({ ...prev, oauth_client_id: event.target.value }))}
@@ -715,17 +720,29 @@ export default function AiAgentsPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Callback Port</Label>
+                      <Label className="text-xs">Issuer URL (optional)</Label>
                       <Input
-                        type="number"
-                        value={mcpDraft.oauth_callback_port || 8765}
-                        onChange={event => {
-                          const parsed = Number(event.target.value);
-                          setMcpDraft(prev => ({
-                            ...prev,
-                            oauth_callback_port: Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 8765,
-                          }));
-                        }}
+                        value={mcpDraft.oauth_issuer_url || ''}
+                        onChange={event => setMcpDraft(prev => ({ ...prev, oauth_issuer_url: event.target.value }))}
+                        placeholder="https://issuer.example.com"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Authorization URL (optional)</Label>
+                      <Input
+                        value={mcpDraft.oauth_authorize_url || ''}
+                        onChange={event => setMcpDraft(prev => ({ ...prev, oauth_authorize_url: event.target.value }))}
+                        placeholder="https://issuer.example.com/oauth/authorize"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Token URL (optional)</Label>
+                      <Input
+                        value={mcpDraft.oauth_token_url || ''}
+                        onChange={event => setMcpDraft(prev => ({ ...prev, oauth_token_url: event.target.value }))}
+                        placeholder="https://issuer.example.com/oauth/token"
                         className="h-9"
                       />
                     </div>
@@ -831,10 +848,12 @@ export default function AiAgentsPage() {
                                 size="sm"
                                 className="h-8 text-xs"
                                 onClick={() => startMcpOAuth(adapter)}
-                                disabled={startingOauthMcpId === adapter.id}
+                                disabled={startingOauthMcpId === adapter.id || oauthPendingByAdapter[adapter.id]}
                               >
-                                {startingOauthMcpId === adapter.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                Start OAuth
+                                {startingOauthMcpId === adapter.id || oauthPendingByAdapter[adapter.id]
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : null}
+                                {oauthPendingByAdapter[adapter.id] ? 'Waiting for authorization...' : 'Connect OAuth'}
                               </Button>
                               {oauthLinks[adapter.id] ? (
                                 <a
@@ -847,36 +866,9 @@ export default function AiAgentsPage() {
                                 </a>
                               ) : null}
                             </div>
-
-                            <div className="grid gap-2 md:grid-cols-3">
-                              <Input
-                                type="password"
-                                className="h-8 text-xs md:col-span-2"
-                                placeholder="Access token"
-                                value={oauthTokenDrafts[adapter.id]?.access_token || ''}
-                                onChange={event => updateOauthTokenDraft(adapter.id, { access_token: event.target.value })}
-                              />
-                              <Input
-                                type="password"
-                                className="h-8 text-xs"
-                                placeholder="Refresh token (optional)"
-                                value={oauthTokenDrafts[adapter.id]?.refresh_token || ''}
-                                onChange={event => updateOauthTokenDraft(adapter.id, { refresh_token: event.target.value })}
-                              />
-                            </div>
-
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => saveMcpOAuthToken(adapter)}
-                                disabled={savingOauthMcpId === adapter.id}
-                              >
-                                {savingOauthMcpId === adapter.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                Save OAuth Token
-                              </Button>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              This opens the provider sign-in page and stores tokens automatically after callback.
+                            </p>
                           </div>
                         ) : null}
                       </div>

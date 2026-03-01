@@ -110,7 +110,7 @@ const DEFAULT_DOMAIN_GUARDRAIL_PROMPT =
   'I can only help with Cummins diagnostics, repair, maintenance, parts, and service operations. Please ask a Cummins-related equipment question.';
 
 const FALLBACK_MODELS: FelixModelEndpoint[] = [
-  { id: 'langgraph:gpt-4o-mini', provider: 'langgraph', model: 'gpt-4o-mini', label: 'LangGraph (Backend) · GPT-4o Mini', active: true },
+  { id: 'langgraph:gpt-4o-mini', provider: 'langgraph', model: 'gpt-4o-mini', label: 'Backend AI Orchestrator · GPT-4o Mini', active: true },
   { id: 'google:gemini-3-flash-preview', provider: 'google', model: 'gemini-3-flash-preview', label: 'Google · Gemini 3 Flash Preview' },
   { id: 'openai:gpt-4.1-mini', provider: 'openai', model: 'gpt-4.1-mini', label: 'OpenAI · GPT-4.1 Mini' },
   { id: 'anthropic:claude-3-5-sonnet-latest', provider: 'anthropic', model: 'claude-3-5-sonnet-latest', label: 'Anthropic · Claude 3.5 Sonnet' },
@@ -469,7 +469,7 @@ export const getActiveModelEndpoints = async (): Promise<EndpointResult<FelixMod
         id: 'langgraph:gpt-4o-mini',
         provider: 'langgraph',
         model: 'gpt-4o-mini',
-        label: 'LangGraph (Backend) · GPT-4o Mini',
+        label: 'Backend AI Orchestrator · GPT-4o Mini',
         active: false,
       });
     }

@@ -34,7 +34,9 @@ export interface CreateMcpAdapterPayload {
   oauth_client_id?: string;
   oauth_client_secret?: string;
   oauth_scopes?: string;
-  oauth_callback_port?: number;
+  oauth_authorize_url?: string;
+  oauth_token_url?: string;
+  oauth_issuer_url?: string;
   description?: string;
 }
 
@@ -48,6 +50,10 @@ export interface McpConnectionTestResult {
 export interface McpOAuthStartResult {
   ok: boolean;
   authorization_url: string;
+  state: string;
+  expires_in: number;
+  status?: string;
+  has_access_token?: boolean;
   error?: string;
   hint?: string;
 }
@@ -194,9 +200,9 @@ export const aiAgentApi = {
       if (payload.oauth_client_id?.trim()) authConfig.client_id = payload.oauth_client_id.trim();
       if (payload.oauth_client_secret?.trim()) authConfig.client_secret = payload.oauth_client_secret.trim();
       if (payload.oauth_scopes?.trim()) authConfig.scopes = payload.oauth_scopes.trim();
-      if (typeof payload.oauth_callback_port === 'number' && Number.isFinite(payload.oauth_callback_port)) {
-        authConfig.callback_port = Math.trunc(payload.oauth_callback_port);
-      }
+      if (payload.oauth_authorize_url?.trim()) authConfig.authorize_url = payload.oauth_authorize_url.trim();
+      if (payload.oauth_token_url?.trim()) authConfig.token_url = payload.oauth_token_url.trim();
+      if (payload.oauth_issuer_url?.trim()) authConfig.issuer_url = payload.oauth_issuer_url.trim();
     }
 
     const body = {
@@ -241,6 +247,8 @@ export const aiAgentApi = {
       return {
         ok: Boolean(data?.ok),
         authorization_url: typeof data?.authorization_url === 'string' ? data.authorization_url : '',
+        state: typeof data?.state === 'string' ? data.state : '',
+        expires_in: typeof data?.expires_in === 'number' ? data.expires_in : 0,
         error: typeof data?.error === 'string' ? data.error : '',
         hint: typeof data?.hint === 'string' ? data.hint : '',
       };
@@ -250,8 +258,44 @@ export const aiAgentApi = {
         return {
           ok: false,
           authorization_url: '',
+          state: '',
+          expires_in: 0,
           error: typeof data?.error === 'string' ? data.error : (error.message || 'OAuth start failed.'),
           hint: typeof data?.hint === 'string' ? data.hint : '',
+        };
+      }
+      throw error;
+    }
+  },
+
+  getMcpAdapterOAuthStatus: async (
+    id: string,
+    state: string
+  ): Promise<McpOAuthStartResult> => {
+    try {
+      const { data } = await api.get(`/ai/mcp_adapters/${id}/oauth_status/`, {
+        params: { state },
+      });
+      return {
+        ok: Boolean(data?.ok),
+        authorization_url: '',
+        state,
+        expires_in: 0,
+        status: typeof data?.status === 'string' ? data.status : '',
+        has_access_token: Boolean(data?.has_access_token),
+        error: typeof data?.error === 'string' ? data.error : '',
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as Record<string, unknown> | undefined;
+        return {
+          ok: false,
+          authorization_url: '',
+          state,
+          expires_in: 0,
+          status: typeof data?.status === 'string' ? data.status : '',
+          has_access_token: Boolean(data?.has_access_token),
+          error: typeof data?.error === 'string' ? data.error : (error.message || 'OAuth status check failed.'),
         };
       }
       throw error;
