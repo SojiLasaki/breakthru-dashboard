@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
 import { FelixChatMessage, formatFelixError } from '@/services/felixChatService';
 import PdfViewer from '@/components/PdfViewer';
+import { api } from '@/services/apiClient';
 import {
   Send, Loader2, Wrench, BookOpen, Package, Clock,
   FileText, ExternalLink, Sparkles, AlertCircle, Eye, Ticket as TicketIcon,
@@ -93,17 +94,9 @@ export default function TechnicianDashboard() {
     }
   }, [input]);
 
-  const searchLocalData = async (query: string) => {
-    const q = query.toLowerCase();
-    const [allManuals, allParts, allComponents, allDiags] = await Promise.all([
-      manualApi.getAll(), partApi.getAll(), componentApi.getAll(), diagnosticsApi.getAll(),
-    ]);
-    return {
-      manuals: allManuals.filter(m => m.title.toLowerCase().includes(q) || m.description.toLowerCase().includes(q) || m.category.toLowerCase().includes(q) || m.tags.some(t => t.name.toLowerCase().includes(q)) || m.content.toLowerCase().includes(q)),
-      parts: allParts.filter(p => p.name.toLowerCase().includes(q) || p.part_number.toLowerCase().includes(q) || p.category.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)),
-      components: allComponents.filter(c => c.name.toLowerCase().includes(q) || c.component_number.toLowerCase().includes(q) || c.group.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)),
-      diagnostics: allDiags.filter(d => d.fault_code.toLowerCase().includes(q) || d.title.toLowerCase().includes(q) || d.ai_summary.toLowerCase().includes(q) || d.probable_cause.toLowerCase().includes(q) || d.component_name.toLowerCase().includes(q)),
-    };
+  const searchBackend = async (query: string) => {
+    const { data } = await api.get(`/technician/search/?q=${encodeURIComponent(query)}`);
+    return data;
   };
 
   const buildContextPrompt = (ctx: ChatMessage['context']) => {
@@ -137,8 +130,7 @@ export default function TechnicianDashboard() {
     const history = [...messages, userMsg];
     setMessages(history);
     try {
-      const context = await searchLocalData(query);
-
+      const context = await searchBackend(query);
       const assistantId = `${Date.now()}-assistant`;
       setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', context }]);
 

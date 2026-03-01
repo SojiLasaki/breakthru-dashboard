@@ -34,7 +34,7 @@ export default function OrdersPage() {
   const [newOrder, setNewOrder] = useState(BLANK_ORDER);
   const [creating, setCreating] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
 
   useEffect(() => { orderApi.getAll().then(setOrders).finally(() => setLoading(false)); }, []);
 

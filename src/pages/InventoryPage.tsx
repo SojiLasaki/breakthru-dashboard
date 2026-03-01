@@ -139,7 +139,7 @@ export default function InventoryPage() {
                     <td className="px-4 py-3 text-xs">${item.unit_price.toFixed(2)}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{item.supplier}</td>
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                      {isRole('admin', 'office_staff') && (
+                      {isRole('admin', 'office') && (
                         <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
                           onClick={() => { setOrderItem(item); setOrderQty(item.reorder_level); }}>
                           <ShoppingCart className="h-3 w-3" /> Order
@@ -229,7 +229,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                {isRole('admin', 'office_staff') && (
+                {isRole('admin', 'office') && (
                   <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { setOrderItem(detailItem); setOrderQty(detailItem.reorder_level); setDetailItem(null); }}>
                     <ShoppingCart className="h-4 w-4" /> Create Reorder
                   </Button>

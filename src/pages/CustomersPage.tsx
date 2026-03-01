@@ -37,7 +37,7 @@ export default function CustomersPage() {
   const [newCustomer, setNewCustomer] = useState(BLANK_CUSTOMER);
   const [creating, setCreating] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
 
   useEffect(() => { customerApi.getAll().then(setCustomers).finally(() => setLoading(false)); }, []);
 
