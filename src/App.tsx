@@ -13,8 +13,6 @@ import LoginPage from "@/pages/LoginPage";
 import OverviewPage from "@/pages/OverviewPage";
 import TicketsPage from "@/pages/TicketsPage";
 import TicketDetailPage from "@/pages/TicketDetailPage";
-import TechnicianDashboard from "@/pages/TechnicianDashboard";
-import CustomerDashboard from "@/pages/CustomerDashboard";
 import TechniciansPage from "@/pages/TechniciansPage";
 import TechnicianProfilePage from "@/pages/TechnicianProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
@@ -66,7 +64,8 @@ function ProtectedRoutes() {
     return (
       <Routes>
         <Route element={<TechnicianLayout />}>
-          <Route path="/"             element={<TechnicianDashboard />} />
+          <Route path="/"             element={<Navigate to="/ask-ai" replace />} />
+          <Route path="/ask-ai"       element={<AskAiPage />} />
           <Route path="/tickets"      element={<TicketsPage />} />
           <Route path="/tickets/:id"  element={<TicketDetailPage />} />
           <Route path="/schedules"    element={<SchedulesPage />} />
@@ -106,7 +105,7 @@ function ProtectedRoutes() {
         <Route path="/parts"       element={<PartsPage />} />
         <Route path="/diagnostics" element={<DiagnosticsPage />} />
 
-        <Route path="/ai-agents" element={guard(isAdmin, <AiAgentsPage />)} />
+        <Route path="/ai-agents" element={guard(isAdminOrStaff, <AiAgentsPage />)} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Ticket, Calendar, User, LogOut, Wrench, Settings } from 'lucide-react';
+import { Ticket, Calendar, User, LogOut, Sparkles, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function TechnicianLayout() {
@@ -13,7 +13,7 @@ export default function TechnicianLayout() {
   };
 
   const navItems = [
-    { to: '/', label: 'Assistant', icon: Wrench },
+    { to: '/ask-ai', label: 'Fix it Felix', icon: Sparkles },
     { to: '/tickets', label: 'Tickets', icon: Ticket },
     { to: '/schedules', label: 'Schedules', icon: Calendar },
     { to: '/profile', label: 'Profile', icon: User },

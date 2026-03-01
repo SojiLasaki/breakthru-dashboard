@@ -19,7 +19,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import PdfViewer from '@/components/PdfViewer';
 import DiagnosticReportModal from '@/components/DiagnosticReportModal';
 import RepairChecklist, { RepairStep } from '@/components/RepairChecklist';
-import FloatingFelix from '@/components/FloatingFelix';
 import {
   ArrowLeft, Search as SearchIcon, User, MapPin, Building,
   Cpu, Wrench, BookOpen, ShieldAlert, Clock, FileText, Save,
@@ -354,8 +353,6 @@ export default function TicketDetailPage() {
         {/* Diagnostic Modal */}
         <DiagnosticReportModal diagnostic={diagModal} open={!!diagModal} onClose={() => setDiagModal(null)} />
 
-        {/* Floating Felix */}
-        <FloatingFelix ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.specialization} />
       </div>
     );
   }
@@ -598,8 +595,6 @@ export default function TicketDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Floating Felix */}
-      <FloatingFelix ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.specialization} />
     </div>
   );
 }
