@@ -1,8 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { useAiTutor } from '@/context/AiTutorContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Bell, Bot, Menu, LogOut, User, ChevronDown, Sparkles, Wifi, WifiOff, Sun, Moon } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sparkles, Wifi, WifiOff, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -28,11 +27,9 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
-  const { openTutor, isOpen, closeTutor } = useAiTutor();
   const { theme, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
-  const canUseAiTutor = user && ['admin', 'office_staff', 'engine_technician', 'electrical_technician'].includes(user.role);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -62,19 +59,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {canUseAiTutor && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => isOpen ? closeTutor() : openTutor()}
-            className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex"
-          >
-            <Bot className="h-4 w-4" />
-            <span className="text-xs">AI Tutor</span>
-          </Button>
-          )}
-
-          {/* Felix AI button */}
           <Button
             variant="ghost"
             size="sm"

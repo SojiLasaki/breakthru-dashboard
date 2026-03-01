@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/context/AuthContext';
-import { useAiTutor } from '@/context/AiTutorContext';
 import {
   LayoutDashboard, Ticket, Users, BookOpen, X, Bot,
   User, Wrench, FileText, ChevronDown, ChevronRight,
@@ -67,7 +66,7 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { to: '/manuals',   label: 'Manuals',    icon: BookOpen },
       { to: '/ask-ai',    label: 'Fix it Felix',  icon: Sparkles },
-      { to: '/ai-agents', label: 'AI Agents',  icon: Bot },
+      { to: '/ai-agents', label: 'Agent Studio',  icon: Bot },
       { to: '/logs',      label: 'Logs',       icon: FileText },
     ],
   },
@@ -111,7 +110,7 @@ const STAFF_NAV: NavGroup[] = [
     items: [
       { to: '/manuals',   label: 'Manuals',    icon: BookOpen },
       { to: '/ask-ai',    label: 'Fix it Felix',  icon: Sparkles },
-      { to: '/ai-agents', label: 'AI Agents',  icon: Bot },
+      { to: '/ai-agents', label: 'Agent Studio',  icon: Bot },
       { to: '/logs',      label: 'Logs',       icon: FileText },
     ],
   },
@@ -204,10 +203,8 @@ function SidebarNavGroup({ group, onClose }: { group: NavGroup; onClose: () => v
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
-  const { openTutor, isOpen, closeTutor } = useAiTutor();
 
   const role = user?.role ?? 'customer';
-  const showAiTutor = role !== 'customer';
   const navGroups = getNavGroups(role);
 
   const roleLabel: Record<string, string> = {
@@ -290,17 +287,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <span>Settings</span>
           </NavLink>
 
-          {showAiTutor && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-xs border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
-              onClick={() => isOpen ? closeTutor() : openTutor()}
-            >
-              <Bot className="h-3.5 w-3.5" />
-              {isOpen ? 'Close AI Tutor' : 'AI Tutor'}
-            </Button>
-          )}
         </div>
       </aside>
     </>

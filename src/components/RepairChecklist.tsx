@@ -5,14 +5,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useFelixChat } from '@/hooks/useFelixChat';
+import { FelixChatMessage, formatFelixError } from '@/services/felixChatService';
 import {
   ListChecks, ChevronDown, Camera, Paperclip, MessageSquare,
   AlertTriangle, Clock, CheckCircle2, Image as ImageIcon,
   Send, Loader2, Sparkles,
 } from 'lucide-react';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export interface RepairStep {
   id: number;
@@ -45,6 +44,7 @@ interface Props {
 }
 
 export default function RepairChecklist({ steps, ticketContext, componentContext }: Props) {
+  const { sendStream } = useFelixChat();
   const [states, setStates] = useState<Record<number, StepState>>(
     () => Object.fromEntries(steps.map(s => [s.id, {
       checked: false, note: '', flagged: false, photos: [], timeMinutes: 0,
@@ -101,54 +101,27 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
         step.detail ? `Step detail: ${step.detail}` : '',
       ].filter(Boolean).join(' | ');
 
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/felix-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_KEY}` },
-        body: JSON.stringify({
-          messages: [
-            ...newMessages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content: `Context: ${contextParts}\n\nQuestion: ${q}` },
-          ].slice(-6), // keep last 6 for context window
-        }),
-      });
-
-      if (!resp.ok) throw new Error('Failed');
-
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error('No stream');
-      const decoder = new TextDecoder();
-      let buffer = '', content = '';
-
-      // Add empty assistant message
+      let content = '';
+      const limitedMessages = newMessages.slice(-6);
       const withAssistant: ChatMessage[] = [...newMessages, { role: 'assistant', content: '' }];
       update(stepId, { chatMessages: withAssistant });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 1);
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (!line.startsWith('data: ')) continue;
-          const js = line.slice(6).trim();
-          if (js === '[DONE]') break;
-          try {
-            const p = JSON.parse(js);
-            const c = p.choices?.[0]?.delta?.content;
-            if (c) {
-              content += c;
-              const updated: ChatMessage[] = [...newMessages, { role: 'assistant', content }];
-              update(stepId, { chatMessages: updated });
-            }
-          } catch {}
+      await sendStream(
+        {
+          messages: limitedMessages.map< FelixChatMessage >(m => ({ role: m.role, content: m.content })),
+          contextBlock: contextParts ? `Context: ${contextParts}` : undefined,
+        },
+        {
+          onDelta: (delta) => {
+            content += delta;
+            const updated: ChatMessage[] = [...newMessages, { role: 'assistant', content }];
+            update(stepId, { chatMessages: updated });
+          },
         }
-      }
-    } catch {
+      );
+    } catch (error) {
       update(stepId, {
-        chatMessages: [...newMessages, { role: 'assistant', content: 'Sorry, I encountered an error. Try again.' }],
+        chatMessages: [...newMessages, { role: 'assistant', content: `Sorry, I encountered an error. ${formatFelixError(error)}` }],
       });
     } finally {
       update(stepId, { chatLoading: false });
