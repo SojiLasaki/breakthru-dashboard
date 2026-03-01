@@ -1,16 +1,21 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useFelixChat } from '@/hooks/useFelixChat';
-import { FelixChatMessage, formatFelixError } from '@/services/felixChatService';
 import {
-  ListChecks, ChevronDown, Camera, Paperclip, MessageSquare,
-  AlertTriangle, Clock, CheckCircle2, Image as ImageIcon,
-  Send, Loader2, Sparkles,
+  ListChecks,
+  ChevronDown,
+  Camera,
+  Paperclip,
+  MessageSquare,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export interface RepairStep {
@@ -20,21 +25,12 @@ export interface RepairStep {
   required: boolean;
 }
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 interface StepState {
   checked: boolean;
   note: string;
   flagged: boolean;
   photos: string[];
   timeMinutes: number;
-  chatOpen: boolean;
-  chatMessages: ChatMessage[];
-  chatInput: string;
-  chatLoading: boolean;
 }
 
 interface Props {
@@ -44,15 +40,18 @@ interface Props {
 }
 
 export default function RepairChecklist({ steps, ticketContext, componentContext }: Props) {
-  const { sendStream } = useFelixChat();
+  const navigate = useNavigate();
   const [states, setStates] = useState<Record<number, StepState>>(
-    () => Object.fromEntries(steps.map(s => [s.id, {
-      checked: false, note: '', flagged: false, photos: [], timeMinutes: 0,
-      chatOpen: false, chatMessages: [], chatInput: '', chatLoading: false,
-    }]))
+    () => Object.fromEntries(
+      steps.map(s => [s.id, {
+        checked: false,
+        note: '',
+        flagged: false,
+        photos: [],
+        timeMinutes: 0,
+      }]),
+    ),
   );
-
-  const chatEndRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const update = (id: number, patch: Partial<StepState>) => {
     setStates(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -85,49 +84,6 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
     input.click();
   };
 
-  const handleStepChat = async (stepId: number, step: RepairStep) => {
-    const s = states[stepId];
-    const q = s.chatInput.trim();
-    if (!q || s.chatLoading) return;
-
-    const newMessages: ChatMessage[] = [...s.chatMessages, { role: 'user', content: q }];
-    update(stepId, { chatInput: '', chatMessages: newMessages, chatLoading: true });
-
-    try {
-      const contextParts = [
-        ticketContext,
-        componentContext,
-        `Current step: "${step.label}"`,
-        step.detail ? `Step detail: ${step.detail}` : '',
-      ].filter(Boolean).join(' | ');
-
-      let content = '';
-      const limitedMessages = newMessages.slice(-6);
-      const withAssistant: ChatMessage[] = [...newMessages, { role: 'assistant', content: '' }];
-      update(stepId, { chatMessages: withAssistant });
-
-      await sendStream(
-        {
-          messages: limitedMessages.map< FelixChatMessage >(m => ({ role: m.role, content: m.content })),
-          contextBlock: contextParts ? `Context: ${contextParts}` : undefined,
-        },
-        {
-          onDelta: (delta) => {
-            content += delta;
-            const updated: ChatMessage[] = [...newMessages, { role: 'assistant', content }];
-            update(stepId, { chatMessages: updated });
-          },
-        }
-      );
-    } catch (error) {
-      update(stepId, {
-        chatMessages: [...newMessages, { role: 'assistant', content: `Sorry, I encountered an error. ${formatFelixError(error)}` }],
-      });
-    } finally {
-      update(stepId, { chatLoading: false });
-    }
-  };
-
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-3">
@@ -151,24 +107,25 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
       <CardContent className="space-y-1 pb-4">
         {steps.map((step, idx) => {
           const s = states[step.id] || {
-            checked: false, note: '', flagged: false, photos: [], timeMinutes: 0,
-            chatOpen: false, chatMessages: [], chatInput: '', chatLoading: false,
+            checked: false,
+            note: '',
+            flagged: false,
+            photos: [],
+            timeMinutes: 0,
           };
           return (
             <Collapsible key={step.id}>
               <div className={`rounded-xl border transition-all ${
-                s.checked ? 'bg-[hsl(var(--success))]/5 border-[hsl(var(--success))]/20' :
-                s.flagged ? 'bg-primary/5 border-primary/20' :
-                'border-border hover:border-border/80 hover:bg-muted/20'
+                s.checked ? 'bg-[hsl(var(--success))]/5 border-[hsl(var(--success))]/20'
+                  : s.flagged ? 'bg-primary/5 border-primary/20'
+                    : 'border-border hover:border-border/80 hover:bg-muted/20'
               }`}>
-                {/* Main row */}
                 <div className="flex items-start gap-3 px-4 py-3">
                   <Checkbox
                     checked={s.checked}
                     onCheckedChange={() => {
                       const nowChecked = !s.checked;
                       if (nowChecked) {
-                        // Mark all previous steps as checked too
                         const patch: Record<number, StepState> = {};
                         for (let i = 0; i <= idx; i++) {
                           const sid = steps[i].id;
@@ -211,15 +168,6 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                         📝 {s.note}
                       </p>
                     )}
-                    {/* Chat message count indicator */}
-                    {s.chatMessages.length > 0 && !s.chatOpen && (
-                      <button
-                        onClick={() => update(step.id, { chatOpen: true })}
-                        className="text-[9px] text-primary mt-1 flex items-center gap-1 hover:underline"
-                      >
-                        <MessageSquare className="h-2.5 w-2.5" /> {s.chatMessages.length} messages
-                      </button>
-                    )}
                   </div>
 
                   <CollapsibleTrigger asChild>
@@ -229,10 +177,8 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                   </CollapsibleTrigger>
                 </div>
 
-                {/* Expanded actions */}
                 <CollapsibleContent>
                   <div className="px-4 pb-3 pt-1 border-t border-border/50 space-y-3">
-                    {/* Action buttons */}
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1.5 px-3" onClick={() => handlePhoto(step.id)}>
                         <Camera className="h-3 w-3" /> Take Photo
@@ -241,22 +187,28 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                         <Paperclip className="h-3 w-3" /> Upload Image
                       </Button>
                       <Button
-                        variant={s.flagged ? 'default' : 'outline'} size="sm"
+                        variant={s.flagged ? 'default' : 'outline'}
+                        size="sm"
                         className={`h-8 text-[10px] gap-1.5 px-3 ${s.flagged ? 'bg-primary hover:bg-primary/90' : ''}`}
                         onClick={() => update(step.id, { flagged: !s.flagged })}
                       >
                         <AlertTriangle className="h-3 w-3" /> {s.flagged ? 'Unflag' : 'Flag Issue'}
                       </Button>
                       <Button
-                        variant={s.chatOpen ? 'default' : 'outline'} size="sm"
-                        className={`h-8 text-[10px] gap-1.5 px-3 ${s.chatOpen ? 'bg-primary hover:bg-primary/90' : ''}`}
-                        onClick={() => update(step.id, { chatOpen: !s.chatOpen })}
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-[10px] gap-1.5 px-3"
+                        onClick={() => {
+                          const prompt = `Help me with step ${idx + 1}: ${step.label}`;
+                          const context = [ticketContext, componentContext].filter(Boolean).join(' | ');
+                          const query = context ? `${prompt}. Context: ${context}` : prompt;
+                          navigate(`/ask-ai?q=${encodeURIComponent(query)}`);
+                        }}
                       >
-                        <MessageSquare className="h-3 w-3" /> {s.chatOpen ? 'Hide Chat' : 'Ask Felix'}
+                        <MessageSquare className="h-3 w-3" /> Open in Fix it Felix
                       </Button>
                     </div>
 
-                    {/* Note */}
                     <div>
                       <Textarea
                         placeholder="Add a note for this step..."
@@ -267,7 +219,6 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                       />
                     </div>
 
-                    {/* Time */}
                     <div className="flex items-center gap-2">
                       <Clock className="h-3 w-3 text-muted-foreground" />
                       <input
@@ -276,25 +227,11 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                         step="5"
                         placeholder="Minutes"
                         value={s.timeMinutes || ''}
-                        onChange={e => update(step.id, { timeMinutes: parseInt(e.target.value) || 0 })}
+                        onChange={e => update(step.id, { timeMinutes: parseInt(e.target.value, 10) || 0 })}
                         className="h-8 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                       <span className="text-[10px] text-muted-foreground">minutes</span>
                     </div>
-
-                    {/* Inline Felix Chat */}
-                    {s.chatOpen && (
-                      <StepChat
-                        stepId={step.id}
-                        step={step}
-                        messages={s.chatMessages}
-                        input={s.chatInput}
-                        loading={s.chatLoading}
-                        onInputChange={(val) => update(step.id, { chatInput: val })}
-                        onSend={() => handleStepChat(step.id, step)}
-                        endRef={(el) => { chatEndRefs.current[step.id] = el; }}
-                      />
-                    )}
                   </div>
                 </CollapsibleContent>
               </div>
@@ -310,85 +247,5 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
         )}
       </CardContent>
     </Card>
-  );
-}
-
-/* ── Inline chat per step ── */
-function StepChat({
-  stepId, step, messages, input, loading, onInputChange, onSend, endRef,
-}: {
-  stepId: number;
-  step: RepairStep;
-  messages: ChatMessage[];
-  input: string;
-  loading: boolean;
-  onInputChange: (v: string) => void;
-  onSend: () => void;
-  endRef: (el: HTMLDivElement | null) => void;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
-
-  return (
-    <div className="border border-primary/20 rounded-lg bg-primary/5 overflow-hidden">
-      {/* Chat header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-primary/10">
-        <Sparkles className="h-3 w-3 text-primary" />
-        <span className="text-[10px] font-semibold text-primary">Ask Felix about this step</span>
-      </div>
-
-      {/* Messages */}
-      <div ref={scrollRef} className="max-h-48 overflow-y-auto p-2 space-y-2">
-        {messages.length === 0 && (
-          <p className="text-[10px] text-muted-foreground text-center py-3 italic">
-            Ask about procedures, specs, or skip guidance for this step...
-          </p>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-            <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed ${
-              m.role === 'user'
-                ? 'bg-primary text-primary-foreground rounded-br-sm'
-                : 'bg-background text-foreground border border-border rounded-bl-sm'
-            }`}>
-              {m.content || <span className="italic text-muted-foreground">Thinking...</span>}
-            </div>
-          </div>
-        ))}
-        {loading && messages[messages.length - 1]?.role === 'user' && (
-          <div className="flex justify-start">
-            <div className="bg-background border border-border rounded-lg rounded-bl-sm px-2.5 py-1.5">
-              <Loader2 className="h-3 w-3 text-primary animate-spin" />
-            </div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-primary/10 p-2">
-        <div className="relative">
-          <input
-            value={input}
-            onChange={e => onInputChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-            placeholder="e.g. Can I skip this step if…"
-            className="w-full bg-background border border-border rounded-md px-3 py-2 pr-9 text-[11px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40"
-            disabled={loading}
-          />
-          <Button
-            size="icon"
-            className="absolute right-1 top-1 h-6 w-6 rounded-md bg-primary hover:bg-primary/90"
-            onClick={onSend}
-            disabled={!input.trim() || loading}
-          >
-            <Send className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-    </div>
   );
 }

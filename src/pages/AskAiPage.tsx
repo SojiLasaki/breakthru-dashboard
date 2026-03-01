@@ -68,6 +68,8 @@ const STARTERS = [
 ];
 
 const KNOWLEDGE_GRAPH_COMMAND = 'add this to my knowledge graph';
+type PolicyMode = 'manual' | 'semi_auto' | 'auto';
+type FelixIntent = 'qa' | 'triage' | 'ticket_ops' | 'parts_ops' | 'assignment_ops';
 const PROVIDER_LABELS: Record<string, string> = {
   langgraph: 'Backend AI',
   openai: 'OpenAI',
@@ -77,6 +79,18 @@ const PROVIDER_LABELS: Record<string, string> = {
   vllm: 'vLLM',
   llamacpp: 'llama.cpp',
   local: 'Local',
+};
+const POLICY_MODE_LABELS: Record<PolicyMode, string> = {
+  manual: 'Manual approvals',
+  semi_auto: 'Semi-auto',
+  auto: 'Auto (high-risk gated)',
+};
+const INTENT_LABELS: Record<FelixIntent, string> = {
+  qa: 'Q&A',
+  triage: 'Triage',
+  ticket_ops: 'Ticket Ops',
+  parts_ops: 'Parts Ops',
+  assignment_ops: 'Assignment Ops',
 };
 
 const escapeHtml = (value: string) => value
@@ -135,6 +149,8 @@ export default function AskAiPage() {
   const [mcpAdapters, setMcpAdapters] = useState<McpAdapterOption[]>([]);
   const [mcpSource, setMcpSource] = useState<'backend' | 'fallback'>('fallback');
   const [selectedMcpAdapterIds, setSelectedMcpAdapterIds] = useState<string[]>([]);
+  const [policyMode, setPolicyMode] = useState<PolicyMode>('manual');
+  const [intent, setIntent] = useState<FelixIntent>('qa');
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -415,6 +431,11 @@ export default function AskAiPage() {
     }
 
     const contextBlock = buildConsolidatedContext(snippetsForContext);
+    const contextRefs = [
+      ...documents.map(doc => `doc:${doc.name}`),
+      ...contextUrls.map(url => `url:${url}`),
+      ...snippetsForContext.map(snippet => `snippet:${snippet.id}`),
+    ].slice(0, 24);
 
     if (text.toLowerCase().includes(KNOWLEDGE_GRAPH_COMMAND)) {
       const priorUserMessage = [...messages]
@@ -473,6 +494,10 @@ export default function AskAiPage() {
           model: selectedModel,
           contextBlock,
           mcpAdapters: selectedMcpAdapterIds,
+          enabledConnectors: selectedMcpAdapterIds,
+          policyMode,
+          intent,
+          contextRefs,
         },
         {
           onDelta: (_delta, fullText) => {
@@ -506,6 +531,8 @@ export default function AskAiPage() {
     fetchSnippets,
     selectedProvider,
     selectedModel,
+    policyMode,
+    intent,
     contextUrls,
     selectedMcpAdapterIds,
     sendStream,
@@ -548,7 +575,7 @@ export default function AskAiPage() {
       </div>
 
       <div className="px-4 py-3 border-b border-border bg-card/60 flex-shrink-0 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Provider</p>
             <Select value={selectedProvider} onValueChange={setSelectedProvider}>
@@ -580,6 +607,36 @@ export default function AskAiPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Execution Policy</p>
+            <Select value={policyMode} onValueChange={value => setPolicyMode(value as PolicyMode)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select policy" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(POLICY_MODE_LABELS) as PolicyMode[]).map(mode => (
+                  <SelectItem key={mode} value={mode} className="text-xs">
+                    {POLICY_MODE_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agent Intent</p>
+            <Select value={intent} onValueChange={value => setIntent(value as FelixIntent)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select intent" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(INTENT_LABELS) as FelixIntent[]).map(option => (
+                  <SelectItem key={option} value={option} className="text-xs">
+                    {INTENT_LABELS[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2">
@@ -602,7 +659,7 @@ export default function AskAiPage() {
               variant="outline"
               size="sm"
               className="h-7 text-[10px]"
-              onClick={() => navigate('/ai-agents?tab=integrations')}
+              onClick={() => navigate('/ai-agents?tab=connectors')}
             >
               Add / Manage MCP
             </Button>
@@ -640,7 +697,7 @@ export default function AskAiPage() {
               <button
                 type="button"
                 className="underline underline-offset-2"
-                onClick={() => navigate('/ai-agents?tab=integrations')}
+                onClick={() => navigate('/ai-agents?tab=connectors')}
               >
                 Create one in Agent Studio
               </button>

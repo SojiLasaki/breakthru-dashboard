@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 
 const ACTIVE_STATUSES = new Set(['open', 'assigned', 'in_progress', 'awaiting_parts', 'awaiting_approval']);
-type StudioTab = 'overview' | 'prompts' | 'integrations' | 'automation';
+type StudioTab = 'runtime' | 'learning' | 'prompt-studio' | 'connectors' | 'approvals';
 
 const AGENT_CAPABILITIES = [
   'Ticket triage and resolution sequencing',
@@ -57,7 +57,11 @@ const avg = (values: number[]) => {
 };
 
 const isStudioTab = (value: string | null): value is StudioTab => (
-  value === 'overview' || value === 'prompts' || value === 'integrations' || value === 'automation'
+  value === 'runtime'
+  || value === 'learning'
+  || value === 'prompt-studio'
+  || value === 'connectors'
+  || value === 'approvals'
 );
 
 export default function AiAgentsPage() {
@@ -66,7 +70,7 @@ export default function AiAgentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
 
-  const [activeTab, setActiveTab] = useState<StudioTab>(isStudioTab(requestedTab) ? requestedTab : 'overview');
+  const [activeTab, setActiveTab] = useState<StudioTab>(isStudioTab(requestedTab) ? requestedTab : 'runtime');
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [mcpAdapters, setMcpAdapters] = useState<AgentMcpAdapter[]>([]);
@@ -105,7 +109,7 @@ export default function AiAgentsPage() {
 
   const syncTabToUrl = (tab: StudioTab) => {
     const next = new URLSearchParams(searchParams);
-    if (tab === 'overview') {
+    if (tab === 'runtime') {
       next.delete('tab');
     } else {
       next.set('tab', tab);
@@ -511,14 +515,15 @@ export default function AiAgentsPage() {
           syncTabToUrl(value);
         }}
       >
-        <TabsList className="grid w-full grid-cols-4 md:w-[620px]">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="integrations">Integration Connectors</TabsTrigger>
-          <TabsTrigger value="automation">Automation Queue</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 md:w-[820px]">
+          <TabsTrigger value="runtime">Runtime</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals</TabsTrigger>
+          <TabsTrigger value="connectors">Connectors</TabsTrigger>
+          <TabsTrigger value="prompt-studio">Prompt Studio</TabsTrigger>
+          <TabsTrigger value="learning">Learning</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="runtime" className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -616,7 +621,7 @@ export default function AiAgentsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="prompts" className="space-y-4">
+        <TabsContent value="prompt-studio" className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -658,7 +663,7 @@ export default function AiAgentsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="integrations" className="space-y-4">
+        <TabsContent value="connectors" className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -955,7 +960,7 @@ export default function AiAgentsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="automation" className="space-y-4">
+        <TabsContent value="approvals" className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-base flex items-center justify-between">
@@ -1021,6 +1026,52 @@ export default function AiAgentsPage() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="learning" className="space-y-4">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-primary" />
+                Learning Loop Snapshot
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {learningHighlights.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No completed ticket patterns available yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {learningHighlights.map(([specialization, count]) => (
+                    <div key={specialization} className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
+                      <div className="text-sm capitalize">{specialization}</div>
+                      <div className="text-xs text-muted-foreground">{count} completed ticket(s)</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Agent Learning Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Use these prompts to generate repeatable fixes and transfer knowledge to technicians faster.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => openCopilotWithTask('Summarize repeat failure signatures from completed tickets and suggested preventive checks by specialization.')}>
+                  Generate Pattern Summary
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => openCopilotWithTask('Create a technician handoff checklist from the top completed ticket resolutions this week.')}>
+                  Generate Handoff Checklist
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

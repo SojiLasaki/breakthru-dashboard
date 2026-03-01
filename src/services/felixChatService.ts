@@ -47,6 +47,10 @@ export interface StreamFelixChatRequest {
   model?: string;
   contextBlock?: string;
   mcpAdapters?: string[];
+  enabledConnectors?: string[];
+  policyMode?: 'manual' | 'semi_auto' | 'auto';
+  intent?: 'qa' | 'triage' | 'ticket_ops' | 'parts_ops' | 'assignment_ops';
+  contextRefs?: string[];
   signal?: AbortSignal;
 }
 
@@ -346,10 +350,19 @@ export const streamFelixChat = async (
       context: {
         context_block: request.contextBlock || '',
         mcp_adapters: request.mcpAdapters || [],
+        enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
+        policy_mode: request.policyMode || 'manual',
+        intent: request.intent || 'qa',
+        context_refs: request.contextRefs || [],
         ...promptOverrides,
       },
+      policy_mode: request.policyMode || 'manual',
+      intent: request.intent || 'qa',
+      context_refs: request.contextRefs || [],
       provider: provider === 'langgraph' ? 'openai' : provider,
       model: request.model || 'gpt-4o-mini',
+      enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
+      mcp_adapters: request.mcpAdapters || [],
     });
     const answer = typeof data?.answer === 'string' ? data.answer : '';
     if (answer) handlers.onDelta?.(answer, answer);
