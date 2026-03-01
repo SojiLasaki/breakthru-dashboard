@@ -27,8 +27,8 @@ import { Label } from '@/components/ui/label';
 
 
 const ROLE_CONFIG: Record<string, { label: string; class: string; dot: string }> = {
-  admin:        { label: 'Admin',        class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20', dot: 'bg-amber-400' },
-  office_staff: { label: 'Office Staff', class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',   dot: 'bg-blue-400' },
+  admin:   { label: 'Admin',        class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20', dot: 'bg-amber-400' },
+  office:  { label: 'Office Staff', class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',   dot: 'bg-blue-400' },
 };
 
 const STATUS_CONFIG = {
@@ -238,7 +238,7 @@ export default function StaffPage() {
                   <span className="font-medium">{s.phone_number}</span>
                 )},
                 { label: 'Role', render: (s) => {
-                  const cfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office_staff;
+                  const cfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office;
                   return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.class}`}>{cfg.label}</span>;
                 }},
                 { label: 'Status', render: (s) => {
@@ -256,7 +256,7 @@ export default function StaffPage() {
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(s => {
-                const roleCfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office_staff;
+                const roleCfg = ROLE_CONFIG[s.role] ?? ROLE_CONFIG.office;
                 const statusCfg = s.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive;
                 const isActive = selected?.id === s.id;
                 const RoleIcon = s.role === 'admin' ? ShieldCheck : Shield;
@@ -336,8 +336,8 @@ export default function StaffPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${(selected.status ? STATUS_CONFIG.active : STATUS_CONFIG.inactive).class}`}>
                     {selected.status ? 'Active' : 'Inactive'}
                   </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(ROLE_CONFIG[selected.role] ?? ROLE_CONFIG.office_staff).class}`}>
-                    {(ROLE_CONFIG[selected.role] ?? ROLE_CONFIG.office_staff).label}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(ROLE_CONFIG[selected.role] ?? ROLE_CONFIG.office).class}`}>
+                    {(ROLE_CONFIG[selected.role] ?? ROLE_CONFIG.office).label}
                   </span>
                 </div>
               </div>

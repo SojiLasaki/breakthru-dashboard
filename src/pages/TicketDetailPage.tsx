@@ -82,7 +82,7 @@ export default function TicketDetailPage() {
   const navigate = useNavigate();
   const { user, isRole } = useAuth();
   const { toast } = useToast();
-  const isTech = isRole('engine_technician', 'electrical_technician');
+  const isTech = isRole('technician');
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);

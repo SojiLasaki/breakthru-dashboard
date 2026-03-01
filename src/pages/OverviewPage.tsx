@@ -31,9 +31,9 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
 
   const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
-  const isTech = isRole('engine_technician', 'electrical_technician');
+  const isTech = isRole('technician');
   const isCustomer = isRole('customer');
-  const isAdminOrStaff = isRole('admin', 'office_staff');
+  const isAdminOrStaff = isRole('admin', 'office');
 
   const tickets = isAdminOrStaff
     ? allTickets

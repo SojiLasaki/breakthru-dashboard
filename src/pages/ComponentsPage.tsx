@@ -44,7 +44,7 @@ export default function ComponentsPage() {
   const [newForm, setNewForm] = useState(BLANK_FORM);
   const [creating, setCreating] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
 
   useEffect(() => {
     componentApi.getAll()

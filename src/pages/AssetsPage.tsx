@@ -35,7 +35,7 @@ export default function AssetsPage() {
   const [editForm, setEditForm] = useState<Partial<Asset>>({});
   const [saving, setSaving] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
 
   const load = () => {
     setLoading(true);

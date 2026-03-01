@@ -58,7 +58,7 @@ export default function SchedulesPage() {
   const { user, isRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const canEdit = isRole('admin', 'office_staff');
+  const canEdit = isRole('admin', 'office');
 
   // ── State ──
   const [view, setView] = useState<'table' | 'calendar'>('table');
@@ -119,7 +119,7 @@ export default function SchedulesPage() {
     let list = schedules;
 
     // RBAC filtering
-    if (isRole('engine_technician', 'electrical_technician')) {
+    if (isRole('technician')) {
       list = list.filter(s => s.technician === user?.id?.toString());
     } else if (isRole('customer')) {
       list = list.filter(s => s.customer === user?.id?.toString());

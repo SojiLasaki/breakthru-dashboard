@@ -49,8 +49,8 @@ export default function DiagnosticsPage() {
   const [selected, setSelected] = useState<Diagnostic | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
-  const isTech = isRole('engine_technician', 'electrical_technician');
+  const isAdmin = isRole('admin', 'office');
+  const isTech = isRole('technician');
   const isCustomer = isRole('customer');
   const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
 

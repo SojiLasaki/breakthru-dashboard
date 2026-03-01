@@ -155,8 +155,8 @@ const CUSTOMER_NAV: NavGroup[] = [
 
 function getNavGroups(role: string): NavGroup[] {
   if (role === 'admin') return ADMIN_NAV;
-  if (role === 'office_staff') return STAFF_NAV;
-  if (role === 'engine_technician' || role === 'electrical_technician' || role === 'tech' || role === 'technician') return TECHNICIAN_NAV;
+  if (role === 'office') return STAFF_NAV;
+  if (role === 'technician' || role === 'tech') return TECHNICIAN_NAV;
   return CUSTOMER_NAV;
 }
 
@@ -212,9 +212,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   const roleLabel: Record<string, string> = {
     admin: 'Administrator',
-    office_staff: 'Office Staff',
-    engine_technician: 'Engine Tech',
-    electrical_technician: 'Electrical Tech',
+    office: 'Office Staff',
+    technician: 'Technician',
     customer: 'Customer',
   };
 
