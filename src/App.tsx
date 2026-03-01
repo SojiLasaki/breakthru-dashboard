@@ -54,8 +54,8 @@ function ProtectedRoutes() {
   const role = user.role?.toLowerCase?.() ?? '';
   console.log('[ProtectedRoutes] user role:', role);
   const isAdmin        = role === 'admin';
-  const isAdminOrStaff = role === 'admin' || role === 'office_staff';
-  const isTech         = ['engine_technician', 'electrical_technician', 'tech', 'technician'].includes(role?.toLowerCase?.() ?? '');
+  const isAdminOrStaff = role === 'admin' || role === 'office';
+  const isTech         = ['technician', 'tech'].includes(role?.toLowerCase?.() ?? '');
   const isStaffOrTech  = isAdminOrStaff || isTech;
   const isCustomer     = role === 'customer';
 

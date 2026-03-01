@@ -13,57 +13,46 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 const ROLE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; description: string }> = {
-  admin:                  { label: 'Administrator',          icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access.' },
-  office_staff:           { label: 'Office Staff',           icon: Users,    color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',   description: 'Manages tickets, orders, and customer interactions.' },
-  engine_technician:      { label: 'Engine Technician',      icon: Wrench,   color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',description: 'Handles engine-related service tickets and maintenance.' },
-  electrical_technician:  { label: 'Electrical Technician',  icon: Zap,      color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20', description: 'Diagnoses and repairs electrical system faults.' },
-  customer:               { label: 'Customer',               icon: User,     color: 'text-green-400 bg-green-400/10 border-green-400/20',description: 'Can submit and track support tickets.' },
+  admin:       { label: 'Administrator',  icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access.' },
+  office:      { label: 'Office Staff',   icon: Users,    color: 'text-blue-400 bg-blue-400/10 border-blue-400/20',   description: 'Manages tickets, orders, and customer interactions.' },
+  technician:  { label: 'Technician',     icon: Wrench,   color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',description: 'Handles service tickets and maintenance.' },
+  customer:    { label: 'Customer',       icon: User,     color: 'text-green-400 bg-green-400/10 border-green-400/20',description: 'Can submit and track support tickets.' },
 };
 
 const SPECIALIZATION_MAP: Record<string, string> = {
-  engine_technician: 'Engine',
-  electrical_technician: 'Electrical',
+  technician: 'General',
   admin: 'General',
-  office_staff: 'Operations',
+  office: 'Operations',
   customer: '—',
 };
 
 const EXPERTISE_MAP: Record<string, string> = {
   admin: 'Senior',
-  office_staff: 'Mid',
-  engine_technician: 'Mid',
-  electrical_technician: 'Mid',
+  office: 'Mid',
+  technician: 'Mid',
   customer: '—',
 };
 
 const EXP_MAP: Record<string, number> = {
   admin: 95,
-  office_staff: 72,
-  engine_technician: 68,
-  electrical_technician: 61,
+  office: 72,
+  technician: 68,
   customer: 20,
 };
 
 // Mock certifications — will be fetched from API in production
 const MOCK_CERTIFICATIONS: Record<string, { name: string; issuer: string; date: string; expires: string; status: 'active' | 'expiring' | 'expired' }[]> = {
-  engine_technician: [
+  technician: [
     { name: 'Cummins ISX15 Certified Technician', issuer: 'Cummins Inc.', date: '2023-03-15', expires: '2025-03-15', status: 'active' },
     { name: 'Diesel Engine Overhaul Level II', issuer: 'ASE', date: '2022-08-20', expires: '2024-08-20', status: 'expiring' },
     { name: 'EPA 608 Certification', issuer: 'EPA', date: '2021-01-10', expires: '—', status: 'active' },
     { name: 'Heavy-Duty Engine Diagnostics', issuer: 'Cummins Training Center', date: '2023-11-05', expires: '2025-11-05', status: 'active' },
-    { name: 'Fuel System Specialist', issuer: 'Bosch Automotive', date: '2022-06-18', expires: '2024-06-18', status: 'expired' },
-  ],
-  electrical_technician: [
-    { name: 'Electrical Systems Diagnostics Level III', issuer: 'ASE', date: '2023-05-12', expires: '2025-05-12', status: 'active' },
-    { name: 'High Voltage Safety Certification', issuer: 'NFPA', date: '2023-01-20', expires: '2025-01-20', status: 'active' },
-    { name: 'PLC Programming Fundamentals', issuer: 'Siemens', date: '2022-09-30', expires: '2024-09-30', status: 'expiring' },
-    { name: 'Generator Control Panel Specialist', issuer: 'Cummins Inc.', date: '2023-07-14', expires: '2025-07-14', status: 'active' },
   ],
   admin: [
     { name: 'Project Management Professional', issuer: 'PMI', date: '2022-02-10', expires: '2025-02-10', status: 'active' },
     { name: 'ITIL Foundation', issuer: 'Axelos', date: '2021-11-05', expires: '—', status: 'active' },
   ],
-  office_staff: [
+  office: [
     { name: 'Customer Service Excellence', issuer: 'Internal', date: '2023-04-01', expires: '2025-04-01', status: 'active' },
   ],
   customer: [],

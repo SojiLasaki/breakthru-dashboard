@@ -29,7 +29,7 @@ export default function TransactionsPage() {
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [actioning, setActioning] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
 
   useEffect(() => {
     transactionApi.getAll().then(setTransactions).finally(() => setLoading(false));

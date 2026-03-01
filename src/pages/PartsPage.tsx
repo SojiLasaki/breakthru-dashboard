@@ -50,7 +50,7 @@ export default function PartsPage() {
   const [newForm, setNewForm] = useState<Partial<Part>>(BLANK_FORM);
   const [creating, setCreating] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
 
   useEffect(() => {
     Promise.all([

@@ -61,8 +61,8 @@ export default function TicketsPage() {
   const [creating, setCreating]   = useState(false);
 
   const fullName    = user ? `${user.first_name} ${user.last_name}`.trim() : '';
-  const isAdmin     = isRole('admin', 'office_staff');
-  const isTech      = isRole('engine_technician', 'electrical_technician');
+  const isAdmin     = isRole('admin', 'office');
+  const isTech      = isRole('technician');
   const isCustomer  = isRole('customer');
 
   const scopeLabel = isTech

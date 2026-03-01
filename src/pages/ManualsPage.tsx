@@ -600,7 +600,7 @@ export default function ManualsPage() {
   const [showForm, setShowForm] = useState(false);
   const [viewingManual, setViewingManual] = useState<Manual | null>(null);
 
-  const canCreate = user && ['admin', 'office_staff'].includes(user.role);
+  const canCreate = user && ['admin', 'office'].includes(user.role);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);

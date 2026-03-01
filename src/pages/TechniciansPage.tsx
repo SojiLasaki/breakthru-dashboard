@@ -63,7 +63,7 @@ export default function TechniciansPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  const isAdmin = isRole('admin', 'office_staff');
+  const isAdmin = isRole('admin', 'office');
   const { toast } = useToast();
 
   useEffect(() => {

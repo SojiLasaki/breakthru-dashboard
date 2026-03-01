@@ -32,7 +32,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
   const navigate = useNavigate();
-  const canUseAiTutor = user && ['admin', 'office_staff', 'technician'].includes(user.role);
+  const canUseAiTutor = user && ['admin', 'office', 'technician'].includes(user.role);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
