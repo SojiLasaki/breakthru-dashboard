@@ -47,3 +47,30 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+
+## Local login testing
+
+The login page includes quick-fill demo users. Seed matching backend credentials first:
+
+```bash
+cd ../Cummins-Backend
+uv run --no-sync python manage.py seed_demo_users
+```
+
+Then log in with `username = password` using one of:
+
+- `admin`
+- `office`
+- `engine`
+- `electrical`
+- `customer`
+- `login_probe`
+
+## Agent Studio demo connectors
+
+After backend and local MCP demo servers are running:
+
+1. Open `Agent Studio`
+2. Go to `Integration Connectors`
+3. Click `Seed Demo Connectors`
+4. Go to `Automation Queue` to approve/reject proposed actions from Fix it Felix

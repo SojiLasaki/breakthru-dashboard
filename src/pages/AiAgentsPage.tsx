@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  AgentActionProposal,
   AgentMcpAdapter,
   CreateMcpAdapterPayload,
   McpAuthType,
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react';
 
 const ACTIVE_STATUSES = new Set(['open', 'assigned', 'in_progress', 'awaiting_parts', 'awaiting_approval']);
-type StudioTab = 'overview' | 'prompts' | 'integrations';
+type StudioTab = 'overview' | 'prompts' | 'integrations' | 'automation';
 
 const AGENT_CAPABILITIES = [
   'Ticket triage and resolution sequencing',
@@ -56,7 +57,7 @@ const avg = (values: number[]) => {
 };
 
 const isStudioTab = (value: string | null): value is StudioTab => (
-  value === 'overview' || value === 'prompts' || value === 'integrations'
+  value === 'overview' || value === 'prompts' || value === 'integrations' || value === 'automation'
 );
 
 export default function AiAgentsPage() {
@@ -69,6 +70,7 @@ export default function AiAgentsPage() {
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [mcpAdapters, setMcpAdapters] = useState<AgentMcpAdapter[]>([]);
+  const [agentActions, setAgentActions] = useState<AgentActionProposal[]>([]);
   const [promptDraft, setPromptDraft] = useState<PromptDraft>({
     system_prompt: '',
     domain_guardrail_prompt: '',
@@ -78,11 +80,11 @@ export default function AiAgentsPage() {
   const [savingMcp, setSavingMcp] = useState(false);
   const [togglingMcpId, setTogglingMcpId] = useState<string | null>(null);
   const [testingMcpId, setTestingMcpId] = useState<string | null>(null);
+  const [updatingActionId, setUpdatingActionId] = useState<string | null>(null);
   const [startingOauthMcpId, setStartingOauthMcpId] = useState<string | null>(null);
-  const [savingOauthMcpId, setSavingOauthMcpId] = useState<string | null>(null);
+  const [oauthPendingByAdapter, setOauthPendingByAdapter] = useState<Record<string, boolean>>({});
   const [connectionResults, setConnectionResults] = useState<Record<string, McpConnectionTestResult>>({});
   const [oauthLinks, setOauthLinks] = useState<Record<string, string>>({});
-  const [oauthTokenDrafts, setOauthTokenDrafts] = useState<Record<string, { access_token: string; refresh_token: string }>>({});
 
   const [mcpDraft, setMcpDraft] = useState<CreateMcpAdapterPayload>({
     name: '',
@@ -95,7 +97,9 @@ export default function AiAgentsPage() {
     oauth_client_id: '',
     oauth_client_secret: '',
     oauth_scopes: '',
-    oauth_callback_port: 8765,
+    oauth_authorize_url: '',
+    oauth_token_url: '',
+    oauth_issuer_url: '',
     description: '',
   });
 
@@ -112,10 +116,11 @@ export default function AiAgentsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [allTickets, promptConfig, adapters] = await Promise.all([
+      const [allTickets, promptConfig, adapters, actions] = await Promise.all([
         ticketApi.getAll(),
         aiAgentApi.getPromptConfig(),
         aiAgentApi.getMcpAdapters().catch(() => []),
+        aiAgentApi.getAgentActions().catch(() => []),
       ]);
       setTickets(allTickets);
       setPromptDraft({
@@ -123,6 +128,7 @@ export default function AiAgentsPage() {
         domain_guardrail_prompt: promptConfig.domain_guardrail_prompt,
       });
       setMcpAdapters(adapters);
+      setAgentActions(actions);
     } finally {
       setLoading(false);
     }
@@ -167,6 +173,11 @@ export default function AiAgentsPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 4);
   }, [completedTickets]);
+
+  const pendingActions = useMemo(
+    () => agentActions.filter(action => action.status === 'pending'),
+    [agentActions]
+  );
 
   const savePromptConfig = async () => {
     if (!promptDraft.system_prompt.trim() || !promptDraft.domain_guardrail_prompt.trim()) {
@@ -242,6 +253,14 @@ export default function AiAgentsPage() {
         return;
       }
     }
+    if (mcpDraft.auth_type === 'oauth2' && !mcpDraft.oauth_client_id?.trim()) {
+      toast({
+        title: 'OAuth client ID required',
+        description: 'Provide OAuth client ID for OAuth 2.0 adapters.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSavingMcp(true);
     try {
@@ -256,7 +275,9 @@ export default function AiAgentsPage() {
         oauth_client_id: mcpDraft.oauth_client_id,
         oauth_client_secret: mcpDraft.oauth_client_secret,
         oauth_scopes: mcpDraft.oauth_scopes,
-        oauth_callback_port: mcpDraft.oauth_callback_port,
+        oauth_authorize_url: mcpDraft.oauth_authorize_url,
+        oauth_token_url: mcpDraft.oauth_token_url,
+        oauth_issuer_url: mcpDraft.oauth_issuer_url,
         description: mcpDraft.description?.trim(),
       });
       setMcpAdapters(prev => [created, ...prev]);
@@ -271,7 +292,9 @@ export default function AiAgentsPage() {
         oauth_client_id: '',
         oauth_client_secret: '',
         oauth_scopes: '',
-        oauth_callback_port: 8765,
+        oauth_authorize_url: '',
+        oauth_token_url: '',
+        oauth_issuer_url: '',
         description: '',
       });
       toast({
@@ -328,38 +351,124 @@ export default function AiAgentsPage() {
     }
   };
 
+  const seedDemoConnectors = async () => {
+    setSavingMcp(true);
+    try {
+      const result = await aiAgentApi.seedDemoMcpAdapters();
+      setMcpAdapters(result.adapters);
+      toast({
+        title: 'Demo connectors ready',
+        description: `Created ${result.created}, updated ${result.updated}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to seed connectors',
+        description: error instanceof Error ? error.message : 'Could not create demo connector set.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingMcp(false);
+    }
+  };
+
+  const approveAction = async (id: string) => {
+    setUpdatingActionId(id);
+    try {
+      const updated = await aiAgentApi.approveAgentAction(id);
+      setAgentActions(prev => prev.map(item => (item.id === id ? updated : item)));
+      toast({
+        title: 'Action approved',
+        description: 'Proposal executed through configured connectors.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Approval failed',
+        description: error instanceof Error ? error.message : 'Could not approve action.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingActionId(null);
+    }
+  };
+
+  const rejectAction = async (id: string) => {
+    setUpdatingActionId(id);
+    try {
+      const updated = await aiAgentApi.rejectAgentAction(id, 'Rejected from Agent Studio queue.');
+      setAgentActions(prev => prev.map(item => (item.id === id ? updated : item)));
+      toast({
+        title: 'Action rejected',
+        description: 'Proposal moved out of execution queue.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Rejection failed',
+        description: error instanceof Error ? error.message : 'Could not reject action.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingActionId(null);
+    }
+  };
+
   const openCopilotWithTask = (task: string) => {
     navigate(`/ask-ai?q=${encodeURIComponent(task)}`);
   };
 
-  const updateOauthTokenDraft = (
-    adapterId: string,
-    patch: Partial<{ access_token: string; refresh_token: string }>
-  ) => {
-    setOauthTokenDrafts(prev => {
-      const current = prev[adapterId] || { access_token: '', refresh_token: '' };
-      return {
-        ...prev,
-        [adapterId]: {
-          ...current,
-          ...patch,
-        },
-      };
-    });
+  const pollMcpOAuthStatus = async (adapter: AgentMcpAdapter, state: string, attempt = 0) => {
+    const MAX_ATTEMPTS = 100;
+    const POLL_DELAY_MS = 1500;
+    const result = await aiAgentApi.getMcpAdapterOAuthStatus(adapter.id, state);
+    if (result.status === 'success' && result.has_access_token) {
+      const refreshed = await aiAgentApi.getMcpAdapters().catch(() => []);
+      setMcpAdapters(refreshed);
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
+      toast({
+        title: 'OAuth connected',
+        description: `${adapter.name} is now authorized.`,
+      });
+      return;
+    }
+    if (result.status === 'error' || result.status === 'expired') {
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
+      throw new Error(result.error || 'OAuth authorization failed.');
+    }
+    if (attempt >= MAX_ATTEMPTS) {
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
+      throw new Error('OAuth authorization timed out. Start again.');
+    }
+
+    window.setTimeout(() => {
+      pollMcpOAuthStatus(adapter, state, attempt + 1).catch(error => {
+        toast({
+          title: 'OAuth did not complete',
+          description: error instanceof Error ? error.message : 'OAuth flow ended with an error.',
+          variant: 'destructive',
+        });
+      });
+    }, POLL_DELAY_MS);
   };
 
   const startMcpOAuth = async (adapter: AgentMcpAdapter) => {
     setStartingOauthMcpId(adapter.id);
     try {
       const result = await aiAgentApi.startMcpAdapterOAuth(adapter.id);
-      if (!result.ok || !result.authorization_url) {
+      if (!result.ok || !result.authorization_url || !result.state) {
         throw new Error(result.hint || result.error || 'Could not start OAuth.');
       }
       setOauthLinks(prev => ({ ...prev, [adapter.id]: result.authorization_url }));
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: true }));
       window.open(result.authorization_url, '_blank', 'noopener,noreferrer');
       toast({
-        title: 'OAuth URL generated',
-        description: 'Authorize in the opened page, then paste the access token below.',
+        title: 'OAuth started',
+        description: 'Complete provider login in the popup. Authorization will sync automatically.',
+      });
+      pollMcpOAuthStatus(adapter, result.state).catch(error => {
+        toast({
+          title: 'OAuth did not complete',
+          description: error instanceof Error ? error.message : 'OAuth flow ended with an error.',
+          variant: 'destructive',
+        });
       });
     } catch (error) {
       toast({
@@ -367,43 +476,9 @@ export default function AiAgentsPage() {
         description: error instanceof Error ? error.message : 'Could not start OAuth flow.',
         variant: 'destructive',
       });
+      setOauthPendingByAdapter(prev => ({ ...prev, [adapter.id]: false }));
     } finally {
       setStartingOauthMcpId(null);
-    }
-  };
-
-  const saveMcpOAuthToken = async (adapter: AgentMcpAdapter) => {
-    const draft = oauthTokenDrafts[adapter.id] || { access_token: '', refresh_token: '' };
-    if (!draft.access_token.trim()) {
-      toast({
-        title: 'Access token required',
-        description: 'Paste the OAuth access token before saving.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setSavingOauthMcpId(adapter.id);
-    try {
-      await aiAgentApi.saveMcpAdapterOAuthToken(adapter.id, {
-        access_token: draft.access_token,
-        refresh_token: draft.refresh_token,
-      });
-      const refreshed = await aiAgentApi.getMcpAdapters().catch(() => []);
-      setMcpAdapters(refreshed);
-      updateOauthTokenDraft(adapter.id, { access_token: '' });
-      toast({
-        title: 'OAuth token saved',
-        description: `${adapter.name} credentials were updated.`,
-      });
-    } catch (error) {
-      toast({
-        title: 'OAuth token save failed',
-        description: error instanceof Error ? error.message : 'Could not store OAuth credentials.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSavingOauthMcpId(null);
     }
   };
 
@@ -413,7 +488,7 @@ export default function AiAgentsPage() {
         <div>
           <h1 className="text-xl font-semibold">Agent Studio</h1>
           <p className="text-muted-foreground text-sm">
-            Configure how Fix it Felix behaves and connect MCP integrations for enterprise workflows.
+            Configure Fix it Felix behavior, connector integrations, and approval-gated automation.
           </p>
         </div>
         <div className="flex gap-2">
@@ -436,10 +511,11 @@ export default function AiAgentsPage() {
           syncTabToUrl(value);
         }}
       >
-        <TabsList className="grid w-full grid-cols-3 md:w-[460px]">
+        <TabsList className="grid w-full grid-cols-4 md:w-[620px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="integrations">MCP Integrations</TabsTrigger>
+          <TabsTrigger value="integrations">Integration Connectors</TabsTrigger>
+          <TabsTrigger value="automation">Automation Queue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -452,8 +528,8 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <p>1. Prompt controls: define Felix system behavior and domain guardrails.</p>
-              <p>2. MCP controls: register adapters so Felix can call connected systems.</p>
-              <p>3. Operational view: monitor ticket mix and generate assistant task prompts.</p>
+              <p>2. Connector controls: register external systems for supply, ticketing, and workforce data.</p>
+              <p>3. Automation queue: review and approve high-impact actions before execution.</p>
             </CardContent>
           </Card>
 
@@ -550,10 +626,10 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                These prompts are sent to the backend LangGraph runtime and control Felix behavior.
+                These prompts are sent to the backend AI runtime and control Felix behavior.
               </p>
               <div className="space-y-1.5">
-                <Label className="text-xs">System Prompt (LangGraph Agent)</Label>
+                <Label className="text-xs">System Prompt (Felix Agent)</Label>
                 <Textarea
                   value={promptDraft.system_prompt}
                   onChange={event => setPromptDraft(prev => ({ ...prev, system_prompt: event.target.value }))}
@@ -587,12 +663,12 @@ export default function AiAgentsPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Cable className="h-4 w-4 text-primary" />
-                Add MCP Adapter
+                Add Integration Connector
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Add an MCP endpoint here. It becomes selectable in the Fix it Felix chat panel immediately.
+                Register external connectors here. They become selectable in Fix it Felix chat immediately.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
@@ -642,7 +718,7 @@ export default function AiAgentsPage() {
                       <SelectItem value="none">None</SelectItem>
                       <SelectItem value="bearer">Bearer Token</SelectItem>
                       <SelectItem value="api_key">API Key Header</SelectItem>
-                      <SelectItem value="oauth2">OAuth2 (FastMCP)</SelectItem>
+                      <SelectItem value="oauth2">OAuth 2.0</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -696,7 +772,7 @@ export default function AiAgentsPage() {
                 {mcpDraft.auth_type === 'oauth2' ? (
                   <>
                     <div className="space-y-1">
-                      <Label className="text-xs">OAuth Client ID (optional)</Label>
+                      <Label className="text-xs">OAuth Client ID</Label>
                       <Input
                         value={mcpDraft.oauth_client_id || ''}
                         onChange={event => setMcpDraft(prev => ({ ...prev, oauth_client_id: event.target.value }))}
@@ -715,17 +791,29 @@ export default function AiAgentsPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Callback Port</Label>
+                      <Label className="text-xs">Issuer URL (optional)</Label>
                       <Input
-                        type="number"
-                        value={mcpDraft.oauth_callback_port || 8765}
-                        onChange={event => {
-                          const parsed = Number(event.target.value);
-                          setMcpDraft(prev => ({
-                            ...prev,
-                            oauth_callback_port: Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 8765,
-                          }));
-                        }}
+                        value={mcpDraft.oauth_issuer_url || ''}
+                        onChange={event => setMcpDraft(prev => ({ ...prev, oauth_issuer_url: event.target.value }))}
+                        placeholder="https://issuer.example.com"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Authorization URL (optional)</Label>
+                      <Input
+                        value={mcpDraft.oauth_authorize_url || ''}
+                        onChange={event => setMcpDraft(prev => ({ ...prev, oauth_authorize_url: event.target.value }))}
+                        placeholder="https://issuer.example.com/oauth/authorize"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Token URL (optional)</Label>
+                      <Input
+                        value={mcpDraft.oauth_token_url || ''}
+                        onChange={event => setMcpDraft(prev => ({ ...prev, oauth_token_url: event.target.value }))}
+                        placeholder="https://issuer.example.com/oauth/token"
                         className="h-9"
                       />
                     </div>
@@ -743,9 +831,13 @@ export default function AiAgentsPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={createMcpAdapter} disabled={savingMcp} className="gap-2 bg-primary hover:bg-primary/90">
+                <Button variant="outline" onClick={seedDemoConnectors} disabled={savingMcp} className="gap-2">
+                  {savingMcp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Seed Demo Connectors
+                </Button>
+                <Button onClick={createMcpAdapter} disabled={savingMcp} className="gap-2 bg-primary hover:bg-primary/90 ml-2">
                   {savingMcp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add MCP Adapter
+                  Add Connector
                 </Button>
               </div>
             </CardContent>
@@ -756,7 +848,7 @@ export default function AiAgentsPage() {
               <CardTitle className="text-base flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
                   <Cable className="h-4 w-4 text-primary" />
-                  Configured MCP Adapters
+                  Configured Connectors
                 </span>
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/ask-ai')}>
                   <ExternalLink className="h-3.5 w-3.5" />
@@ -766,7 +858,7 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent>
               {mcpAdapters.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No MCP adapters yet. Add your first adapter above.</p>
+                <p className="text-sm text-muted-foreground">No connectors yet. Add your first connector above.</p>
               ) : (
                 <div className="space-y-2">
                   {mcpAdapters.map(adapter => {
@@ -831,10 +923,12 @@ export default function AiAgentsPage() {
                                 size="sm"
                                 className="h-8 text-xs"
                                 onClick={() => startMcpOAuth(adapter)}
-                                disabled={startingOauthMcpId === adapter.id}
+                                disabled={startingOauthMcpId === adapter.id || oauthPendingByAdapter[adapter.id]}
                               >
-                                {startingOauthMcpId === adapter.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                Start OAuth
+                                {startingOauthMcpId === adapter.id || oauthPendingByAdapter[adapter.id]
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : null}
+                                {oauthPendingByAdapter[adapter.id] ? 'Waiting for authorization...' : 'Connect OAuth'}
                               </Button>
                               {oauthLinks[adapter.id] ? (
                                 <a
@@ -847,41 +941,84 @@ export default function AiAgentsPage() {
                                 </a>
                               ) : null}
                             </div>
-
-                            <div className="grid gap-2 md:grid-cols-3">
-                              <Input
-                                type="password"
-                                className="h-8 text-xs md:col-span-2"
-                                placeholder="Access token"
-                                value={oauthTokenDrafts[adapter.id]?.access_token || ''}
-                                onChange={event => updateOauthTokenDraft(adapter.id, { access_token: event.target.value })}
-                              />
-                              <Input
-                                type="password"
-                                className="h-8 text-xs"
-                                placeholder="Refresh token (optional)"
-                                value={oauthTokenDrafts[adapter.id]?.refresh_token || ''}
-                                onChange={event => updateOauthTokenDraft(adapter.id, { refresh_token: event.target.value })}
-                              />
-                            </div>
-
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => saveMcpOAuthToken(adapter)}
-                                disabled={savingOauthMcpId === adapter.id}
-                              >
-                                {savingOauthMcpId === adapter.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                                Save OAuth Token
-                              </Button>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              This opens the provider sign-in page and stores tokens automatically after callback.
+                            </p>
                           </div>
                         ) : null}
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="automation" className="space-y-4">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Approval-Gated Actions
+                </span>
+                <Badge variant="outline" className="text-[10px]">
+                  {pendingActions.length} pending
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {agentActions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No agent actions yet. Ask Fix it Felix to create or route a ticket and proposals will appear here.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {agentActions.map(action => (
+                    <div key={action.id} className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium capitalize">{action.action_type.replace('_', ' ')}</p>
+                          <Badge variant={action.status === 'executed' ? 'default' : 'outline'} className="text-[10px] uppercase">
+                            {action.status}
+                          </Badge>
+                        </div>
+                        {action.status === 'pending' ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={() => approveAction(action.id)}
+                              disabled={updatingActionId === action.id}
+                            >
+                              {updatingActionId === action.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              Approve & Execute
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              onClick={() => rejectAction(action.id)}
+                              disabled={updatingActionId === action.id}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                      {action.source_query ? (
+                        <p className="text-xs text-muted-foreground line-clamp-2">From chat: {action.source_query}</p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Created {action.created_at ? new Date(action.created_at).toLocaleString() : 'just now'}
+                        {action.approved_by_username ? ` · Reviewed by ${action.approved_by_username}` : ''}
+                      </p>
+                      {action.error ? (
+                        <p className="text-xs text-destructive">{action.error}</p>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

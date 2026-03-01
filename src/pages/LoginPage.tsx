@@ -14,6 +14,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const demoUsers = [
+    { username: 'admin', label: 'admin' },
+    { username: 'office', label: 'office' },
+    { username: 'engine', label: 'technician' },
+    { username: 'electrical', label: 'technician 2' },
+    { username: 'customer', label: 'customer' },
+    { username: 'login_probe', label: 'probe admin' },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,14 +90,15 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-2">Demo logins (username = password)</p>
+            <p className="text-xs text-muted-foreground text-center mb-2">
+              Demo accounts (after running <code>uv run --no-sync python manage.py seed_demo_users</code>)
+            </p>
             <div className="grid grid-cols-3 gap-1">
-              {['admin', 'office', 'engine', 'electrical', 'customer'].map(role => {
-                const label = role === 'engine' ? 'technician' : role === 'electrical' ? 'technician 2' : role;
+              {demoUsers.map(({ username: demoUsername, label }) => {
                 return (
                 <button
-                  key={role}
-                  onClick={() => { setUsername(role); setPassword(role); }}
+                  key={demoUsername}
+                  onClick={() => { setUsername(demoUsername); setPassword(demoUsername); }}
                   className="text-[10px] px-2 py-1.5 rounded bg-accent hover:bg-accent/70 text-muted-foreground transition-colors capitalize"
                 >
                   {label}
