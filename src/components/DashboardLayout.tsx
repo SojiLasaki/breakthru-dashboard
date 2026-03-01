@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import AiTutorPanel from './AiTutorPanel';
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,8 +16,6 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-
-      <AiTutorPanel />
     </div>
   );
 }

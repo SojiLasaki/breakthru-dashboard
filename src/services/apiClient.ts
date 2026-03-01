@@ -29,8 +29,14 @@
 
 import axios from 'axios';
 
+const defaultApiBase = (() => {
+  if (typeof window === 'undefined') return 'http://localhost:8000/api';
+  const host = window.location.hostname || 'localhost';
+  return `http://${host}:8000/api`;
+})();
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || defaultApiBase,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ticketApi, Ticket } from '@/services/ticketApi';
-import { useAiTutor } from '@/context/AiTutorContext';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -42,7 +41,6 @@ const BLANK_TICKET: Partial<Ticket> = {
 
 export default function TicketsPage() {
   const { user, isRole } = useAuth();
-  const { openTutor } = useAiTutor();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [tickets, setTickets]     = useState<Ticket[]>([]);
@@ -98,6 +96,11 @@ export default function TicketsPage() {
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const openFixItFelixForTicket = (ticket: Ticket) => {
+    const prompt = `Help me resolve ticket ${ticket.ticket_id}: ${ticket.title}. Issue: ${ticket.issue_description || ticket.description}`;
+    navigate(`/ask-ai?q=${encodeURIComponent(prompt)}`);
   };
 
   const openDetail = (t: Ticket) => {
@@ -241,8 +244,8 @@ export default function TicketsPage() {
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.created_by}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-primary" onClick={e => { e.stopPropagation(); openTutor(Number(t.id), t.title); }}>
-                      <Bot className="h-3 w-3" /> AI
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-primary" onClick={e => { e.stopPropagation(); openFixItFelixForTicket(t); }}>
+                      <Bot className="h-3 w-3" /> Felix
                     </Button>
                   </td>
                 </tr>
@@ -364,8 +367,8 @@ export default function TicketsPage() {
                       </div>
                     </div>
 
-                    <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { openTutor(Number(selected.id), selected.title); setSelected(null); }}>
-                      <Bot className="h-4 w-4" /> Open AI Tutor for this Ticket
+                    <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { openFixItFelixForTicket(selected); setSelected(null); }}>
+                      <Bot className="h-4 w-4" /> Open Fix it Felix for this Ticket
                     </Button>
                   </div>
                 )}

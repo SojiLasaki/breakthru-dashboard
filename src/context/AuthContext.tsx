@@ -27,6 +27,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getAccessToken = (payload: any): string => {
+    if (!payload || typeof payload !== 'object') return '';
+    if (typeof payload.access === 'string' && payload.access.trim()) return payload.access;
+    if (typeof payload.token === 'string' && payload.token.trim()) return payload.token;
+    return '';
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem('cummins_user');
     if (stored) {
@@ -34,8 +41,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const parsed = JSON.parse(stored);
         setUser(parsed);
         // Ensure token is available for Axios interceptor
-        if (parsed.token) {
-          localStorage.setItem('access', parsed.token);
+        const accessToken = getAccessToken(parsed);
+        if (accessToken) {
+          localStorage.setItem('access', accessToken);
         }
       } catch {
         localStorage.removeItem('cummins_user');
@@ -46,12 +54,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (username: string, password: string) => {
-    const userData = await authApi.login(username, password);
-    setUser(userData);
-    localStorage.setItem('cummins_user', JSON.stringify(userData));
+    const userData = await authApi.login(username, password) as any;
+    const accessToken = getAccessToken(userData);
+    const normalizedUser = {
+      ...userData,
+      token: userData?.token || accessToken,
+    } as User;
+
+    setUser(normalizedUser);
+    localStorage.setItem('cummins_user', JSON.stringify(normalizedUser));
     // Store token separately so the Axios interceptor can use it
-    if (userData.token) {
-      localStorage.setItem('access', userData.token);
+    if (accessToken) {
+      localStorage.setItem('access', accessToken);
     }
   };
 

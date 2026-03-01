@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { NotificationProvider } from "@/context/NotificationContext";
-import { AiTutorProvider } from "@/context/AiTutorContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 
 import DashboardLayout from "@/components/DashboardLayout";
@@ -140,13 +139,11 @@ const App = () => (
       <ThemeProvider>
         <AuthProvider>
           <NotificationProvider>
-            <AiTutorProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <AppRouter />
-              </BrowserRouter>
-            </AiTutorProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRouter />
+            </BrowserRouter>
           </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
