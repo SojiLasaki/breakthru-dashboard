@@ -58,6 +58,25 @@ export interface McpOAuthStartResult {
   hint?: string;
 }
 
+export type AgentActionType = 'create_ticket' | 'assign_employee' | 'order_part';
+export type AgentActionStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+
+export interface AgentActionProposal {
+  id: string;
+  action_type: AgentActionType;
+  status: AgentActionStatus;
+  payload: Record<string, unknown>;
+  result: Record<string, unknown>;
+  error?: string;
+  source_query?: string;
+  metadata?: Record<string, unknown>;
+  created_by_username?: string;
+  approved_by_username?: string;
+  created_at?: string;
+  approved_at?: string;
+  executed_at?: string;
+}
+
 const DEFAULT_PROMPT_CONFIG: AgentPromptConfig = {
   system_prompt:
     'You are Fix it Felix, an expert Cummins repair copilot. Prioritize fast ticket resolution, clear summaries, and actionable steps.',
@@ -145,6 +164,41 @@ const toMcpAdapterList = (value: unknown): AgentMcpAdapter[] => {
     .filter((item): item is AgentMcpAdapter => Boolean(item));
 };
 
+const toAgentAction = (value: unknown): AgentActionProposal | null => {
+  if (!value || typeof value !== 'object') return null;
+  const data = value as Record<string, unknown>;
+  const id = data.id != null ? String(data.id) : '';
+  const actionType = String(data.action_type || '').trim() as AgentActionType;
+  const status = String(data.status || '').trim() as AgentActionStatus;
+  if (!id || !actionType || !status) return null;
+  return {
+    id,
+    action_type: actionType,
+    status,
+    payload: (typeof data.payload === 'object' && data.payload ? data.payload : {}) as Record<string, unknown>,
+    result: (typeof data.result === 'object' && data.result ? data.result : {}) as Record<string, unknown>,
+    error: typeof data.error === 'string' ? data.error : '',
+    source_query: typeof data.source_query === 'string' ? data.source_query : '',
+    metadata: (typeof data.metadata === 'object' && data.metadata ? data.metadata : {}) as Record<string, unknown>,
+    created_by_username: typeof data.created_by_username === 'string' ? data.created_by_username : '',
+    approved_by_username: typeof data.approved_by_username === 'string' ? data.approved_by_username : '',
+    created_at: typeof data.created_at === 'string' ? data.created_at : undefined,
+    approved_at: typeof data.approved_at === 'string' ? data.approved_at : undefined,
+    executed_at: typeof data.executed_at === 'string' ? data.executed_at : undefined,
+  };
+};
+
+const toAgentActionList = (value: unknown): AgentActionProposal[] => {
+  const items = Array.isArray(value)
+    ? value
+    : (value && typeof value === 'object' && Array.isArray((value as Record<string, unknown>).results))
+      ? (value as Record<string, unknown>).results as unknown[]
+      : [];
+  return items
+    .map(toAgentAction)
+    .filter((item): item is AgentActionProposal => Boolean(item));
+};
+
 export const aiAgentApi = {
   getPromptConfig: async (): Promise<AgentPromptConfig> => {
     try {
@@ -221,6 +275,15 @@ export const aiAgentApi = {
     const normalized = toMcpAdapter(data);
     if (!normalized) throw new Error('MCP adapter creation returned invalid data.');
     return normalized;
+  },
+
+  seedDemoMcpAdapters: async (): Promise<{ created: number; updated: number; adapters: AgentMcpAdapter[] }> => {
+    const { data } = await api.post('/ai/mcp_adapters/seed_demo/');
+    return {
+      created: Number(data?.created || 0),
+      updated: Number(data?.updated || 0),
+      adapters: toMcpAdapterList(data?.adapters || []),
+    };
   },
 
   setMcpAdapterEnabled: async (id: string, is_enabled: boolean): Promise<AgentMcpAdapter> => {
@@ -329,5 +392,26 @@ export const aiAgentApi = {
       }
       throw error;
     }
+  },
+
+  getAgentActions: async (status?: AgentActionStatus): Promise<AgentActionProposal[]> => {
+    const { data } = await api.get('/ai/agent_actions/', {
+      params: status ? { status } : {},
+    });
+    return toAgentActionList(data);
+  },
+
+  approveAgentAction: async (id: string): Promise<AgentActionProposal> => {
+    const { data } = await api.post(`/ai/agent_actions/${id}/approve/`);
+    const normalized = toAgentAction(data);
+    if (!normalized) throw new Error('Approval returned invalid action response.');
+    return normalized;
+  },
+
+  rejectAgentAction: async (id: string, reason = ''): Promise<AgentActionProposal> => {
+    const { data } = await api.post(`/ai/agent_actions/${id}/reject/`, { reason });
+    const normalized = toAgentAction(data);
+    if (!normalized) throw new Error('Rejection returned invalid action response.');
+    return normalized;
   },
 };

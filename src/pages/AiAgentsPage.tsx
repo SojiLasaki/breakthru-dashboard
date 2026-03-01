@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  AgentActionProposal,
   AgentMcpAdapter,
   CreateMcpAdapterPayload,
   McpAuthType,
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react';
 
 const ACTIVE_STATUSES = new Set(['open', 'assigned', 'in_progress', 'awaiting_parts', 'awaiting_approval']);
-type StudioTab = 'overview' | 'prompts' | 'integrations';
+type StudioTab = 'overview' | 'prompts' | 'integrations' | 'automation';
 
 const AGENT_CAPABILITIES = [
   'Ticket triage and resolution sequencing',
@@ -56,7 +57,7 @@ const avg = (values: number[]) => {
 };
 
 const isStudioTab = (value: string | null): value is StudioTab => (
-  value === 'overview' || value === 'prompts' || value === 'integrations'
+  value === 'overview' || value === 'prompts' || value === 'integrations' || value === 'automation'
 );
 
 export default function AiAgentsPage() {
@@ -69,6 +70,7 @@ export default function AiAgentsPage() {
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [mcpAdapters, setMcpAdapters] = useState<AgentMcpAdapter[]>([]);
+  const [agentActions, setAgentActions] = useState<AgentActionProposal[]>([]);
   const [promptDraft, setPromptDraft] = useState<PromptDraft>({
     system_prompt: '',
     domain_guardrail_prompt: '',
@@ -78,6 +80,7 @@ export default function AiAgentsPage() {
   const [savingMcp, setSavingMcp] = useState(false);
   const [togglingMcpId, setTogglingMcpId] = useState<string | null>(null);
   const [testingMcpId, setTestingMcpId] = useState<string | null>(null);
+  const [updatingActionId, setUpdatingActionId] = useState<string | null>(null);
   const [startingOauthMcpId, setStartingOauthMcpId] = useState<string | null>(null);
   const [oauthPendingByAdapter, setOauthPendingByAdapter] = useState<Record<string, boolean>>({});
   const [connectionResults, setConnectionResults] = useState<Record<string, McpConnectionTestResult>>({});
@@ -113,10 +116,11 @@ export default function AiAgentsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [allTickets, promptConfig, adapters] = await Promise.all([
+      const [allTickets, promptConfig, adapters, actions] = await Promise.all([
         ticketApi.getAll(),
         aiAgentApi.getPromptConfig(),
         aiAgentApi.getMcpAdapters().catch(() => []),
+        aiAgentApi.getAgentActions().catch(() => []),
       ]);
       setTickets(allTickets);
       setPromptDraft({
@@ -124,6 +128,7 @@ export default function AiAgentsPage() {
         domain_guardrail_prompt: promptConfig.domain_guardrail_prompt,
       });
       setMcpAdapters(adapters);
+      setAgentActions(actions);
     } finally {
       setLoading(false);
     }
@@ -168,6 +173,11 @@ export default function AiAgentsPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 4);
   }, [completedTickets]);
+
+  const pendingActions = useMemo(
+    () => agentActions.filter(action => action.status === 'pending'),
+    [agentActions]
+  );
 
   const savePromptConfig = async () => {
     if (!promptDraft.system_prompt.trim() || !promptDraft.domain_guardrail_prompt.trim()) {
@@ -341,6 +351,66 @@ export default function AiAgentsPage() {
     }
   };
 
+  const seedDemoConnectors = async () => {
+    setSavingMcp(true);
+    try {
+      const result = await aiAgentApi.seedDemoMcpAdapters();
+      setMcpAdapters(result.adapters);
+      toast({
+        title: 'Demo connectors ready',
+        description: `Created ${result.created}, updated ${result.updated}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to seed connectors',
+        description: error instanceof Error ? error.message : 'Could not create demo connector set.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingMcp(false);
+    }
+  };
+
+  const approveAction = async (id: string) => {
+    setUpdatingActionId(id);
+    try {
+      const updated = await aiAgentApi.approveAgentAction(id);
+      setAgentActions(prev => prev.map(item => (item.id === id ? updated : item)));
+      toast({
+        title: 'Action approved',
+        description: 'Proposal executed through configured connectors.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Approval failed',
+        description: error instanceof Error ? error.message : 'Could not approve action.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingActionId(null);
+    }
+  };
+
+  const rejectAction = async (id: string) => {
+    setUpdatingActionId(id);
+    try {
+      const updated = await aiAgentApi.rejectAgentAction(id, 'Rejected from Agent Studio queue.');
+      setAgentActions(prev => prev.map(item => (item.id === id ? updated : item)));
+      toast({
+        title: 'Action rejected',
+        description: 'Proposal moved out of execution queue.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Rejection failed',
+        description: error instanceof Error ? error.message : 'Could not reject action.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingActionId(null);
+    }
+  };
+
   const openCopilotWithTask = (task: string) => {
     navigate(`/ask-ai?q=${encodeURIComponent(task)}`);
   };
@@ -418,7 +488,7 @@ export default function AiAgentsPage() {
         <div>
           <h1 className="text-xl font-semibold">Agent Studio</h1>
           <p className="text-muted-foreground text-sm">
-            Configure how Fix it Felix behaves and connect MCP integrations for enterprise workflows.
+            Configure Fix it Felix behavior, connector integrations, and approval-gated automation.
           </p>
         </div>
         <div className="flex gap-2">
@@ -441,10 +511,11 @@ export default function AiAgentsPage() {
           syncTabToUrl(value);
         }}
       >
-        <TabsList className="grid w-full grid-cols-3 md:w-[460px]">
+        <TabsList className="grid w-full grid-cols-4 md:w-[620px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="integrations">MCP Integrations</TabsTrigger>
+          <TabsTrigger value="integrations">Integration Connectors</TabsTrigger>
+          <TabsTrigger value="automation">Automation Queue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -457,8 +528,8 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <p>1. Prompt controls: define Felix system behavior and domain guardrails.</p>
-              <p>2. MCP controls: register adapters so Felix can call connected systems.</p>
-              <p>3. Operational view: monitor ticket mix and generate assistant task prompts.</p>
+              <p>2. Connector controls: register external systems for supply, ticketing, and workforce data.</p>
+              <p>3. Automation queue: review and approve high-impact actions before execution.</p>
             </CardContent>
           </Card>
 
@@ -592,12 +663,12 @@ export default function AiAgentsPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Cable className="h-4 w-4 text-primary" />
-                Add MCP Adapter
+                Add Integration Connector
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Add an MCP endpoint here. It becomes selectable in the Fix it Felix chat panel immediately.
+                Register external connectors here. They become selectable in Fix it Felix chat immediately.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
@@ -760,9 +831,13 @@ export default function AiAgentsPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={createMcpAdapter} disabled={savingMcp} className="gap-2 bg-primary hover:bg-primary/90">
+                <Button variant="outline" onClick={seedDemoConnectors} disabled={savingMcp} className="gap-2">
+                  {savingMcp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Seed Demo Connectors
+                </Button>
+                <Button onClick={createMcpAdapter} disabled={savingMcp} className="gap-2 bg-primary hover:bg-primary/90 ml-2">
                   {savingMcp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Add MCP Adapter
+                  Add Connector
                 </Button>
               </div>
             </CardContent>
@@ -773,7 +848,7 @@ export default function AiAgentsPage() {
               <CardTitle className="text-base flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
                   <Cable className="h-4 w-4 text-primary" />
-                  Configured MCP Adapters
+                  Configured Connectors
                 </span>
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/ask-ai')}>
                   <ExternalLink className="h-3.5 w-3.5" />
@@ -783,7 +858,7 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent>
               {mcpAdapters.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No MCP adapters yet. Add your first adapter above.</p>
+                <p className="text-sm text-muted-foreground">No connectors yet. Add your first connector above.</p>
               ) : (
                 <div className="space-y-2">
                   {mcpAdapters.map(adapter => {
@@ -874,6 +949,76 @@ export default function AiAgentsPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="automation" className="space-y-4">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Approval-Gated Actions
+                </span>
+                <Badge variant="outline" className="text-[10px]">
+                  {pendingActions.length} pending
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {agentActions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No agent actions yet. Ask Fix it Felix to create or route a ticket and proposals will appear here.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {agentActions.map(action => (
+                    <div key={action.id} className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium capitalize">{action.action_type.replace('_', ' ')}</p>
+                          <Badge variant={action.status === 'executed' ? 'default' : 'outline'} className="text-[10px] uppercase">
+                            {action.status}
+                          </Badge>
+                        </div>
+                        {action.status === 'pending' ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={() => approveAction(action.id)}
+                              disabled={updatingActionId === action.id}
+                            >
+                              {updatingActionId === action.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              Approve & Execute
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              onClick={() => rejectAction(action.id)}
+                              disabled={updatingActionId === action.id}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                      {action.source_query ? (
+                        <p className="text-xs text-muted-foreground line-clamp-2">From chat: {action.source_query}</p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Created {action.created_at ? new Date(action.created_at).toLocaleString() : 'just now'}
+                        {action.approved_by_username ? ` · Reviewed by ${action.approved_by_username}` : ''}
+                      </p>
+                      {action.error ? (
+                        <p className="text-xs text-destructive">{action.error}</p>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
