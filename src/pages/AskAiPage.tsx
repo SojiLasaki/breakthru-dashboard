@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Send,
+  Cable,
   Camera,
   ImagePlus,
   X,
@@ -12,7 +13,6 @@ import {
   Link2,
   Paperclip,
   Database,
-  Network,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -147,8 +147,7 @@ export default function AskAiPage() {
   const [selectedModel, setSelectedModel] = useState(fallbackModelEndpoints[0].model);
 
   const [mcpAdapters, setMcpAdapters] = useState<McpAdapterOption[]>([]);
-  const [mcpSource, setMcpSource] = useState<'backend' | 'fallback'>('fallback');
-  const [selectedMcpAdapterIds, setSelectedMcpAdapterIds] = useState<string[]>([]);
+  const [activeConnectorIds, setActiveConnectorIds] = useState<string[]>([]);
   const [policyMode, setPolicyMode] = useState<PolicyMode>('manual');
   const [intent, setIntent] = useState<FelixIntent>('qa');
 
@@ -192,8 +191,7 @@ export default function AskAiPage() {
       setSelectedModel(defaultModel.model);
 
       setMcpAdapters(adaptersResult.data);
-      setMcpSource(adaptersResult.source);
-      setSelectedMcpAdapterIds(
+      setActiveConnectorIds(
         adaptersResult.data
           .filter(adapter => adapter.enabled !== false)
           .map(adapter => adapter.id)
@@ -395,12 +393,12 @@ export default function AskAiPage() {
       sections.push(`## Retrieved Knowledge Snippets\n${snippetText}`);
     }
 
-    if (selectedMcpAdapterIds.length > 0) {
+    if (activeConnectorIds.length > 0) {
       const selectedNames = mcpAdapters
-        .filter(adapter => selectedMcpAdapterIds.includes(adapter.id))
+        .filter(adapter => activeConnectorIds.includes(adapter.id))
         .map(adapter => adapter.name);
       if (selectedNames.length > 0) {
-        sections.push(`## MCP Adapters\n${selectedNames.map(name => `- ${name}`).join('\n')}`);
+        sections.push(`## Active Connectors\n${selectedNames.map(name => `- ${name}`).join('\n')}`);
       }
     }
 
@@ -453,7 +451,7 @@ export default function AskAiPage() {
         provider: selectedProvider,
         model: selectedModel,
         urls: contextUrls,
-        mcp_adapters: selectedMcpAdapterIds,
+        mcp_adapters: activeConnectorIds,
         snippets: snippetsForContext.map(snippet => ({
           id: snippet.id,
           title: snippet.title,
@@ -493,8 +491,8 @@ export default function AskAiPage() {
           provider: selectedProvider,
           model: selectedModel,
           contextBlock,
-          mcpAdapters: selectedMcpAdapterIds,
-          enabledConnectors: selectedMcpAdapterIds,
+          mcpAdapters: activeConnectorIds,
+          enabledConnectors: activeConnectorIds,
           policyMode,
           intent,
           contextRefs,
@@ -534,7 +532,7 @@ export default function AskAiPage() {
     policyMode,
     intent,
     contextUrls,
-    selectedMcpAdapterIds,
+    activeConnectorIds,
     sendStream,
     toast,
     documents,
@@ -646,63 +644,18 @@ export default function AskAiPage() {
           </span>
           <span>·</span>
           <span className="inline-flex items-center gap-1">
-            <Network className="h-3 w-3" />
-            MCP source: {mcpSource}
+            <Cable className="h-3 w-3" />
+            Active connectors: {activeConnectorIds.length}
           </span>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">MCP Adapters</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[10px]"
-              onClick={() => navigate('/ai-agents?tab=connectors')}
-            >
-              Add / Manage MCP
-            </Button>
-          </div>
-          {mcpAdapters.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {mcpAdapters.map(adapter => {
-                const selected = selectedMcpAdapterIds.includes(adapter.id);
-                return (
-                  <button
-                    key={adapter.id}
-                    onClick={() => {
-                      setSelectedMcpAdapterIds(prev => (
-                        selected
-                          ? prev.filter(id => id !== adapter.id)
-                          : [...prev, adapter.id]
-                      ));
-                    }}
-                    className={cn(
-                      'px-2.5 py-1 rounded-md border text-[10px] transition-colors',
-                      selected
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'bg-background border-border text-muted-foreground hover:text-foreground'
-                    )}
-                    title={adapter.description || adapter.name}
-                  >
-                    {adapter.name}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
-              <span>No MCP adapters returned by backend.</span>
-              <button
-                type="button"
-                className="underline underline-offset-2"
-                onClick={() => navigate('/ai-agents?tab=connectors')}
-              >
-                Create one in Agent Studio
-              </button>
-            </div>
-          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => navigate('/ai-agents?tab=connectors')}
+          >
+            Manage in Agent Studio
+          </Button>
         </div>
 
         <div className="space-y-2">
