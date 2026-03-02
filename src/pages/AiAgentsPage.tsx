@@ -673,7 +673,7 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Register external connectors here. They become selectable in Fix it Felix chat immediately.
+                Register and manage external connectors here. Fix it Felix chat uses enabled connectors from this panel automatically.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">

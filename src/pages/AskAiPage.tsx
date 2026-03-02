@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Send,
+  Cable,
   Camera,
   ImagePlus,
   X,
@@ -10,15 +11,16 @@ import {
   Sparkles,
   Trash2,
   Link2,
+  AtSign,
   Paperclip,
   Database,
-  Network,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
@@ -60,6 +62,13 @@ interface KnowledgeIngestionStatus {
   rechunkFailed: number;
 }
 
+interface ResourceMentionOption {
+  mention: string;
+  label: string;
+  ref: string;
+  removable?: boolean;
+}
+
 const STARTERS = [
   'Diagnose a fault code for me',
   'Help me identify a worn part from a photo',
@@ -70,6 +79,7 @@ const STARTERS = [
 const KNOWLEDGE_GRAPH_COMMAND = 'add this to my knowledge graph';
 type PolicyMode = 'manual' | 'semi_auto' | 'auto';
 type FelixIntent = 'qa' | 'triage' | 'ticket_ops' | 'parts_ops' | 'assignment_ops';
+const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi;
 const PROVIDER_LABELS: Record<string, string> = {
   langgraph: 'Backend AI',
   openai: 'OpenAI',
@@ -84,13 +94,6 @@ const POLICY_MODE_LABELS: Record<PolicyMode, string> = {
   manual: 'Manual approvals',
   semi_auto: 'Semi-auto',
   auto: 'Auto (high-risk gated)',
-};
-const INTENT_LABELS: Record<FelixIntent, string> = {
-  qa: 'Q&A',
-  triage: 'Triage',
-  ticket_ops: 'Ticket Ops',
-  parts_ops: 'Parts Ops',
-  assignment_ops: 'Assignment Ops',
 };
 
 const escapeHtml = (value: string) => value
@@ -119,6 +122,82 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 };
 
+const extractUrlsFromText = (value: string): string[] => {
+  const matches = value.match(URL_PATTERN) || [];
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of matches) {
+    try {
+      const normalized = new URL(candidate).toString();
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        deduped.push(normalized);
+      }
+    } catch {
+      // Ignore invalid URL-like fragments.
+    }
+  }
+  return deduped;
+};
+
+const extractMentionsFromText = (value: string): string[] => {
+  const matches = value.toLowerCase().match(/@([a-z0-9][a-z0-9._-]{0,31})/g) || [];
+  return matches.map(item => item.slice(1));
+};
+
+const toMentionToken = (value: string, fallback: string): string => {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20);
+  return normalized || fallback;
+};
+
+const buildResourceMentions = (docs: ExtractedDocument[], urls: string[]): ResourceMentionOption[] => {
+  const mentions: ResourceMentionOption[] = [];
+  const used = new Set<string>();
+
+  docs.forEach((doc, idx) => {
+    const base = toMentionToken(doc.name, `doc${idx + 1}`);
+    let mention = base;
+    let suffix = 2;
+    while (used.has(mention)) {
+      mention = `${base}${suffix}`;
+      suffix += 1;
+    }
+    used.add(mention);
+    mentions.push({
+      mention,
+      label: doc.name,
+      ref: `doc:${doc.name}`,
+      removable: true,
+    });
+  });
+
+  urls.forEach((url, idx) => {
+    const host = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        return `url${idx + 1}`;
+      }
+    })();
+    const base = toMentionToken(host, `url${idx + 1}`);
+    let mention = base;
+    let suffix = 2;
+    while (used.has(mention)) {
+      mention = `${base}${suffix}`;
+      suffix += 1;
+    }
+    used.add(mention);
+    mentions.push({
+      mention,
+      label: url,
+      ref: `url:${url}`,
+      removable: true,
+    });
+  });
+
+  return mentions;
+};
+
 export default function AskAiPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -143,14 +222,13 @@ export default function AskAiPage() {
 
   const [modelEndpoints, setModelEndpoints] = useState<FelixModelEndpoint[]>(fallbackModelEndpoints);
   const [modelSource, setModelSource] = useState<'backend' | 'fallback'>('fallback');
-  const [selectedProvider, setSelectedProvider] = useState(fallbackModelEndpoints[0].provider);
   const [selectedModel, setSelectedModel] = useState(fallbackModelEndpoints[0].model);
 
   const [mcpAdapters, setMcpAdapters] = useState<McpAdapterOption[]>([]);
-  const [mcpSource, setMcpSource] = useState<'backend' | 'fallback'>('fallback');
-  const [selectedMcpAdapterIds, setSelectedMcpAdapterIds] = useState<string[]>([]);
+  const [activeConnectorIds, setActiveConnectorIds] = useState<string[]>([]);
   const [policyMode, setPolicyMode] = useState<PolicyMode>('manual');
-  const [intent, setIntent] = useState<FelixIntent>('qa');
+  const intent: FelixIntent = 'qa';
+  const [resourcesOpen, setResourcesOpen] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -158,8 +236,11 @@ export default function AskAiPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
-  const providers = Array.from(new Set(modelEndpoints.map(endpoint => endpoint.provider)));
-  const modelsForProvider = modelEndpoints.filter(endpoint => endpoint.provider === selectedProvider);
+  const availableModelEndpoints = modelEndpoints;
+  const selectedModelEndpoint = availableModelEndpoints.find(endpoint => endpoint.model === selectedModel)
+    || getDefaultModel(availableModelEndpoints);
+  const selectedProvider = selectedModelEndpoint?.provider || 'langgraph';
+  const resourceMentions = buildResourceMentions(documents, contextUrls);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -185,15 +266,19 @@ export default function AskAiPage() {
 
       if (!active) return;
 
-      setModelEndpoints(modelsResult.data);
+      const backendModels = modelsResult.data.filter(model => model.active !== false);
+      const fallbackModels = modelsResult.data.filter(model => model.provider === 'langgraph');
+      const resolvedModels = modelsResult.source === 'backend'
+        ? (backendModels.length > 0 ? backendModels : modelsResult.data)
+        : (fallbackModels.length > 0 ? fallbackModels : [getDefaultModel(modelsResult.data)]);
+
+      setModelEndpoints(resolvedModels);
       setModelSource(modelsResult.source);
-      const defaultModel = getDefaultModel(modelsResult.data);
-      setSelectedProvider(defaultModel.provider);
+      const defaultModel = getDefaultModel(resolvedModels);
       setSelectedModel(defaultModel.model);
 
       setMcpAdapters(adaptersResult.data);
-      setMcpSource(adaptersResult.source);
-      setSelectedMcpAdapterIds(
+      setActiveConnectorIds(
         adaptersResult.data
           .filter(adapter => adapter.enabled !== false)
           .map(adapter => adapter.id)
@@ -208,11 +293,11 @@ export default function AskAiPage() {
   }, []);
 
   useEffect(() => {
-    if (!modelsForProvider.length) return;
-    if (!modelsForProvider.some(model => model.model === selectedModel)) {
-      setSelectedModel(modelsForProvider[0].model);
+    if (!availableModelEndpoints.length) return;
+    if (!availableModelEndpoints.some(model => model.model === selectedModel)) {
+      setSelectedModel(availableModelEndpoints[0].model);
     }
-  }, [modelsForProvider, selectedModel]);
+  }, [availableModelEndpoints, selectedModel]);
 
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -371,21 +456,36 @@ export default function AskAiPage() {
     }
   }, [knowledgeQuery, input, toast]);
 
-  const buildConsolidatedContext = (snippets: KnowledgeSnippet[]) => {
+  const buildConsolidatedContext = (
+    snippets: KnowledgeSnippet[],
+    options?: { urls?: string[]; mentionedRefs?: Set<string> }
+  ) => {
+    const urls = options?.urls || contextUrls;
+    const mentionedRefs = options?.mentionedRefs;
+    const includeRef = (ref: string) => (!mentionedRefs || mentionedRefs.size === 0 || mentionedRefs.has(ref));
     const sections: string[] = [];
 
     if (documents.length > 0) {
       const docSection = documents
+        .filter(doc => includeRef(`doc:${doc.name}`))
         .map(doc => {
           const header = `${doc.name} (${doc.mimeType || 'unknown'}, ${formatSize(doc.size)})`;
           return `### Document: ${header}\n${doc.text || '[No text extracted]'}`;
         })
         .join('\n\n');
-      sections.push(`## Uploaded Documents\n${docSection}`);
+      if (docSection.trim()) {
+        sections.push(`## Uploaded Documents\n${docSection}`);
+      }
     }
 
-    if (contextUrls.length > 0) {
-      sections.push(`## URL References\n${contextUrls.map(url => `- ${url}`).join('\n')}`);
+    if (urls.length > 0) {
+      const urlSection = urls
+        .filter(url => includeRef(`url:${url}`))
+        .map(url => `- ${url}`)
+        .join('\n');
+      if (urlSection.trim()) {
+        sections.push(`## URL References\n${urlSection}`);
+      }
     }
 
     if (attachKnowledge && snippets.length > 0) {
@@ -395,12 +495,12 @@ export default function AskAiPage() {
       sections.push(`## Retrieved Knowledge Snippets\n${snippetText}`);
     }
 
-    if (selectedMcpAdapterIds.length > 0) {
+    if (activeConnectorIds.length > 0) {
       const selectedNames = mcpAdapters
-        .filter(adapter => selectedMcpAdapterIds.includes(adapter.id))
+        .filter(adapter => activeConnectorIds.includes(adapter.id))
         .map(adapter => adapter.name);
       if (selectedNames.length > 0) {
-        sections.push(`## MCP Adapters\n${selectedNames.map(name => `- ${name}`).join('\n')}`);
+        sections.push(`## Active Connectors\n${selectedNames.map(name => `- ${name}`).join('\n')}`);
       }
     }
 
@@ -412,6 +512,22 @@ export default function AskAiPage() {
     const text = input.trim();
     if (!text && images.length === 0) return;
     if (isStreaming) return;
+    const detectedUrls = extractUrlsFromText(text);
+    const combinedUrls = [...contextUrls];
+    for (const url of detectedUrls) {
+      if (!combinedUrls.includes(url)) combinedUrls.push(url);
+    }
+    if (combinedUrls.length !== contextUrls.length) {
+      setContextUrls(combinedUrls);
+    }
+
+    const mentionCatalog = buildResourceMentions(documents, combinedUrls);
+    const mentionMap = new Map(mentionCatalog.map(item => [item.mention, item.ref]));
+    const mentionedRefs = new Set(
+      extractMentionsFromText(text)
+        .map(token => mentionMap.get(token))
+        .filter((ref): ref is string => Boolean(ref))
+    );
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -430,10 +546,19 @@ export default function AskAiPage() {
       snippetsForContext = await fetchSnippets(text);
     }
 
-    const contextBlock = buildConsolidatedContext(snippetsForContext);
+    const contextBlock = buildConsolidatedContext(snippetsForContext, {
+      urls: combinedUrls,
+      mentionedRefs,
+    });
+    const selectedDocs = documents
+      .filter(doc => mentionedRefs.size === 0 || mentionedRefs.has(`doc:${doc.name}`))
+      .map(doc => `doc:${doc.name}`);
+    const selectedUrls = combinedUrls
+      .filter(url => mentionedRefs.size === 0 || mentionedRefs.has(`url:${url}`))
+      .map(url => `url:${url}`);
     const contextRefs = [
-      ...documents.map(doc => `doc:${doc.name}`),
-      ...contextUrls.map(url => `url:${url}`),
+      ...selectedDocs,
+      ...selectedUrls,
       ...snippetsForContext.map(snippet => `snippet:${snippet.id}`),
     ].slice(0, 24);
 
@@ -450,10 +575,10 @@ export default function AskAiPage() {
       const upsert = await addToKnowledgeGraph({
         content: contentForKnowledgeGraph,
         context: contextBlock,
-        provider: selectedProvider,
+        provider: selectedModelEndpoint.provider,
         model: selectedModel,
-        urls: contextUrls,
-        mcp_adapters: selectedMcpAdapterIds,
+        urls: combinedUrls,
+        mcp_adapters: activeConnectorIds,
         snippets: snippetsForContext.map(snippet => ({
           id: snippet.id,
           title: snippet.title,
@@ -490,11 +615,11 @@ export default function AskAiPage() {
       await sendStream(
         {
           messages: apiMessages,
-          provider: selectedProvider,
+          provider: selectedModelEndpoint.provider,
           model: selectedModel,
           contextBlock,
-          mcpAdapters: selectedMcpAdapterIds,
-          enabledConnectors: selectedMcpAdapterIds,
+          mcpAdapters: activeConnectorIds,
+          enabledConnectors: activeConnectorIds,
           policyMode,
           intent,
           contextRefs,
@@ -529,12 +654,12 @@ export default function AskAiPage() {
     selectedSnippetIds,
     attachKnowledge,
     fetchSnippets,
-    selectedProvider,
+    selectedModelEndpoint,
     selectedModel,
     policyMode,
     intent,
     contextUrls,
-    selectedMcpAdapterIds,
+    activeConnectorIds,
     sendStream,
     toast,
     documents,
@@ -574,24 +699,8 @@ export default function AskAiPage() {
         )}
       </div>
 
-      <div className="px-4 py-3 border-b border-border bg-card/60 flex-shrink-0 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Provider</p>
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map(provider => (
-                  <SelectItem key={provider} value={provider} className="text-xs">
-                    {PROVIDER_LABELS[provider] || provider}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+      <div className="px-4 py-3 border-b border-border bg-card/60 flex-shrink-0 space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Model</p>
             <Select value={selectedModel} onValueChange={setSelectedModel}>
@@ -599,7 +708,7 @@ export default function AskAiPage() {
                 <SelectValue placeholder="Select model" />
               </SelectTrigger>
               <SelectContent>
-                {modelsForProvider.map(model => (
+                {availableModelEndpoints.map(model => (
                   <SelectItem key={`${model.provider}:${model.model}`} value={model.model} className="text-xs">
                     {model.label}
                   </SelectItem>
@@ -622,239 +731,29 @@ export default function AskAiPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agent Intent</p>
-            <Select value={intent} onValueChange={value => setIntent(value as FelixIntent)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select intent" />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(INTENT_LABELS) as FelixIntent[]).map(option => (
-                  <SelectItem key={option} value={option} className="text-xs">
-                    {INTENT_LABELS[option]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1">
             <Database className="h-3 w-3" />
-            Model source: {modelSource}
+            Provider: {PROVIDER_LABELS[selectedProvider] || selectedProvider}
           </span>
           <span>·</span>
           <span className="inline-flex items-center gap-1">
-            <Network className="h-3 w-3" />
-            MCP source: {mcpSource}
+            <Cable className="h-3 w-3" />
+            Active connectors: {activeConnectorIds.length}
           </span>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">MCP Adapters</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[10px]"
-              onClick={() => navigate('/ai-agents?tab=connectors')}
-            >
-              Add / Manage MCP
-            </Button>
-          </div>
-          {mcpAdapters.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {mcpAdapters.map(adapter => {
-                const selected = selectedMcpAdapterIds.includes(adapter.id);
-                return (
-                  <button
-                    key={adapter.id}
-                    onClick={() => {
-                      setSelectedMcpAdapterIds(prev => (
-                        selected
-                          ? prev.filter(id => id !== adapter.id)
-                          : [...prev, adapter.id]
-                      ));
-                    }}
-                    className={cn(
-                      'px-2.5 py-1 rounded-md border text-[10px] transition-colors',
-                      selected
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'bg-background border-border text-muted-foreground hover:text-foreground'
-                    )}
-                    title={adapter.description || adapter.name}
-                  >
-                    {adapter.name}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
-              <span>No MCP adapters returned by backend.</span>
-              <button
-                type="button"
-                className="underline underline-offset-2"
-                onClick={() => navigate('/ai-agents?tab=connectors')}
-              >
-                Create one in Agent Studio
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={() => docInputRef.current?.click()}
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-              Upload context docs
-            </Button>
-
-            <div className="flex items-center gap-1.5 flex-1 min-w-[220px]">
-              <Input
-                value={urlInput}
-                onChange={event => setUrlInput(event.target.value)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    addContextUrl();
-                  }
-                }}
-                placeholder="https://example.com/spec-sheet"
-                className="h-8 text-xs"
-              />
-              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={addContextUrl}>
-                <Link2 className="h-3 w-3 mr-1" /> Add URL
-              </Button>
-            </div>
-
-            <Button
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={ingestToKnowledgeBase}
-              disabled={isIngestingKnowledge || (documents.length === 0 && contextUrls.length === 0)}
-            >
-              {isIngestingKnowledge ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Database className="h-3.5 w-3.5" />
-              )}
-              Ingest to Knowledge Base
-            </Button>
-          </div>
-
-          {(documents.length > 0 || contextUrls.length > 0) && (
-            <div className="flex flex-wrap gap-1.5">
-              {documents.map(doc => (
-                <span
-                  key={doc.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[10px]"
-                >
-                  {doc.name} ({formatSize(doc.size)})
-                  <button onClick={() => setDocuments(prev => prev.filter(item => item.id !== doc.id))}>
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              {contextUrls.map(url => (
-                <span
-                  key={url}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[10px]"
-                >
-                  {url}
-                  <button onClick={() => setContextUrls(prev => prev.filter(item => item !== url))}>
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {knowledgeIngestionStatus && (
-            <div
-              className={cn(
-                'rounded-md border px-2.5 py-1.5 text-[11px]',
-                knowledgeIngestionStatus.failed > 0 || knowledgeIngestionStatus.rechunkFailed > 0
-                  ? 'border-destructive/40 text-destructive'
-                  : 'border-primary/30 text-foreground'
-              )}
-            >
-              {`Ingestion: ${knowledgeIngestionStatus.succeeded} succeeded · ${knowledgeIngestionStatus.failed} failed · ${knowledgeIngestionStatus.skipped} skipped`}
-              {knowledgeIngestionStatus.rechunkAttempted > 0 && (
-                <span>{` · Chunks rebuilt ${knowledgeIngestionStatus.rechunkSucceeded}/${knowledgeIngestionStatus.rechunkAttempted}`}</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-2 mr-2">
-              <Checkbox
-                checked={attachKnowledge}
-                onCheckedChange={checked => setAttachKnowledge(Boolean(checked))}
-                id="attach-knowledge"
-              />
-              <label htmlFor="attach-knowledge" className="text-xs text-muted-foreground">
-                Attach knowledge snippets
-              </label>
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-1 min-w-[220px]">
-              <Input
-                value={knowledgeQuery}
-                onChange={event => setKnowledgeQuery(event.target.value)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    fetchSnippets();
-                  }
-                }}
-                placeholder="Search backend knowledge"
-                className="h-8 text-xs"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => fetchSnippets()}
-                disabled={isKnowledgeLoading}
-              >
-                {isKnowledgeLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Retrieve'}
-              </Button>
-            </div>
-          </div>
-
-          {knowledgeSnippets.length > 0 && (
-            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-              {knowledgeSnippets.map(snippet => {
-                const checked = selectedSnippetIds.includes(snippet.id);
-                return (
-                  <label
-                    key={snippet.id}
-                    className="flex gap-2 p-2 rounded-md border border-border bg-background cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={value => toggleSnippet(snippet.id, Boolean(value))}
-                    />
-                    <span className="text-[11px] leading-relaxed text-muted-foreground">
-                      <strong className="text-foreground">{snippet.title}</strong>
-                      {' '}
-                      {snippet.content}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
+          <span>·</span>
+          <span>Model source: {modelSource}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => navigate('/ai-agents?tab=connectors')}
+          >
+            Manage in Agent Studio
+          </Button>
         </div>
       </div>
 
@@ -959,8 +858,201 @@ export default function AskAiPage() {
           </div>
         )}
 
+        {(resourceMentions.length > 0 || knowledgeIngestionStatus) && (
+          <div className="mb-2 space-y-1.5">
+            {resourceMentions.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {resourceMentions.map(resource => (
+                  <button
+                    key={resource.ref}
+                    type="button"
+                    onClick={() => {
+                      setInput(prev => `${prev}${prev && !prev.endsWith(' ') ? ' ' : ''}@${resource.mention} `);
+                      textareaRef.current?.focus();
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground"
+                    title={resource.label}
+                  >
+                    <AtSign className="h-3 w-3" />
+                    {resource.mention}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {knowledgeIngestionStatus ? (
+              <div
+                className={cn(
+                  'rounded-md border px-2 py-1 text-[10px]',
+                  knowledgeIngestionStatus.failed > 0 || knowledgeIngestionStatus.rechunkFailed > 0
+                    ? 'border-destructive/40 text-destructive'
+                    : 'border-primary/30 text-muted-foreground'
+                )}
+              >
+                {`KB ingest: ${knowledgeIngestionStatus.succeeded} ok · ${knowledgeIngestionStatus.failed} failed · ${knowledgeIngestionStatus.skipped} skipped`}
+              </div>
+            ) : null}
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
           <div className="flex gap-1 flex-shrink-0">
+            <Popover open={resourcesOpen} onOpenChange={setResourcesOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  title="Attach resources"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[min(92vw,28rem)] p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Resources</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => navigate('/ai-agents?tab=connectors')}
+                  >
+                    Agent Studio
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => docInputRef.current?.click()}
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Upload docs
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={ingestToKnowledgeBase}
+                    disabled={isIngestingKnowledge || (documents.length === 0 && contextUrls.length === 0)}
+                  >
+                    {isIngestingKnowledge ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                    Ingest
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    value={urlInput}
+                    onChange={event => setUrlInput(event.target.value)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addContextUrl();
+                      }
+                    }}
+                    placeholder="https://example.com/spec-sheet"
+                    className="h-8 text-xs"
+                  />
+                  <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={addContextUrl}>
+                    <Link2 className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+
+                {resourceMentions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {resourceMentions.map(resource => (
+                      <span
+                        key={resource.ref}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[10px]"
+                        title={resource.label}
+                      >
+                        @{resource.mention}
+                        {resource.ref.startsWith('doc:') ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const name = resource.ref.slice(4);
+                              setDocuments(prev => prev.filter(item => item.name !== name));
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = resource.ref.slice(4);
+                              setContextUrls(prev => prev.filter(item => item !== url));
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={attachKnowledge}
+                      onCheckedChange={checked => setAttachKnowledge(Boolean(checked))}
+                      id="attach-knowledge"
+                    />
+                    <label htmlFor="attach-knowledge" className="text-xs text-muted-foreground">
+                      Attach KB snippets
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={knowledgeQuery}
+                      onChange={event => setKnowledgeQuery(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          fetchSnippets();
+                        }
+                      }}
+                      placeholder="Search backend knowledge"
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => fetchSnippets()}
+                      disabled={isKnowledgeLoading}
+                    >
+                      {isKnowledgeLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Retrieve'}
+                    </Button>
+                  </div>
+                </div>
+
+                {knowledgeSnippets.length > 0 ? (
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {knowledgeSnippets.map(snippet => {
+                      const checked = selectedSnippetIds.includes(snippet.id);
+                      return (
+                        <label key={snippet.id} className="flex gap-2 p-2 rounded-md border border-border bg-background cursor-pointer">
+                          <Checkbox checked={checked} onCheckedChange={value => toggleSnippet(snippet.id, Boolean(value))} />
+                          <span className="text-[11px] leading-relaxed text-muted-foreground">
+                            <strong className="text-foreground">{snippet.title}</strong>
+                            {' '}
+                            {snippet.content}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </PopoverContent>
+            </Popover>
             <Button
               variant="ghost"
               size="icon"
