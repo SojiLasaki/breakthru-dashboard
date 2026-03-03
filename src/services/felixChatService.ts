@@ -344,29 +344,36 @@ export const streamFelixChat = async (
 
   const backendProviders = new Set(['langgraph', 'openai', 'ollama', 'vllm', 'llamacpp', 'local']);
   if (backendProviders.has(provider)) {
-    const { data } = await api.post('/ai/chat/', {
-      query,
-      messages: request.messages,
-      context: {
-        context_block: request.contextBlock || '',
-        mcp_adapters: request.mcpAdapters || [],
-        enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
+    try {
+      const { data } = await api.post('/ai/chat/', {
+        query,
+        messages: request.messages,
+        context: {
+          context_block: request.contextBlock || '',
+          mcp_adapters: request.mcpAdapters || [],
+          enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
+          policy_mode: request.policyMode || 'manual',
+          intent: request.intent || 'qa',
+          context_refs: request.contextRefs || [],
+          ...promptOverrides,
+        },
         policy_mode: request.policyMode || 'manual',
         intent: request.intent || 'qa',
         context_refs: request.contextRefs || [],
-        ...promptOverrides,
-      },
-      policy_mode: request.policyMode || 'manual',
-      intent: request.intent || 'qa',
-      context_refs: request.contextRefs || [],
-      provider: provider === 'langgraph' ? 'openai' : provider,
-      model: request.model || 'gpt-4o-mini',
-      enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
-      mcp_adapters: request.mcpAdapters || [],
-    });
-    const answer = typeof data?.answer === 'string' ? data.answer : '';
-    if (answer) handlers.onDelta?.(answer, answer);
-    return answer;
+        provider: provider === 'langgraph' ? 'openai' : provider,
+        model: request.model || 'gpt-4o-mini',
+        enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
+        mcp_adapters: request.mcpAdapters || [],
+      });
+      const answer = typeof data?.answer === 'string' ? data.answer : '';
+      if (answer) handlers.onDelta?.(answer, answer);
+      return answer;
+    } catch (error: unknown) {
+      const message = extractApiErrorMessage(error, 'Chat request failed');
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      const details = isAxiosError(error) ? error.response?.data : undefined;
+      throw new FelixChatError(message, status, details);
+    }
   }
 
   if (!FELIX_CHAT_URL) {
