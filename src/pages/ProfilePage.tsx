@@ -101,7 +101,10 @@ export default function ProfilePage() {
   const filtered = useMemo(() => {
     return tickets.filter(t => {
       const q = search.toLowerCase();
-      const matchSearch = !q || t.title.toLowerCase().includes(q) || t.ticket_id.toLowerCase().includes(q) || t.customer.toLowerCase().includes(q);
+      const matchSearch = !q
+        || (t.title || '').toLowerCase().includes(q)
+        || (t.ticket_id || '').toLowerCase().includes(q)
+        || (t.customer || '').toLowerCase().includes(q);
       const matchStatus = statusFilter === 'all' || t.status === statusFilter;
       const matchPriority = priorityFilter === 'all' || t.priority === Number(priorityFilter);
       return matchSearch && matchStatus && matchPriority;

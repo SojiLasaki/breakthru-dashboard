@@ -1,4 +1,5 @@
 import { api } from './apiClient';
+import { isAxiosError } from 'axios';
 
 export interface Ticket {
   id: string;
@@ -27,6 +28,90 @@ export interface Ticket {
   description: string;
   diagnostic_reports: [];
 }
+
+const toText = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+};
+
+const toNum = (value: unknown, fallback: number): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+};
+
+const joinName = (first: unknown, last: unknown): string => {
+  const f = toText(first);
+  const l = toText(last);
+  return `${f} ${l}`.trim();
+};
+
+const pick = (...values: unknown[]): string => {
+  for (const v of values) {
+    const t = toText(v);
+    if (t) return t;
+  }
+  return '';
+};
+
+const unwrapList = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== 'object') return [];
+  if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.tickets)) return data.tickets;
+  return [];
+};
+
+const normalizeTicket = (raw: any): Ticket => {
+  const assignedName = pick(
+    raw?.assigned_to,
+    raw?.assigned_technician,
+    joinName(raw?.assigned_technician_first_name, raw?.assigned_technician_last_name),
+  );
+
+  const createdBy = pick(
+    raw?.created_by,
+    joinName(raw?.created_by_first_name, raw?.created_by_last_name),
+    raw?.customer,
+  );
+
+  const id = pick(raw?.id);
+  const ticketId = pick(raw?.ticket_id, raw?.ticket_no, raw?.reference, raw?.id ? `TK-${toText(raw.id)}` : '');
+
+  return {
+    id,
+    ticket_id: ticketId,
+    assigned_technician: pick(raw?.assigned_technician, assignedName),
+    assigned_technician_profile_id: pick(raw?.assigned_technician_profile_id),
+    assigned_technician_first_name: pick(raw?.assigned_technician_first_name),
+    assigned_technician_last_name: pick(raw?.assigned_technician_last_name),
+    title: pick(raw?.title, raw?.summary),
+    customer: pick(raw?.customer),
+    issue_description: pick(raw?.issue_description, raw?.description),
+    specialization: pick(raw?.specialization, raw?.category),
+    severity: toNum(raw?.severity, 3),
+    status: pick(raw?.status, 'open') || 'open',
+    priority: toNum(raw?.priority, 2),
+    customer_satisfaction_rating: toNum(raw?.customer_satisfaction_rating, 0),
+    estimated_resolution_time_minutes: toNum(raw?.estimated_resolution_time_minutes, 0),
+    actual_resolution_time_minutes: toNum(raw?.actual_resolution_time_minutes, 0),
+    predictied_resolution_summary: pick(raw?.predictied_resolution_summary, raw?.predicted_resolution_summary),
+    auto_assigned: Boolean(raw?.auto_assigned),
+    parts: Array.isArray(raw?.parts) ? raw.parts : [],
+    assigned_to: assignedName,
+    created_by: createdBy,
+    created_at: pick(raw?.created_at, raw?.createdAt),
+    updated_at: pick(raw?.updated_at, raw?.updatedAt, raw?.created_at, raw?.createdAt),
+    description: pick(raw?.description, raw?.issue_description),
+    diagnostic_reports: Array.isArray(raw?.diagnostic_reports) ? raw.diagnostic_reports : [],
+  };
+};
 
 const MOCK_TICKETS: Ticket[] = [
   {
@@ -177,16 +262,21 @@ export const ticketApi = {
   getAll: async (params?: Record<string, string>): Promise<Ticket[]> => {
     try {
       const { data } = await api.get('/tickets/', { params });
-      return data.results || data;
-    } catch {
+      const list = unwrapList(data);
+      return list.map(normalizeTicket);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
       return mockTickets;
     }
   },
   getById: async (id: string): Promise<Ticket> => {
     try {
       const { data } = await api.get(`/tickets/${id}/`);
-      return data;
-    } catch {
+      return normalizeTicket(data);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
       const t = mockTickets.find(t => t.id === id);
       if (!t) throw new Error('Ticket not found');
       return t;
@@ -195,8 +285,10 @@ export const ticketApi = {
   create: async (payload: Partial<Ticket>): Promise<Ticket> => {
     try {
       const { data } = await api.post('/tickets/', payload);
-      return data;
-    } catch {
+      return normalizeTicket(data);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
       // Fallback: create a mock ticket
       const newTicket: Ticket = {
         id: Date.now().toString(),
@@ -235,8 +327,10 @@ export const ticketApi = {
   update: async (id: string, payload: Partial<Ticket>): Promise<Ticket> => {
     try {
       const { data } = await api.patch(`/tickets/${id}/`, payload);
-      return data;
-    } catch {
+      return normalizeTicket(data);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
       const idx = mockTickets.findIndex(t => t.id === id);
       if (idx !== -1) {
         mockTickets[idx] = { ...mockTickets[idx], ...payload, updated_at: new Date().toISOString() };
@@ -248,7 +342,9 @@ export const ticketApi = {
   delete: async (id: string): Promise<void> => {
     try {
       await api.delete(`/tickets/${id}/`);
-    } catch {
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
       mockTickets = mockTickets.filter(t => t.id !== id);
     }
   },

@@ -16,6 +16,7 @@ import { useFelixChat } from '@/hooks/useFelixChat';
 import { FelixChatMessage, formatFelixError } from '@/services/felixChatService';
 import PdfViewer from '@/components/PdfViewer';
 import { api } from '@/services/apiClient';
+import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import {
   Send, Loader2, Wrench, BookOpen, Package, Clock,
   FileText, ExternalLink, Sparkles, AlertCircle, Eye, Ticket as TicketIcon,
@@ -77,11 +78,11 @@ export default function TechnicianDashboard() {
   useEffect(() => {
     ticketApi.getAll().then(all => {
       const mine = all
-        .filter(t => t.assigned_to === fullName && t.status !== 'completed')
+        .filter(t => isTicketAssignedToUser(t, user) && t.status !== 'completed')
         .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 4) - (PRIORITY_ORDER[b.priority] ?? 4) || b.created_at.localeCompare(a.created_at));
       setTickets(mine);
     }).finally(() => setTicketsLoading(false));
-  }, [fullName]);
+  }, [fullName, user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

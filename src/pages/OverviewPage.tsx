@@ -4,6 +4,7 @@ import { ticketApi, Ticket } from '@/services/ticketApi';
 import { technicianApi, Technician } from '@/services/technicianApi';
 import { orderApi, Order } from '@/services/orderApi';
 import { customerApi, Customer } from '@/services/customerApi';
+import { isTicketAssignedToUser, isTicketCreatedByUser } from '@/lib/ticketIdentity';
 import {
   Ticket as TicketIcon, Users, ShoppingCart, AlertCircle, User,
   Wrench, BookOpen, Sparkles, Cpu, Loader2,
@@ -38,8 +39,8 @@ export default function OverviewPage() {
   const tickets = isAdminOrStaff
     ? allTickets
     : isTech
-    ? allTickets.filter(t => t.assigned_to === fullName)
-    : allTickets.filter(t => t.created_by === fullName);
+    ? allTickets.filter(t => isTicketAssignedToUser(t, user))
+    : allTickets.filter(t => isTicketCreatedByUser(t, user));
 
   useEffect(() => {
     const fetches: Promise<unknown>[] = [ticketApi.getAll().then(setAllTickets)];

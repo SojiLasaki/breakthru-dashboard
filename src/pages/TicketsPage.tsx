@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { useAuth } from '@/context/AuthContext';
+import { isTicketAssignedToUser, isTicketCreatedByUser } from '@/lib/ticketIdentity';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -71,16 +72,20 @@ export default function TicketsPage() {
   useEffect(() => {
     ticketApi.getAll().then(all => {
       let scoped = all;
-      if (isTech)     scoped = all.filter(t => t.assigned_to === fullName);
-      if (isCustomer) scoped = all.filter(t => t.created_by === fullName);
+      if (isTech) scoped = all.filter(t => isTicketAssignedToUser(t, user));
+      if (isCustomer) scoped = all.filter(t => isTicketCreatedByUser(t, user));
       setTickets(scoped);
     }).finally(() => setLoading(false));
-  }, [isTech, isCustomer, fullName]);
+  }, [isTech, isCustomer, fullName, user]);
 
   const filtered = useMemo(() =>
     tickets
       .filter(t => {
-        const matchSearch = !search || t.ticket_id.toLowerCase().includes(search.toLowerCase()) || t.title.toLowerCase().includes(search.toLowerCase()) || t.assigned_to.toLowerCase().includes(search.toLowerCase());
+        const q = search.toLowerCase();
+        const matchSearch = !q
+          || (t.ticket_id || '').toLowerCase().includes(q)
+          || (t.title || '').toLowerCase().includes(q)
+          || (t.assigned_to || '').toLowerCase().includes(q);
         const matchStatus   = statusFilter === 'all'   || t.status === statusFilter;
         const matchPriority = priorityFilter === 'all' || t.priority === Number(priorityFilter);
         return matchSearch && matchStatus && matchPriority;
