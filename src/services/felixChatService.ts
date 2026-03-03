@@ -463,7 +463,7 @@ const normalizeModelEndpoints = (raw: unknown): FelixModelEndpoint[] => {
         active,
       } satisfies FelixModelEndpoint;
     })
-    .filter((item): item is FelixModelEndpoint => Boolean(item));
+    .filter((item): item is NonNullable<typeof item> => Boolean(item)) as FelixModelEndpoint[];
 
   const deduped = normalized.filter((item, idx, all) => (
     all.findIndex(other => other.provider === item.provider && other.model === item.model) === idx
@@ -513,7 +513,7 @@ const normalizeMcpAdapters = (raw: unknown): McpAdapterOption[] => {
         enabled: item?.enabled ?? item?.is_enabled ?? true,
       } satisfies McpAdapterOption;
     })
-    .filter((item): item is McpAdapterOption => Boolean(item));
+    .filter((item): item is NonNullable<typeof item> => Boolean(item)) as McpAdapterOption[];
 };
 
 export const getMcpAdapters = async (): Promise<EndpointResult<McpAdapterOption[]>> => {
@@ -539,7 +539,7 @@ const normalizeKnowledgeSnippets = (raw: unknown): KnowledgeSnippet[] => {
         score: typeof item?.score === 'number' ? item.score : undefined,
       } satisfies KnowledgeSnippet;
     })
-    .filter((item): item is KnowledgeSnippet => Boolean(item));
+    .filter((item): item is NonNullable<typeof item> => Boolean(item)) as KnowledgeSnippet[];
 };
 
 const searchKnowledgeViaEndpoint = async (
