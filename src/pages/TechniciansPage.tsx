@@ -20,32 +20,36 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import {
+  getExpertiseLabel,
+  getSpecializationLabel,
+  getStatusLabel,
+  getExpertiseStars,
+  STATUS_CLASS,
+  STATUS_DOT,
+  EXPERTISE_CLASS,
+  TECHNICIAN_STATUS,
+  SPECIALIZATION_POSITION,
+  EXPERTISE_LEVEL,
+} from '@/lib/technicianProfile';
 
-const AVAILABILITY_CONFIG = {
-  Available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
-  Busy:      { label: 'Busy',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
-  Unavailable:  { label: 'Unavailable',  class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
+const SPEC_ICONS: Record<string, typeof Wrench> = {
+  engine: Wrench,
+  electrical: Zap,
+  general: Settings,
 };
-
-const EXPERTISE_CONFIG = {
-  Junior: { label: 'Junior',    stars: 1, class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20' },
-  Mid:    { label: 'Mid-level', stars: 2, class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20' },
-  Senior: { label: 'Senior',   stars: 3, class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
-};
-
-const SPEC_ICONS = { Engine: Wrench, Electrical: Zap, General: Settings };
                                                                                                                                                                                                                                                                                                                                                                                                   
 interface Station {
   id: string;
   name: string;
 }
 const EMPTY_FORM = {
-  first_name: '', last_name: '', email: '', phone: '', 
-  city: '', street_address: '', street_address_2:'', state:'',country:'',postal_code:'',
-  specialization: 'Engine' as Technician['specialization'],
-  expertise: 'Junior' as Technician['expertise'],
-  status: 'Available',
-  station: '' as string
+  first_name: '', last_name: '', email: '', phone: '',
+  city: '', street_address: '', street_address_2: '', state: '', country: '', postal_code: '',
+  specialization: 'engine',
+  expertise: 'junior',
+  status: 'available',
+  station: '' as string,
 };
 
 export default function TechniciansPage() {
@@ -85,15 +89,17 @@ export default function TechniciansPage() {
   const filtered = techs.filter(t => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
-      t.first_name.toLowerCase().includes(q) ||
-      t.last_name.toLowerCase().includes(q) ||
-      t.specialization.includes(q) ||      // case-sensitive match is okay
-      t.city.toLowerCase().includes(q) ||
-      t.status.includes(q) ||
-      t.expertise.includes(q);
+      (t.first_name ?? '').toLowerCase().includes(q) ||
+      (t.last_name ?? '').toLowerCase().includes(q) ||
+      (t.specialization ?? '').toLowerCase().includes(q) ||
+      (t.city ?? '').toLowerCase().includes(q) ||
+      (t.status ?? '').toLowerCase().includes(q) ||
+      (t.expertise ?? '').toLowerCase().includes(q);
   
-    const matchSpec = filterSpec === 'all' || t.specialization === filterSpec;      // exact match
-    const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
+    const specNorm = (t.specialization ?? '').toLowerCase();
+    const expertiseNorm = (t.expertise ?? '').toLowerCase();
+    const matchSpec = filterSpec === 'all' || specNorm === filterSpec;
+    const matchExpertise = filterExpertise === 'all' || expertiseNorm === filterExpertise;
   
     return matchSearch && matchSpec && matchExpertise;
   });
@@ -158,20 +164,20 @@ export default function TechniciansPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 flex-shrink-0">
-        {(['Available', 'Busy', 'Unavailable'] as const).map(status => {
-          const count = techs.filter(t => t.status === status).length;
-          const cfg = AVAILABILITY_CONFIG[status];
+        {(Object.keys(TECHNICIAN_STATUS) as Array<keyof typeof TECHNICIAN_STATUS>).map(status => {
+          const count = techs.filter(t => (t.status ?? '').toLowerCase() === status).length;
+          const dotClass = STATUS_DOT[status] ?? 'bg-muted-foreground';
+          const label = TECHNICIAN_STATUS[status];
           return (
             <div key={status} className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+              <div className={`w-2.5 h-2.5 rounded-full ${dotClass}`} />
               <div>
                 <p className="text-lg font-bold">{count}</p>
-                <p className="text-xs text-muted-foreground">{cfg.label}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </div>
           );
         })}
-  
       </div>
 
       {/* Filters */}
@@ -183,19 +189,19 @@ export default function TechniciansPage() {
         <Select value={filterSpec} onValueChange={setFilterSpec}>
           <SelectTrigger className="bg-card w-full sm:w-44"><SelectValue placeholder="Specialization" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="General">General</SelectItem>
             <SelectItem value="all">All Specializations</SelectItem>
-            <SelectItem value="Engine">Engine</SelectItem>
-            <SelectItem value="Electrical">Electrical</SelectItem>
+            {(Object.entries(SPECIALIZATION_POSITION) as [keyof typeof SPECIALIZATION_POSITION, string][]).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={filterExpertise} onValueChange={setFilterExpertise}>
           <SelectTrigger className="bg-card w-full sm:w-40"><SelectValue placeholder="Expertise" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Levels</SelectItem>
-            <SelectItem value="Junior">Junior</SelectItem>
-            <SelectItem value="Mid">Mid-level</SelectItem>
-            <SelectItem value="Senior">Senior</SelectItem>
+            {(Object.entries(EXPERTISE_LEVEL) as [keyof typeof EXPERTISE_LEVEL, string][]).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {/* View toggle */}
@@ -227,16 +233,20 @@ export default function TechniciansPage() {
                   </div>
                 )},
                 { label: 'Specialization', render: t => {
-                  const Icon = SPEC_ICONS[t.specialization] ?? Settings;
-                  return <span className="capitalize flex items-center gap-1.5"><Icon className="h-3.5 w-3.5 text-muted-foreground" />{t.specialization?.replace('_', ' ')}</span>;
+                  const key = (t.specialization ?? '').toLowerCase();
+                  const Icon = SPEC_ICONS[key] ?? Settings;
+                  return <span className="flex items-center gap-1.5"><Icon className="h-3.5 w-3.5 text-muted-foreground" />{getSpecializationLabel(t.specialization)}</span>;
                 }},
                 { label: 'Expertise', render: t => {
-                  const exp = EXPERTISE_CONFIG[t.expertise] ?? EXPERTISE_CONFIG['Junior'];
-                  return <span className={`text-xs px-2 py-0.5 rounded-full ${exp.class}`}>{t.expertise}</span>;
+                  const key = (t.expertise ?? '').toLowerCase();
+                  const cls = EXPERTISE_CLASS[key] ?? '';
+                  return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{getExpertiseLabel(t.expertise)}</span>;
                 }},
                 { label: 'Status', render: t => {
-                  const avail = AVAILABILITY_CONFIG[t.status] ?? AVAILABILITY_CONFIG['Unavailable'];
-                  return <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit ${avail.class}`}><span className={`w-1.5 h-1.5 rounded-full ${avail.dot}`} />{avail.label}</span>;
+                  const key = (t.status ?? '').toLowerCase();
+                  const cls = STATUS_CLASS[key] ?? STATUS_CLASS.unavailable;
+                  const dot = STATUS_DOT[key] ?? 'bg-muted-foreground';
+                  return <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit ${cls}`}><span className={`w-1.5 h-1.5 rounded-full ${dot}`} />{getStatusLabel(t.status)}</span>;
                 }},
                 { label: 'Station', key: 'station' },
                 { label: 'Tickets', render: t => <span>{t.active_tickets || 0}</span> },
@@ -249,9 +259,13 @@ export default function TechniciansPage() {
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
               {filtered.map(tech => {
-                const avail    = AVAILABILITY_CONFIG[tech.status] ?? AVAILABILITY_CONFIG['Unavailable'];
-                const exp      = EXPERTISE_CONFIG[tech.expertise]        ?? EXPERTISE_CONFIG['Mid'];
-                const SpecIcon = SPEC_ICONS[tech.specialization]         ?? Settings;
+                const statusKey = (tech.status ?? '').toLowerCase();
+                const expertiseKey = (tech.expertise ?? '').toLowerCase();
+                const specKey = (tech.specialization ?? '').toLowerCase();
+                const statusClass = STATUS_CLASS[statusKey] ?? STATUS_CLASS.unavailable;
+                const statusDot = STATUS_DOT[statusKey] ?? 'bg-muted-foreground';
+                const expertiseClass = EXPERTISE_CLASS[expertiseKey] ?? '';
+                const SpecIcon = SPEC_ICONS[specKey] ?? Settings;
                 const isActive = selected?.id === tech.id;
 
                 return (
@@ -265,18 +279,17 @@ export default function TechniciansPage() {
                         <div className="flex flex-col items-center justify-center gap-3 p-5 bg-muted/30 border-r border-border min-w-[120px]">
                           <div className="relative">
                             <img src={getAvatarUrl(tech)} alt={(tech.first_name ?? '') + ' ' + (tech.last_name ?? '')} className="rounded-full object-cover ring-2 ring-primary/30" style={{ width: 64, height: 64 }} onError={e => { (e.currentTarget as HTMLImageElement).src = getAvatarUrl(tech); }} />
-                            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${avail.dot}`} />
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${statusDot}`} />
                           </div>
                           <div className="text-center">
-
                             <div className="flex items-center justify-center gap-1 mt-0.5">
                               <SpecIcon className="h-2.5 w-2.5 text-muted-foreground" />
-                              <p className="text-[9px] text-muted-foreground capitalize">{tech.specialization?.replace('_', ' ') ?? 'N/A'}</p>
+                              <p className="text-[9px] text-muted-foreground">{getSpecializationLabel(tech.specialization)}</p>
                             </div>
                           </div>
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${avail.class}`}>{avail.label}</span>
-                            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${exp.class}`}>{exp.label}</span>
+                            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${statusClass}`}>{getStatusLabel(tech.status)}</span>
+                            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${expertiseClass}`}>{getExpertiseLabel(tech.expertise)}</span>
                           </div>
                         </div>
                         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
@@ -321,23 +334,23 @@ export default function TechniciansPage() {
                     style={{ width: 80, height: 80 }}
                     onError={e => { (e.currentTarget as HTMLImageElement).src = getAvatarUrl(selected); }}
                   />
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${(AVAILABILITY_CONFIG[selected.status] ?? AVAILABILITY_CONFIG.Unavailable).dot}`} />
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-card ${STATUS_DOT[(selected.status ?? '').toLowerCase()] ?? 'bg-muted-foreground'}`} />
                 </div>
                 <div>
                   <p className="font-bold text-sm">{selected.first_name} {selected.last_name}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{selected.specialization?.replace('_', ' ')} Specialist</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{getSpecializationLabel(selected.specialization)} Specialist</p>
                 </div>
                 <div className="flex gap-1.5">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(AVAILABILITY_CONFIG[selected.status] ?? AVAILABILITY_CONFIG.Unavailable).class}`}>
-                    {(AVAILABILITY_CONFIG[selected.status] ?? AVAILABILITY_CONFIG.Unavailable).label}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${STATUS_CLASS[(selected.status ?? '').toLowerCase()] ?? STATUS_CLASS.unavailable}`}>
+                    {getStatusLabel(selected.status)}
                   </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.Mid).class}`}>
-                    {(EXPERTISE_CONFIG[selected.expertise] ?? EXPERTISE_CONFIG.Mid).label}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${EXPERTISE_CLASS[(selected.expertise ?? '').toLowerCase()] ?? ''}`}>
+                    {getExpertiseLabel(selected.expertise)}
                   </span>
                 </div>
                 <div className="flex items-center gap-0.5">
                   {[1,2,3].map(i => (
-                    <Star key={i} className={`h-4 w-4 ${i <= (EXPERTISE_CONFIG[selected.expertise]?.stars ?? 1) ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'}`} />
+                    <Star key={i} className={`h-4 w-4 ${i <= getExpertiseStars(selected.expertise) ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'}`} />
                   ))}
                 </div>
               </div>
@@ -450,34 +463,34 @@ export default function TechniciansPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Select value={form.specialization} onValueChange={v => setForm(f => ({ ...f, specialization: v as Technician['specialization'] }))}>
+              <Select value={form.specialization} onValueChange={v => setForm(f => ({ ...f, specialization: v }))}>
                 <SelectTrigger><SelectValue placeholder="Specialization" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Engine">Engine</SelectItem>
-                  <SelectItem value="Electrical">Electrical</SelectItem>
-                  <SelectItem value="General">General</SelectItem>
+                  {(Object.entries(SPECIALIZATION_POSITION) as [keyof typeof SPECIALIZATION_POSITION, string][]).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Select value={form.expertise} onValueChange={v => setForm(f => ({ ...f, expertise: v as Technician['expertise'] }))}>
+              <Select value={form.expertise} onValueChange={v => setForm(f => ({ ...f, expertise: v }))}>
                 <SelectTrigger><SelectValue placeholder="Expertise" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Junior">Junior</SelectItem>
-                  <SelectItem value="Mid">Mid-level</SelectItem>
-                  <SelectItem value="Senior">Senior</SelectItem>
+                  {(Object.entries(EXPERTISE_LEVEL) as [keyof typeof EXPERTISE_LEVEL, string][]).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Label className="text-xs">Status</Label>
-              <Label className="text-xs">Sation</Label>
+              <Label className="text-xs">Station</Label>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as Technician['status'] }))}>
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                 <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Unavailable">Unavailable</SelectItem>
-                  <SelectItem value="Busy">Busy</SelectItem>
+                  {(Object.entries(TECHNICIAN_STATUS) as [keyof typeof TECHNICIAN_STATUS, string][]).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={form.station || ''} onValueChange={v => setForm(f => ({ ...f, station: v }))}>

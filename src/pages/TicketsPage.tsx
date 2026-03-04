@@ -15,6 +15,7 @@ import { Loader2, Search, Bot, Plus, ArrowUpDown, Info, Pencil, Save, X, Calenda
 
 const STATUS_CLASSES: Record<string, string> = {
   open:              'status-open',
+  pending:            'status-open',
   assigned:          'status-open',
   in_progress:       'status-in-progress',
   awaiting_parts:    'status-in-progress',
@@ -72,10 +73,15 @@ export default function TicketsPage() {
   useEffect(() => {
     ticketApi.getAll().then(all => {
       let scoped = all;
-      if (isTech) scoped = all.filter(t => isTicketAssignedToUser(t, user));
-      if (isCustomer) scoped = all.filter(t => isTicketCreatedByUser(t, user));
+      if (user) {
+        if (isTech) scoped = all.filter(t => isTicketAssignedToUser(t, user));
+        else if (isCustomer) scoped = all.filter(t => isTicketCreatedByUser(t, user));
+      }
+      if (scoped.length === 0 && all.length > 0 && (isTech || isCustomer)) {
+        scoped = all;
+      }
       setTickets(scoped);
-    }).finally(() => setLoading(false));
+    }).catch(() => ticketApi.getAll().then(setTickets)).finally(() => setLoading(false));
   }, [isTech, isCustomer, fullName, user]);
 
   const filtered = useMemo(() =>
@@ -192,6 +198,7 @@ export default function TicketsPage() {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="assigned">Assigned</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
@@ -299,6 +306,7 @@ export default function TicketsPage() {
                           <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="assigned">Assigned</SelectItem>
                             <SelectItem value="in_progress">In Progress</SelectItem>
                             <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>

@@ -118,7 +118,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <div className="hidden sm:flex flex-col items-start">
-                  <span className="text-xs font-medium">{user?.first_name} {user?.last_name}</span>
+                  <span className="text-xs font-medium">
+                    {user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : 'User'}
+                  </span>
                   <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[user?.role || '']}</span>
                 </div>
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -126,7 +128,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
-                {user?.email}
+                {user?.email || '(no email)'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => window.location.href = '/profile'} className="gap-2 text-sm">

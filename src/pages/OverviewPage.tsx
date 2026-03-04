@@ -5,6 +5,7 @@ import { technicianApi, Technician } from '@/services/technicianApi';
 import { orderApi, Order } from '@/services/orderApi';
 import { customerApi, Customer } from '@/services/customerApi';
 import { isTicketAssignedToUser, isTicketCreatedByUser } from '@/lib/ticketIdentity';
+import { getSpecializationLabel } from '@/lib/technicianProfile';
 import {
   Ticket as TicketIcon, Users, ShoppingCart, AlertCircle, User,
   Wrench, BookOpen, Sparkles, Cpu, Loader2,
@@ -23,7 +24,7 @@ const STATUS_CLASSES: Record<string, string> = {
 };
 
 export default function OverviewPage() {
-  const { user, isRole } = useAuth();
+  const { user, isRole, fetchProfile } = useAuth();
   const navigate = useNavigate();
   const [allTickets, setAllTickets] = useState<Ticket[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -31,7 +32,8 @@ export default function OverviewPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const displayName = user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : '';
+  const fullName = displayName;
   const isTech = isRole('technician');
   const isCustomer = isRole('customer');
   const isAdminOrStaff = isRole('admin', 'office');
@@ -41,6 +43,10 @@ export default function OverviewPage() {
     : isTech
     ? allTickets.filter(t => isTicketAssignedToUser(t, user))
     : allTickets.filter(t => isTicketCreatedByUser(t, user));
+
+  useEffect(() => {
+    if (user) fetchProfile();
+  }, [user?.id, fetchProfile]);
 
   useEffect(() => {
     const fetches: Promise<unknown>[] = [ticketApi.getAll().then(setAllTickets)];
@@ -53,9 +59,9 @@ export default function OverviewPage() {
       fetches.push(orderApi.getAll().then(setOrders));
     }
     Promise.all(fetches).finally(() => setLoading(false));
-  }, [isAdminOrStaff, isCustomer]);
+  }, [isAdminOrStaff, isCustomer, user]);
 
-  const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'assigned').length;
+  const openTickets = tickets.filter(t => ['open', 'pending', 'assigned'].includes(t.status)).length;
   const urgentTickets = tickets.filter(t => t.priority >= 4).length;
   const availableTechs = technicians.filter(t => t.status === 'available').length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
@@ -101,7 +107,7 @@ export default function OverviewPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">
-          Welcome back, {user?.first_name}
+          Welcome back, {displayName || 'there'}
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">{greeting}</p>
       </div>
@@ -180,7 +186,7 @@ export default function OverviewPage() {
                     <div className={`w-2 h-2 rounded-full ${t.status === 'available' ? 'bg-[hsl(var(--success))]' : t.status === 'busy' ? 'bg-[hsl(var(--warning))]' : 'bg-muted-foreground'}`} />
                     <div>
                       <p className="text-xs font-medium">{t.first_name} {t.last_name}</p>
-                      <p className="text-[10px] text-muted-foreground capitalize">{t.specialization?.replace('_', ' ') || 'N/A'}{t.specialization?.replace('_', ' ') || 'N/A'}</p>
+                      <p className="text-[10px] text-muted-foreground">{getSpecializationLabel(t.specialization) || 'N/A'}</p>
                     </div>
                   </div>
                   <span className="text-[10px] text-muted-foreground">{t.active_tickets} tickets</span>

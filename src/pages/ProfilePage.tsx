@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   User, Mail, Shield, Wrench, Zap, Settings, Users, Search, Clock,
-  CheckCircle2, AlertCircle, Loader2, TrendingUp, Phone, MapPin, Award, Star
+  CheckCircle2, AlertCircle, Loader2, TrendingUp, Phone, MapPin, Award, Star, Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getExpertiseLabel, getSpecializationLabel } from '@/lib/technicianProfile';
 
 const ROLE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; description: string }> = {
   admin:       { label: 'Administrator',  icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access.' },
@@ -71,6 +72,7 @@ const STATUS_ICON: Record<string, React.FC<{ className?: string }>> = {
 
 const STATUS_CLASS: Record<string, string> = {
   open: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  pending: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
   assigned: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
   in_progress: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
   awaiting_parts: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
@@ -86,13 +88,21 @@ const PRIORITY_CLASS: Record<string, string> = {
 };
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser, fetchProfile } = useAuth();
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (user) fetchProfile();
+  }, [user?.id, fetchProfile]);
 
   useEffect(() => {
     ticketApi.getAll().then(t => { setTickets(t); setLoading(false); }).catch(() => setLoading(false));
@@ -115,13 +125,18 @@ export default function ProfilePage() {
 
   const cfg = ROLE_CONFIG[user.role] ?? ROLE_CONFIG['customer'];
   const RoleIcon = cfg.icon;
-  const expScore = EXP_MAP[user.role] ?? 0;
-  const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase();
-  const specialization = SPECIALIZATION_MAP[user.role] ?? '—';
-  const expertise = EXPERTISE_MAP[user.role] ?? '—';
-  const certifications = MOCK_CERTIFICATIONS[user.role] ?? [];
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+  const displayName = fullName || user.username;
+  const initials = (user.first_name?.[0] ?? user.username?.[0] ?? '').toUpperCase() + (user.last_name?.[0] ?? '').toUpperCase();
+  const expScore = user.skill_score ?? EXP_MAP[user.role] ?? 0;
+  const specializationRaw = (user.specialization || SPECIALIZATION_MAP[user.role]) ?? '';
+  const specialization = specializationRaw ? getSpecializationLabel(specializationRaw) : '—';
+  const expertiseRaw = (user.expertise || EXPERTISE_MAP[user.role]) ?? '';
+  const expertise = expertiseRaw ? getExpertiseLabel(expertiseRaw) : '—';
+  const certifications = MOCK_CERTIFICATIONS[user.role] ??
+    (['admin', 'office', 'technician'].includes(user.role ?? '') ? MOCK_CERTIFICATIONS['technician'] : []);
 
-  const completedCount = tickets.filter(t => t.status === 'completed').length;
+  const completedCount = user.total_jobs_completed ?? tickets.filter(t => t.status === 'completed').length;
   const openCount = tickets.filter(t => t.status !== 'completed').length;
 
   return (
@@ -139,13 +154,15 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row">
               <div className="flex flex-col items-center justify-center gap-3 p-6 bg-muted/30 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[170px]">
                 <img
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent((user.first_name ?? '') + ' ' + (user.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`}
-                  alt={`${user.first_name} ${user.last_name}`}
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1a1f2e&color=e61409&size=96`}
+                  alt={displayName}
                   className="w-16 h-16 rounded-full object-cover ring-2 ring-primary/30"
                 />
                 <div className="text-center">
-                  <p className="font-semibold text-sm">{user.first_name} {user.last_name}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">ID #{user.id ?? '—'}</p>
+                  <p className="font-semibold text-sm">{displayName}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {user.id !== undefined && user.id !== null && user.id !== '' && Number(user.id) !== 0 ? `ID #${user.id}` : '—'}
+                  </p>
                 </div>
                 <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full border ${cfg.color}`}>
                   {cfg.label}
@@ -155,28 +172,34 @@ export default function ProfilePage() {
                 <div className="grid sm:grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Mail className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Email</p><p className="text-sm">{user.email}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Email</p><p className="text-sm">{user.email ? String(user.email).trim() : '—'}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Phone className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Phone</p><p className="text-sm">+234 801 234 5678</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Phone</p><p className="text-sm">{user.phone ? String(user.phone).trim() : '—'}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><MapPin className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Station</p><p className="text-sm">Lagos HQ</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Station</p><p className="text-sm">{user.station_name ? String(user.station_name).trim() : '—'}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Wrench className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Specialization</p><p className="text-sm">{specialization}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Specialization</p><p className="text-sm capitalize">{specialization}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Star className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Expertise</p><p className="text-sm">{expertise}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Expertise</p><p className="text-sm capitalize">{expertise}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><RoleIcon className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Role</p><p className="text-sm">{cfg.description}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Role</p><p className="text-sm">{cfg.label}</p></div>
                   </div>
+                  {user.date_joined && (
+                    <div className="flex items-center gap-2.5 sm:col-span-2">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Calendar className="h-3.5 w-3.5 text-primary" /></div>
+                      <div><p className="text-[10px] text-muted-foreground uppercase">Date joined</p><p className="text-sm">{new Date(user.date_joined).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -220,8 +243,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Tabs: Tickets / Certifications */}
-      <Tabs defaultValue="tickets" className="w-full">
+      {/* Tabs: Tickets / Certifications — default to certifications when user has them */}
+      <Tabs defaultValue={certifications.length > 0 ? 'certifications' : 'tickets'} className="w-full">
         <TabsList className="bg-muted/30 border border-border">
           <TabsTrigger value="tickets" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
             <Settings className="h-3.5 w-3.5" />
@@ -256,6 +279,7 @@ export default function ProfilePage() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>

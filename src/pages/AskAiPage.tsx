@@ -19,7 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -90,11 +89,28 @@ const PROVIDER_LABELS: Record<string, string> = {
   llamacpp: 'llama.cpp',
   local: 'Local',
 };
-const POLICY_MODE_LABELS: Record<PolicyMode, string> = {
-  manual: 'Manual approvals',
-  semi_auto: 'Semi-auto',
-  auto: 'Auto (high-risk gated)',
-};
+/** Infer model and execution policy from user input. */
+function inferModelAndPolicy(
+  text: string,
+  hasImages: boolean,
+  availableEndpoints: FelixModelEndpoint[],
+  defaultEndpoint: FelixModelEndpoint
+): { model: string; provider: string; policyMode: PolicyMode } {
+  const lower = text.toLowerCase().trim();
+  const hasActionKeywords = /\b(assign|create|approve|delete|update|modify|add to knowledge)\b/.test(lower);
+  const hasTicketOps = /\b(ticket|work order|assignment)\b/.test(lower);
+  const policyMode: PolicyMode =
+    hasActionKeywords || hasTicketOps ? 'manual' : 'auto';
+  const endpoint = hasImages
+    ? availableEndpoints.find(e => e.model.toLowerCase().includes('vision') || e.model.includes('gpt-4o') || e.model.includes('gemini'))
+    || defaultEndpoint
+    : defaultEndpoint;
+  return {
+    model: endpoint.model,
+    provider: endpoint.provider,
+    policyMode,
+  };
+}
 
 const escapeHtml = (value: string) => value
   .replace(/&/g, '&amp;')
@@ -222,11 +238,9 @@ export default function AskAiPage() {
 
   const [modelEndpoints, setModelEndpoints] = useState<FelixModelEndpoint[]>(fallbackModelEndpoints);
   const [modelSource, setModelSource] = useState<'backend' | 'fallback'>('fallback');
-  const [selectedModel, setSelectedModel] = useState(fallbackModelEndpoints[0].model);
 
   const [mcpAdapters, setMcpAdapters] = useState<McpAdapterOption[]>([]);
   const [activeConnectorIds, setActiveConnectorIds] = useState<string[]>([]);
-  const [policyMode, setPolicyMode] = useState<PolicyMode>('manual');
   const intent: FelixIntent = 'qa';
   const [resourcesOpen, setResourcesOpen] = useState(false);
 
@@ -237,9 +251,7 @@ export default function AskAiPage() {
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const availableModelEndpoints = modelEndpoints;
-  const selectedModelEndpoint = availableModelEndpoints.find(endpoint => endpoint.model === selectedModel)
-    || getDefaultModel(availableModelEndpoints);
-  const selectedProvider = selectedModelEndpoint?.provider || 'langgraph';
+  const defaultModelEndpoint = getDefaultModel(availableModelEndpoints);
   const resourceMentions = buildResourceMentions(documents, contextUrls);
 
   useEffect(() => {
@@ -274,8 +286,6 @@ export default function AskAiPage() {
 
       setModelEndpoints(resolvedModels);
       setModelSource(modelsResult.source);
-      const defaultModel = getDefaultModel(resolvedModels);
-      setSelectedModel(defaultModel.model);
 
       setMcpAdapters(adaptersResult.data);
       setActiveConnectorIds(
@@ -292,12 +302,6 @@ export default function AskAiPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!availableModelEndpoints.length) return;
-    if (!availableModelEndpoints.some(model => model.model === selectedModel)) {
-      setSelectedModel(availableModelEndpoints[0].model);
-    }
-  }, [availableModelEndpoints, selectedModel]);
 
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -572,11 +576,12 @@ export default function AskAiPage() {
         priorUserMessage?.content ||
         text;
 
+      const inferred = inferModelAndPolicy(text, images.length > 0, availableModelEndpoints, defaultModelEndpoint);
       const upsert = await addToKnowledgeGraph({
         content: contentForKnowledgeGraph,
         context: contextBlock,
-        provider: selectedModelEndpoint.provider,
-        model: selectedModel,
+        provider: inferred.provider,
+        model: inferred.model,
         urls: combinedUrls,
         mcp_adapters: activeConnectorIds,
         snippets: snippetsForContext.map(snippet => ({
@@ -595,6 +600,8 @@ export default function AskAiPage() {
         variant: upsert.ok ? 'default' : 'destructive',
       });
     }
+
+    const inferred = inferModelAndPolicy(text, images.length > 0, availableModelEndpoints, defaultModelEndpoint);
 
     const assistantId = `${Date.now()}-assistant`;
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
@@ -615,12 +622,12 @@ export default function AskAiPage() {
       await sendStream(
         {
           messages: apiMessages,
-          provider: selectedModelEndpoint.provider,
-          model: selectedModel,
+          provider: inferred.provider,
+          model: inferred.model,
           contextBlock,
           mcpAdapters: activeConnectorIds,
           enabledConnectors: activeConnectorIds,
-          policyMode,
+          policyMode: inferred.policyMode,
           intent,
           contextRefs,
         },
@@ -654,9 +661,8 @@ export default function AskAiPage() {
     selectedSnippetIds,
     attachKnowledge,
     fetchSnippets,
-    selectedModelEndpoint,
-    selectedModel,
-    policyMode,
+    availableModelEndpoints,
+    defaultModelEndpoint,
     intent,
     contextUrls,
     activeConnectorIds,
@@ -699,44 +705,11 @@ export default function AskAiPage() {
         )}
       </div>
 
-      <div className="px-4 py-3 border-b border-border bg-card/60 flex-shrink-0 space-y-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Model</p>
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select model" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableModelEndpoints.map(model => (
-                  <SelectItem key={`${model.provider}:${model.model}`} value={model.model} className="text-xs">
-                    {model.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Execution Policy</p>
-            <Select value={policyMode} onValueChange={value => setPolicyMode(value as PolicyMode)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Select policy" />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(POLICY_MODE_LABELS) as PolicyMode[]).map(mode => (
-                  <SelectItem key={mode} value={mode} className="text-xs">
-                    {POLICY_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
+      <div className="px-4 py-2 border-b border-border bg-card/60 flex-shrink-0">
         <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1">
             <Database className="h-3 w-3" />
-            Provider: {PROVIDER_LABELS[selectedProvider] || selectedProvider}
+            Provider: {PROVIDER_LABELS[defaultModelEndpoint?.provider || 'langgraph'] || defaultModelEndpoint?.provider || 'langgraph'}
           </span>
           <span>·</span>
           <span className="inline-flex items-center gap-1">
@@ -744,7 +717,7 @@ export default function AskAiPage() {
             Active connectors: {activeConnectorIds.length}
           </span>
           <span>·</span>
-          <span>Model source: {modelSource}</span>
+          <span>Model & policy auto-selected from your query</span>
           <Button
             type="button"
             variant="ghost"

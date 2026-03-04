@@ -1,5 +1,9 @@
 import { api } from './apiClient';
 
+/**
+ * API: GET/POST /technicians/ , GET/PUT/PATCH/DELETE /technicians/{id}/
+ * GET /technician/search/?q= → { manuals, parts, components, diagnostics }
+ */
 export interface Technician {
   id: string;
   first_name?: string;
@@ -143,6 +147,21 @@ export const technicianApi = {
       return data.results || data;
     } catch {
       return [];
+    }
+  },
+
+  /** Search manuals, parts, components, diagnostics. GET /technician/search/?q= */
+  search: async (query: string): Promise<{ manuals: unknown[]; parts: unknown[]; components: unknown[]; diagnostics: unknown[] }> => {
+    try {
+      const { data } = await api.get('/technician/search/', { params: { q: query || '' } });
+      return {
+        manuals: data?.manuals ?? [],
+        parts: data?.parts ?? [],
+        components: data?.components ?? [],
+        diagnostics: data?.diagnostics ?? [],
+      };
+    } catch {
+      return { manuals: [], parts: [], components: [], diagnostics: [] };
     }
   },
 };

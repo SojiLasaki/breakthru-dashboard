@@ -9,18 +9,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-const AVAILABILITY_CONFIG = {
-  available: { label: 'Available', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
-  busy:      { label: 'Busy',      class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400' },
-  off_duty:  { label: 'Off Duty',  class: 'text-muted-foreground bg-muted/50 border border-border', dot: 'bg-muted-foreground' },
-};
-
-const EXPERTISE_CONFIG = {
-  Junior: { label: 'Junior',    class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',   stars: 1 },
-  Mid:    { label: 'Mid-level', class: 'text-purple-400 bg-purple-400/10 border border-purple-400/20', stars: 2 },
-  Senior: { label: 'Senior',   class: 'text-amber-400 bg-amber-400/10 border border-amber-400/20', stars: 3 },
-};
+import {
+  getExpertiseLabel,
+  getSpecializationLabel,
+  getStatusLabel,
+  getExpertiseStars,
+  STATUS_CLASS,
+  STATUS_DOT,
+  EXPERTISE_CLASS,
+} from '@/lib/technicianProfile';
 
 const PRIORITY_CONFIG = {
   low:    { label: 'Low',    class: 'text-muted-foreground bg-muted/50 border-border' },
@@ -29,7 +26,13 @@ const PRIORITY_CONFIG = {
   urgent: { label: 'Urgent', class: 'text-red-400 bg-red-400/10 border-red-400/20' },
 };
 
-const SPEC_ICONS = { Engine: Wrench, Electrical: Zap, General: Settings };
+const SPEC_ICONS: Record<string, typeof Wrench> = {
+  engine: Wrench,
+  electrical: Zap,
+  general: Settings,
+  'engine technician': Wrench,
+  'electrical technician': Zap,
+};
 const getAvatarUrl = (t: Technician) =>
   t.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((t.first_name ?? '') + ' ' + (t.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`;
 
@@ -80,9 +83,12 @@ export default function TechnicianProfilePage() {
     );
   }
 
-  const avail    = AVAILABILITY_CONFIG[tech.status as keyof typeof AVAILABILITY_CONFIG] ?? AVAILABILITY_CONFIG['off_duty'];
-  const exp      = EXPERTISE_CONFIG[tech.expertise as keyof typeof EXPERTISE_CONFIG] ?? EXPERTISE_CONFIG['Junior'];
-  const SpecIcon = SPEC_ICONS[tech.specialization as keyof typeof SPEC_ICONS] ?? Settings;
+  const statusKey = (tech.status ?? '').toLowerCase();
+  const statusClass = STATUS_CLASS[statusKey] ?? 'text-muted-foreground bg-muted/50 border border-border';
+  const expertiseKey = (tech.expertise ?? '').toLowerCase();
+  const expertiseClass = EXPERTISE_CLASS[expertiseKey] ?? '';
+  const specKey = (tech.specialization ?? '').toLowerCase();
+  const SpecIcon = SPEC_ICONS[specKey] ?? Settings;
 
   const completedTasks = tasks.filter(t => t.status === 'completed');
   const totalHours     = tasks.reduce((sum, t) => sum + t.duration_hours, 0);
@@ -114,27 +120,27 @@ export default function TechnicianProfilePage() {
                     `https://ui-avatars.com/api/?name=${encodeURIComponent((tech.first_name || '') + ' ' + (tech.last_name || ''))}&background=1a1f2e&color=e61409&size=96`
                   }}
                 />
-                <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${avail.dot}`} />
+                <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${STATUS_DOT[statusKey] ?? 'bg-muted-foreground'}`} />
               </div>
 
               <div className="text-center">
                 <h1 className="font-bold text-lg leading-tight">{tech.first_name} {tech.last_name}</h1>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-muted-foreground">
                   <SpecIcon className="h-3.5 w-3.5" />
-                  <span className="text-xs capitalize">{tech.specialization.replace('_', ' ')}</span>
+                  <span className="text-xs">{getSpecializationLabel(tech.specialization)}</span>
                 </div>
               </div>
 
               <div className="flex flex-col items-center gap-2">
-                <span className={`text-xs font-medium px-3 py-1 rounded-full border ${avail.class}`}>{avail.label}</span>
+                <span className={`text-xs font-medium px-3 py-1 rounded-full border ${statusClass}`}>{getStatusLabel(tech.status)}</span>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3].map(i => (
                     <Star
                       key={i}
-                      className={`h-3.5 w-3.5 ${i <= exp.stars ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}
+                      className={`h-3.5 w-3.5 ${i <= getExpertiseStars(tech.expertise) ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}
                     />
                   ))}
-                  <span className={`text-xs font-medium ml-1 ${exp.class.split(' ')[0]}`}>{exp.label}</span>
+                  <span className={`text-xs font-medium ml-1 ${(expertiseClass.split(' ')[0]) || ''}`}>{getExpertiseLabel(tech.expertise)}</span>
                 </div>
               </div>
             </div>
@@ -185,13 +191,13 @@ export default function TechnicianProfilePage() {
               <div className="mt-4 pt-4 border-t border-border">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Specialization Tags</p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="text-xs border-primary/30 text-primary capitalize">
+                  <Badge variant="outline" className="text-xs border-primary/30 text-primary">
                     <SpecIcon className="h-3 w-3 mr-1" />
-                    {tech.specialization} specialist
+                    {getSpecializationLabel(tech.specialization)} specialist
                   </Badge>
-                  <Badge variant="outline" className={`text-xs border-0 ${exp.class}`}>
+                  <Badge variant="outline" className={`text-xs border-0 ${expertiseClass}`}>
                     <Award className="h-3 w-3 mr-1" />
-                    {tech.expertise} technician
+                    {getExpertiseLabel(tech.expertise)} technician
                   </Badge>
                   <Badge variant="outline" className="text-xs border-border text-muted-foreground">
                     <ClipboardList className="h-3 w-3 mr-1" />

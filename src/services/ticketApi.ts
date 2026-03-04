@@ -58,6 +58,26 @@ const pick = (...values: unknown[]): string => {
   return '';
 };
 
+/** Extract display string from API value: string, number, or nested user object */
+const userDisplay = (value: unknown): string => {
+  if (value == null) return '';
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const o = value as Record<string, unknown>;
+    const first = toText(o.first_name);
+    const last = toText(o.last_name);
+    const full = `${first} ${last}`.trim();
+    if (full) return full;
+    const un = toText(o.username);
+    if (un) return un;
+    const em = toText(o.email);
+    if (em) return em;
+    return toText(o.name) || toText(o.display_name);
+  }
+  return '';
+};
+
 const unwrapList = (data: any): any[] => {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== 'object') return [];
@@ -69,28 +89,29 @@ const unwrapList = (data: any): any[] => {
 };
 
 const normalizeTicket = (raw: any): Ticket => {
-  const assignedName = pick(
-    raw?.assigned_to,
-    raw?.assigned_technician,
-    joinName(raw?.assigned_technician_first_name, raw?.assigned_technician_last_name),
-  );
+  const assignedObj = raw?.assigned_to ?? raw?.assigned_technician;
+  const assignedName = userDisplay(assignedObj)
+    || joinName(raw?.assigned_technician_first_name, raw?.assigned_technician_last_name)
+    || pick(raw?.assigned_to, raw?.assigned_technician);
 
-  const createdBy = pick(
-    raw?.created_by,
-    joinName(raw?.created_by_first_name, raw?.created_by_last_name),
-    raw?.customer,
-  );
+  const createdObj = raw?.created_by;
+  const createdBy = userDisplay(createdObj)
+    || joinName(raw?.created_by_first_name, raw?.created_by_last_name)
+    || pick(raw?.created_by_username, raw?.created_by, raw?.customer);
 
-  const id = pick(raw?.id);
-  const ticketId = pick(raw?.ticket_id, raw?.ticket_no, raw?.reference, raw?.id ? `TK-${toText(raw.id)}` : '');
+  const id = raw?.id != null ? String(raw.id) : pick(raw?.id);
+  const ticketId = pick(raw?.ticket_id, raw?.ticket_no, raw?.reference, id ? `TK-${id}` : '');
+
+  const assignedUser = typeof assignedObj === 'object' && assignedObj !== null ? assignedObj as Record<string, unknown> : null;
+  const createdUser = typeof createdObj === 'object' && createdObj !== null ? createdObj as Record<string, unknown> : null;
 
   return {
     id,
     ticket_id: ticketId,
-    assigned_technician: pick(raw?.assigned_technician, assignedName),
-    assigned_technician_profile_id: pick(raw?.assigned_technician_profile_id),
-    assigned_technician_first_name: pick(raw?.assigned_technician_first_name),
-    assigned_technician_last_name: pick(raw?.assigned_technician_last_name),
+    assigned_technician: assignedName,
+    assigned_technician_profile_id: pick(raw?.assigned_technician_profile_id, (assignedUser as any)?.id),
+    assigned_technician_first_name: pick(raw?.assigned_technician_first_name, assignedUser?.first_name),
+    assigned_technician_last_name: pick(raw?.assigned_technician_last_name, assignedUser?.last_name),
     title: pick(raw?.title, raw?.summary),
     customer: pick(raw?.customer),
     issue_description: pick(raw?.issue_description, raw?.description),
@@ -258,17 +279,22 @@ const MOCK_TICKETS: Ticket[] = [
 
 let mockTickets = [...MOCK_TICKETS];
 
+/**
+ * API: GET/POST /tickets/ , GET/PUT/PATCH/DELETE /tickets/{id}/
+ */
 export const ticketApi = {
   getAll: async (params?: Record<string, string>): Promise<Ticket[]> => {
     try {
       const { data } = await api.get('/tickets/', { params });
       const list = unwrapList(data);
-      return list.map(normalizeTicket);
+      if (Array.isArray(list)) return list.map(normalizeTicket);
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
-      if (status === 401 || status === 403) throw error;
-      return mockTickets;
+      if (status === 401 || status === 403) {
+        console.warn('[ticketApi] Auth error, using fallback tickets');
+      }
     }
+    return mockTickets;
   },
   getById: async (id: string): Promise<Ticket> => {
     try {

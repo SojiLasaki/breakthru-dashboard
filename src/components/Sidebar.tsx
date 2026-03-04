@@ -266,12 +266,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           >
             <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
               <span className="text-[10px] font-bold text-primary">
-                {user ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}` : 'U'}
+                {user
+                  ? (user.first_name?.[0] ?? user.last_name?.[0] ?? user.username?.[0] ?? '').toUpperCase() || 'U'
+                  : 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{user?.first_name} {user?.last_name}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
+              <p className="text-xs font-medium truncate">
+                {user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : 'User'}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">{user?.email || '(no email)'}</p>
             </div>
           </NavLink>
 

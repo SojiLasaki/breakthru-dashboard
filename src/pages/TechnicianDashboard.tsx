@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
 import { FelixChatMessage, formatFelixError } from '@/services/felixChatService';
 import PdfViewer from '@/components/PdfViewer';
-import { api } from '@/services/apiClient';
+import { technicianApi } from '@/services/technicianApi';
 import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import {
   Send, Loader2, Wrench, BookOpen, Package, Clock,
@@ -77,11 +77,14 @@ export default function TechnicianDashboard() {
   // Fetch tickets
   useEffect(() => {
     ticketApi.getAll().then(all => {
-      const mine = all
+      let mine = all
         .filter(t => isTicketAssignedToUser(t, user) && t.status !== 'completed')
-        .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 4) - (PRIORITY_ORDER[b.priority] ?? 4) || b.created_at.localeCompare(a.created_at));
+        .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 4) - (PRIORITY_ORDER[b.priority] ?? 4) || (b.created_at || '').localeCompare(a.created_at || ''));
+      if (mine.length === 0 && all.length > 0) {
+        mine = all.filter(t => t.status !== 'completed').sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 4) - (PRIORITY_ORDER[b.priority] ?? 4) || (b.created_at || '').localeCompare(a.created_at || ''));
+      }
       setTickets(mine);
-    }).finally(() => setTicketsLoading(false));
+    }).catch(() => ticketApi.getAll().then(all => setTickets(all.filter(t => t.status !== 'completed')))).finally(() => setTicketsLoading(false));
   }, [fullName, user]);
 
   useEffect(() => {
@@ -96,8 +99,7 @@ export default function TechnicianDashboard() {
   }, [input]);
 
   const searchBackend = async (query: string) => {
-    const { data } = await api.get(`/technician/search/?q=${encodeURIComponent(query)}`);
-    return data;
+    return technicianApi.search(query);
   };
 
   const buildContextPrompt = (ctx: ChatMessage['context']) => {
