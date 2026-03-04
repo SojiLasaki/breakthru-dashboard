@@ -205,7 +205,7 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                           navigate(`/ask-ai?q=${encodeURIComponent(query)}`);
                         }}
                       >
-                        <MessageSquare className="h-3 w-3" /> Open in Fix it Felix
+                        <MessageSquare className="h-3 w-3" /> Open in Fix-it Felix
                       </Button>
                     </div>
 

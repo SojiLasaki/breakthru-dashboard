@@ -7,19 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-
-const STATUS_CLASSES: Record<string, string> = {
-  open: 'status-open',
-  assigned: 'status-open',
-  in_progress: 'status-in-progress',
-  awaiting_parts: 'status-in-progress',
-  awaiting_approval: 'status-urgent',
-  completed: 'status-closed',
-};
-
-const PRIORITY_LABEL: Record<number, string> = {
-  1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical',
-};
+import { ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
@@ -110,9 +98,9 @@ export default function CustomerDashboard() {
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
-                    <p className="text-xs text-muted-foreground">{t.specialization} · {PRIORITY_LABEL[t.priority] || t.priority}</p>
+                    <p className="text-xs text-muted-foreground">{t.specialization} · {ticketPriorityLabel(t.priority) || t.priority}</p>
                   </div>
-                  <Badge variant="outline" className={STATUS_CLASSES[t.status] || ''}>
+                  <Badge variant="outline" className={ticketStatusBadgeClass(t.status)}>
                     {t.status.replace(/_/g, ' ')}
                   </Badge>
                 </div>

@@ -6,27 +6,25 @@ import { api } from './apiClient';
  */
 export interface Technician {
   id: string;
+  first_name_display?: string;
+  last_name_display?: string;
   first_name?: string;
   last_name?: string;
-  email: string;
-  specialization: string;
-  // 'engine' | 'electrical' | 'general';
-  status: string;
-  //'available' | 'busy' | 'off_duty';
-  street_address: string;
+  email_display?: string;
+  email?: string;
+  phone_number?: string;
+  specialization?: string;
+  status?: string;
+  street_address?: string;
   street_address_2?: string;
-  city: string;
-  state: string;
+  city?: string;
+  state?: string;
   postal_code?: string;
   country?: string;
-  // latitude: number;
-  // longitude: number;
-  station: string;
-  active_tickets: number;
-  phone_number: string;
-  expertise: string;
-  //'junior' | 'mid' | 'senior';
-  photo: string;
+  station?: string | null;
+  active_tickets?: number;
+  expertise?: string;
+  photo?: string;
 }
 
 export interface TechTask {
@@ -51,41 +49,44 @@ function loadFromCache(): Technician[] {
   return cached ? JSON.parse(cached) : [];
 }
 
+const mapTechnician = (c: any): Technician => {
+  const firstNameDisplay = c.first_name_display ?? c.first_name ?? '';
+  const lastNameDisplay = c.last_name_display ?? c.last_name ?? '';
+  const emailDisplay = c.email_display ?? c.email ?? '';
+  const fullName = `${firstNameDisplay || ''} ${lastNameDisplay || ''}`.trim() || 'Unknown';
+
+  return {
+    id: String(c.id),
+    first_name_display: firstNameDisplay || undefined,
+    last_name_display: lastNameDisplay || undefined,
+    first_name: firstNameDisplay || undefined,
+    last_name: lastNameDisplay || undefined,
+    email_display: emailDisplay || undefined,
+    email: emailDisplay || undefined,
+    phone_number: c.phone_number ?? '',
+    specialization: c.specialization ?? '',
+    status: c.status ?? '',
+    street_address: c.street_address ?? '',
+    street_address_2: c.street_address_2 ?? '',
+    city: c.city ?? '',
+    state: c.state ?? '',
+    postal_code: c.postal_code ?? '',
+    country: c.country ?? '',
+    station: c.station_name ?? c.station ?? null,
+    active_tickets: c.active_tickets ?? c.assigned_tickets_count ?? 0,
+    expertise: c.expertise ?? '',
+    photo: c.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1a1f2e&color=e61409&size=96`,
+  };
+};
+
 export const technicianApi = {
   getAll: async (): Promise<Technician[]> => {
     try {
       const { data } = await api.get('/technicians/');
-      const customers: Technician[] = (data.results ?? data).map(c => ({
-        id: c.id,
-        first_name: c.first_name_display,
-        last_name: c.last_name_display,
-        photo: c.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name_display ?? 'Unknown')}&background=1a1f2e&color=e61409&size=64`,
-        email: c.email_display ?? '',
-        phone_number: c.phone_number ?? '',
-        street_address: c.street_address ?? '',
-        street_address_2: c.street_address_2 ?? '',
-        city: c.city ?? '',
-        state: c.state ?? '',
-        country: c.country ?? '',
-        postal_code: c.postal_code ?? '',
-        specialization: c.specialization ?? 'None',
-        expertise: c.expertise ?? 'None',
-        status: c.status ?? '',
-        station: c.station_name ?? '',
-        station_street_address: c.station_street_address ?? '',
-        station_street_addrress_2: c.station_street_address_2 ?? '',
-        station_city: c.station_city ?? '',
-        station_state: c.station_state ?? '',
-        station_postal_code: c.station_postal_code ?? '',
-        station_country: c.station_country ?? '',
-        notes: c.notes ?? '',
-        created_at: c.created_at,
-        contact_person: c.name || 'Unknown'
-      }));
-  
-      saveToCache(customers);
-      console.log('Mapped customers:', customers);
-      return customers;
+      const list = Array.isArray(data?.results) ? data.results : data;
+      const techs: Technician[] = Array.isArray(list) ? list.map(mapTechnician) : [];
+      saveToCache(techs);
+      return techs;
     } catch (error) {
       console.warn('Backend unavailable — loading cached customers');
       const cached = loadFromCache();
@@ -94,27 +95,24 @@ export const technicianApi = {
     }
   },
 
-  // getById: async (id: string): Promise<Technician> => {
-  //   try {
-  //     const { data } = await api.get(`/technicians/${id}/`);
-  //     return data;
-  //   } catch {
-  //     const cached = loadFromCache().find(t => t.id === id);
-  //     if (!cached) throw new Error('Technician not found');
-  //     return cached;
-  //   }
-  // },
-  getById: async (id: string) => {
-    const res = await api.get(`/technicians/${id}/`);
-    return res.data;
+  getById: async (id: string): Promise<Technician> => {
+    try {
+      const { data } = await api.get(`/technicians/${id}/`);
+      return mapTechnician(data);
+    } catch {
+      const cached = loadFromCache().find(t => t.id === id);
+      if (!cached) throw new Error('Technician not found');
+      return cached;
+    }
   },
 
   create: async (payload: Partial<Technician>): Promise<Technician> => {
     try {
       const { data } = await api.post('/technicians/', payload);
       const cached = loadFromCache();
-      saveToCache([data, ...cached]);
-      return data;
+      const mapped = mapTechnician(data);
+      saveToCache([mapped, ...cached]);
+      return mapped;
     } catch (error) {
       throw new Error('Failed to create technician');
     }
@@ -123,9 +121,10 @@ export const technicianApi = {
   update: async (id: string, payload: Partial<Technician>): Promise<Technician> => {
     try {
       const { data } = await api.patch(`/technicians/${id}/`, payload);
-      const cached = loadFromCache().map(t => (t.id === id ? { ...t, ...data } : t));
+      const mapped = mapTechnician(data);
+      const cached = loadFromCache().map(t => (t.id === id ? mapped : t));
       saveToCache(cached);
-      return data;
+      return mapped;
     } catch {
       throw new Error('Failed to update technician');
     }

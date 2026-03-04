@@ -6,6 +6,7 @@ import { orderApi, Order } from '@/services/orderApi';
 import { customerApi, Customer } from '@/services/customerApi';
 import { isTicketAssignedToUser, isTicketCreatedByUser } from '@/lib/ticketIdentity';
 import { getSpecializationLabel } from '@/lib/technicianProfile';
+import { ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import {
   Ticket as TicketIcon, Users, ShoppingCart, AlertCircle, User,
   Wrench, BookOpen, Sparkles, Cpu, Loader2,
@@ -13,15 +14,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-
-const STATUS_CLASSES: Record<string, string> = {
-  open: 'status-open',
-  assigned: 'status-open',
-  in_progress: 'status-in-progress',
-  awaiting_parts: 'status-in-progress',
-  awaiting_approval: 'status-urgent',
-  completed: 'status-closed',
-};
 
 export default function OverviewPage() {
   const { user, isRole, fetchProfile } = useAuth();
@@ -214,7 +206,7 @@ export default function OverviewPage() {
                     <p className="text-xs font-medium text-foreground truncate">{t.ticket_id}: {t.title}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_to}</p>
                   </div>
-                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${STATUS_CLASSES[t.status]}`}>
+                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${ticketStatusBadgeClass(t.status)}`}>
                     {t.status.replace('_', ' ')}
                   </Badge>
                 </div>
@@ -243,7 +235,7 @@ export default function OverviewPage() {
                     <p className="text-xs font-medium text-foreground truncate">{t.ticket_id}: {t.title}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Created by: {t.created_by}</p>
                   </div>
-                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${STATUS_CLASSES[t.status]}`}>
+                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${ticketStatusBadgeClass(t.status)}`}>
                     {t.status.replace('_', ' ')}
                   </Badge>
                 </div>
@@ -261,7 +253,9 @@ export default function OverviewPage() {
             <CardContent className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Manuals', icon: BookOpen, path: '/manuals', desc: 'Technical documentation' },
-                { label: 'Ask Felix', icon: Sparkles, path: '/ask-ai', desc: 'AI-powered assistance' },
+                ...(isTech
+                  ? [{ label: 'Ask Felix', icon: Sparkles, path: '/ask-ai', desc: 'AI-powered assistance' } as const]
+                  : []),
                 { label: 'Parts', icon: Wrench, path: '/parts', desc: 'Parts catalogue' },
                 { label: 'Components', icon: Cpu, path: '/components', desc: 'Component groups' },
               ].map(({ label, icon: Icon, path, desc }) => (
@@ -306,7 +300,7 @@ export default function OverviewPage() {
                     <p className="text-xs font-medium text-foreground truncate">{t.ticket_id}: {t.title}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_to}</p>
                   </div>
-                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${STATUS_CLASSES[t.status]}`}>
+                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${ticketStatusBadgeClass(t.status)}`}>
                     {t.status.replace('_', ' ')}
                   </Badge>
                 </div>

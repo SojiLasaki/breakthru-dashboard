@@ -5,15 +5,19 @@ export type UserRole = 'admin' | 'office' | 'technician' | 'customer';
 
 export interface User {
   id: number | string;
+  profile_id?: string;
   username: string;
   email: string;
   first_name: string;
   last_name: string;
+  first_name_display?: string;
+  last_name_display?: string;
   role: UserRole;
   token: string;
   /** TechnicianProfile pk for GET /technicians/{id}/ */
   technician_profile_id?: string | number;
   phone?: string;
+  status?: string;
   station_name?: string;
   street_address?: string;
   city?: string;
@@ -26,6 +30,8 @@ export interface User {
   total_jobs_completed?: number;
   total_years_experience?: number;
   date_joined?: string;
+  performance_rating?: number;
+  assigned_tickets_count?: number;
 }
 
 interface AuthContextType {
@@ -100,7 +106,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ? idRaw.trim()
           : Number.parseInt(String(idRaw ?? '0'), 10) || 0;
 
-    const techProfileIdRaw = (base as any).technician_profile_id ?? (base as any).technician_id ?? (payload as any)?.technician_profile_id ?? (payload as any)?.technician_id;
+    const profileUuid = toNonEmptyString((base as any).profile_id) || toNonEmptyString((payload as any)?.profile_id);
+    const techProfileIdRaw =
+      (base as any).technician_profile_id ??
+      (base as any).technician_id ??
+      (payload as any)?.technician_profile_id ??
+      (payload as any)?.technician_id;
     const technician_profile_id =
       techProfileIdRaw != null && techProfileIdRaw !== ''
         ? (typeof techProfileIdRaw === 'number' ? techProfileIdRaw : String(techProfileIdRaw))
@@ -115,20 +126,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const email =
       toNonEmptyString((base as any).email) ||
       toNonEmptyString((base as any).email_display) ||
+      toNonEmptyString((base as any).email_dsplay) ||
       toNonEmptyString((payload as any)?.email) ||
-      toNonEmptyString((payload as any)?.email_display);
+      toNonEmptyString((payload as any)?.email_display) ||
+      toNonEmptyString((payload as any)?.email_dsplay);
+
+    const firstNameDisplay =
+      toNonEmptyString((base as any).first_name_display) ||
+      toNonEmptyString((base as any).first_name_dsplay) ||
+      toNonEmptyString((payload as any)?.first_name_display) ||
+      toNonEmptyString((payload as any)?.first_name_dsplay);
+
+    const lastNameDisplay =
+      toNonEmptyString((base as any).last_name_display) ||
+      toNonEmptyString((base as any).last_name_dsplay) ||
+      toNonEmptyString((payload as any)?.last_name_display) ||
+      toNonEmptyString((payload as any)?.last_name_dsplay);
 
     let firstName =
       toNonEmptyString((base as any).first_name) ||
-      toNonEmptyString((base as any).first_name_display) ||
-      toNonEmptyString((payload as any)?.first_name) ||
-      toNonEmptyString((payload as any)?.first_name_display);
+      firstNameDisplay ||
+      toNonEmptyString((payload as any)?.first_name);
 
     let lastName =
       toNonEmptyString((base as any).last_name) ||
-      toNonEmptyString((base as any).last_name_display) ||
-      toNonEmptyString((payload as any)?.last_name) ||
-      toNonEmptyString((payload as any)?.last_name_display);
+      lastNameDisplay ||
+      toNonEmptyString((payload as any)?.last_name);
 
     if (!firstName && !lastName) {
       const full =
@@ -155,34 +178,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const phone =
       toNonEmptyString((base as any).phone) ||
+      toNonEmptyString((base as any).phone_display) ||
+      toNonEmptyString((base as any).phone_dsplay) ||
       toNonEmptyString((base as any).phone_number) ||
+      toNonEmptyString((base as any).phone_number_display) ||
+      toNonEmptyString((base as any).phone_number_dsplay) ||
       toNonEmptyString((payload as any)?.phone) ||
-      toNonEmptyString((payload as any)?.phone_number);
+      toNonEmptyString((payload as any)?.phone_display) ||
+      toNonEmptyString((payload as any)?.phone_dsplay) ||
+      toNonEmptyString((payload as any)?.phone_number) ||
+      toNonEmptyString((payload as any)?.phone_number_display) ||
+      toNonEmptyString((payload as any)?.phone_number_dsplay);
+    const stationNameObj = (base as any).station ?? (payload as any)?.station;
     const stationName =
       toNonEmptyString((base as any).station_name) ||
-      toNonEmptyString((payload as any)?.station_name);
+      toNonEmptyString((base as any).station) ||
+      toNonEmptyString((base as any).station_display) ||
+      toNonEmptyString((stationNameObj && typeof stationNameObj === 'object') ? (stationNameObj as any).name : '') ||
+      toNonEmptyString((payload as any)?.station_name) ||
+      toNonEmptyString((payload as any)?.station) ||
+      toNonEmptyString((payload as any)?.station_display) ||
+      toNonEmptyString(((payload as any)?.station && typeof (payload as any)?.station === 'object') ? (payload as any).station.name : '');
+
     const specialization =
       toNonEmptyString((base as any).specialization) ||
-      toNonEmptyString((payload as any)?.specialization);
+      toNonEmptyString((base as any).specialization_display) ||
+      toNonEmptyString((base as any).specialty) ||
+      toNonEmptyString((payload as any)?.specialization) ||
+      toNonEmptyString((payload as any)?.specialization_display) ||
+      toNonEmptyString((payload as any)?.specialty);
+
     const expertise =
       toNonEmptyString((base as any).expertise) ||
-      toNonEmptyString((payload as any)?.expertise);
+      toNonEmptyString((base as any).expertise_display) ||
+      toNonEmptyString((payload as any)?.expertise) ||
+      toNonEmptyString((payload as any)?.expertise_display);
+    const status = toNonEmptyString((base as any).status) || toNonEmptyString((payload as any)?.status);
     const skillScoreRaw = (base as any).skill_score ?? (payload as any)?.skill_score;
     const skillScore = typeof skillScoreRaw === 'number' && Number.isFinite(skillScoreRaw) ? skillScoreRaw : undefined;
     const totalJobs = (base as any).total_jobs_completed ?? (payload as any)?.total_jobs_completed;
     const totalYears = (base as any).total_years_experience ?? (payload as any)?.total_years_experience;
     const dateJoined = toNonEmptyString((base as any).date_joined) || toNonEmptyString((payload as any)?.date_joined);
+    const perfRaw = (base as any).performance_rating ?? (payload as any)?.performance_rating;
+    const performanceRating = typeof perfRaw === 'number' && Number.isFinite(perfRaw) ? perfRaw : undefined;
+    const assignedRaw = (base as any).assigned_tickets_count ?? (payload as any)?.assigned_tickets_count;
+    const assignedTicketsCount = typeof assignedRaw === 'number' && Number.isFinite(assignedRaw) ? assignedRaw : undefined;
 
     return {
       id,
+      ...(profileUuid && { profile_id: profileUuid }),
       username,
       email,
       first_name: firstName,
       last_name: lastName,
+      ...(firstNameDisplay && { first_name_display: firstNameDisplay }),
+      ...(lastNameDisplay && { last_name_display: lastNameDisplay }),
       role,
       token,
       ...(technician_profile_id != null && { technician_profile_id }),
       ...(phone && { phone }),
+      ...(status && { status }),
       ...(stationName && { station_name: stationName }),
       ...(specialization && { specialization }),
       ...(expertise && { expertise }),
@@ -190,6 +245,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...(totalJobs != null && { total_jobs_completed: Number(totalJobs) }),
       ...(totalYears != null && { total_years_experience: Number(totalYears) }),
       ...(dateJoined && { date_joined: dateJoined }),
+      ...(performanceRating != null && { performance_rating: performanceRating }),
+      ...(assignedTicketsCount != null && { assigned_tickets_count: assignedTicketsCount }),
     };
   };
 
@@ -290,13 +347,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const current = user;
     try {
       const profileId = current?.technician_profile_id ?? current?.id;
+      if (profileId == null || profileId === '') return;
       const profileData = await authApi.getProfile(profileId);
       if (!profileData || typeof profileData !== 'object') return;
       const fromApi = normalizeUserPayload(profileData);
       const merged: User = {
         ...current!,
         id: fromApi.id ?? current?.id ?? 0,
-        technician_profile_id: fromApi.technician_profile_id ?? (fromApi.id != null ? fromApi.id : current?.technician_profile_id ?? current?.id),
+        profile_id: fromApi.profile_id ?? current?.profile_id,
+        technician_profile_id: fromApi.technician_profile_id ?? current?.technician_profile_id,
         username: fromApi.username || current?.username || '',
         email: fromApi.email || current?.email || '',
         first_name: fromApi.first_name || current?.first_name || '',
@@ -304,6 +363,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: fromApi.role || current?.role || 'customer',
         token: current?.token || fromApi.token || token,
         phone: fromApi.phone || current?.phone,
+        status: fromApi.status || current?.status,
         station_name: fromApi.station_name || current?.station_name,
         specialization: fromApi.specialization || current?.specialization,
         expertise: fromApi.expertise || current?.expertise,
@@ -311,6 +371,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         total_jobs_completed: fromApi.total_jobs_completed ?? current?.total_jobs_completed,
         total_years_experience: fromApi.total_years_experience ?? current?.total_years_experience,
         date_joined: fromApi.date_joined || current?.date_joined,
+        performance_rating: fromApi.performance_rating ?? current?.performance_rating,
+        assigned_tickets_count: fromApi.assigned_tickets_count ?? current?.assigned_tickets_count,
       };
       setUser(merged);
       localStorage.setItem('cummins_user', JSON.stringify(merged));

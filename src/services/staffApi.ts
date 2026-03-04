@@ -7,7 +7,7 @@ export interface StaffProfile {
   first_name: string;
   last_name: string;
   phone_number: string;
-  role: string;
+  role: 'admin' | 'office';
   status: string;
   station: string;
   date_joined: string;
@@ -75,31 +75,52 @@ function loadFromCache(): StaffProfile[] {
   return cached ? JSON.parse(cached) : [];
 }
 
+const mapStaff = (s: any): StaffProfile => {
+  const roleRaw = String(s.role ?? '').toLowerCase();
+  const role: StaffProfile['role'] =
+    roleRaw === 'admin' || roleRaw === 'superuser'
+      ? 'admin'
+      : 'office';
+
+  const statusRaw = String(s.status ?? '').toLowerCase();
+  const status =
+    statusRaw === 'busy' || statusRaw === 'unavailable'
+      ? statusRaw
+      : statusRaw === 'inactive'
+        ? 'inactive'
+        : 'active';
+
+  return {
+    id: String(s.id),
+    username: String(s.username_display ?? s.username ?? '').trim(),
+    email: String(s.email_display ?? s.email ?? '').trim(),
+    first_name: String(s.first_name_display ?? s.first_name ?? '').trim(),
+    last_name: String(s.last_name_display ?? s.last_name ?? '').trim(),
+    phone_number: String(s.phone_number ?? '').trim(),
+    role,
+    status,
+    station: String(s.station_name ?? '').trim(),
+    street_address: String(s.street_address ?? '').trim(),
+    street_address_2: String(s.street_address_2 ?? '').trim(),
+    city: String(s.city ?? '').trim(),
+    state: String(s.state ?? '').trim(),
+    country: String(s.country ?? '').trim(),
+    postal_code: String(s.postal_code ?? '').trim(),
+    date_joined: String(s.date_joined ?? ''),
+    last_login: String(s.last_login ?? ''),
+    photo: s.photo
+      ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        `${s.first_name_display ?? s.first_name ?? ''} ${s.last_name_display ?? s.last_name ?? ''}`.trim() || 'User',
+      )}&background=1a1f2e&color=e61409&size=64`,
+  };
+};
+
 export const staffApi = {
   getAll: async (): Promise<StaffProfile[]> => {
     try {
       const { data } = await api.get('/staffs/');
-      const staffs: StaffProfile[] = (data.results ?? data).map((s: any) => ({
-        id: s.id,
-        username: s.username_display ?? '',
-        email: s.email_display ?? '',
-        first_name: s.first_name_display ?? '',
-        last_name: s.last_name_display ?? '',
-        phone_number: s.phone_number ?? '',
-        photo: s.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(s.first_name_display ?? 'Unknown')}&background=1a1f2e&color=e61409&size=64`,
-        role: s.role,
-        status: s.status,
-        station: s.station_name ?? '',
-        street_address: s.street_address ?? '',
-        street_address_2: s.street_address_2 ?? '',
-        city: s.city ?? '',
-        state: s.state ?? '',
-        country: s.country ?? '',
-        postal_code: s.postal_code ?? '',
-        date_joined: s.date_joined,
-        last_login: s.last_login,
-      }));
-
+      const list = Array.isArray(data?.results) ? data.results : data;
+      const staffs: StaffProfile[] = Array.isArray(list) ? list.map(mapStaff) : [];
       saveToCache(staffs);
       return staffs;
     } catch (error) {
@@ -111,7 +132,7 @@ export const staffApi = {
   getById: async (id: string): Promise<StaffProfile> => {
     try {
       const { data } = await api.get(`/staffs/${id}/`);
-      return data;
+      return mapStaff(data);
     } catch {
       const user = MOCK_STAFFS.find(u => u.id === id);
       if (!user) throw new Error('User not found');

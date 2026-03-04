@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { useAuth } from '@/context/AuthContext';
 import { isTicketAssignedToUser, isTicketCreatedByUser } from '@/lib/ticketIdentity';
+import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,25 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, Bot, Plus, ArrowUpDown, Info, Pencil, Save, X, Calendar, User, Tag } from 'lucide-react';
-
-const STATUS_CLASSES: Record<string, string> = {
-  open:              'status-open',
-  pending:            'status-open',
-  assigned:          'status-open',
-  in_progress:       'status-in-progress',
-  awaiting_parts:    'status-in-progress',
-  awaiting_approval: 'status-urgent',
-  completed:         'status-closed',
-};
-
-const PRIORITY_LABEL: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical' };
-const PRIORITY_CLASSES_NUM: Record<number, string> = {
-  1: 'text-muted-foreground bg-muted/50 border border-border',
-  2: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20',
-  3: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
-  4: 'text-primary bg-primary/10 border border-primary/20',
-  5: 'text-primary bg-primary/10 border border-primary/20',
-};
 
 type SortField = 'ticket_id' | 'status' | 'priority' | 'created_at';
 
@@ -66,7 +48,7 @@ export default function TicketsPage() {
   const isCustomer  = isRole('customer');
 
   const scopeLabel = isTech
-    ? `Showing tickets assigned to you (${fullName})`
+    ? `Showing tickets assigned to you (${fullName || user?.username || ''})`
     : isCustomer ? 'Showing your submitted tickets'
     : 'Showing all tickets';
 
@@ -74,11 +56,13 @@ export default function TicketsPage() {
     ticketApi.getAll().then(all => {
       let scoped = all;
       if (user) {
-        if (isTech) scoped = all.filter(t => isTicketAssignedToUser(t, user));
-        else if (isCustomer) scoped = all.filter(t => isTicketCreatedByUser(t, user));
-      }
-      if (scoped.length === 0 && all.length > 0 && (isTech || isCustomer)) {
-        scoped = all;
+        if (isTech) {
+          // Technicians should see ONLY tickets assigned to them
+          scoped = all.filter(t => isTicketAssignedToUser(t, user));
+        } else if (isCustomer) {
+          const created = all.filter(t => isTicketCreatedByUser(t, user));
+          scoped = created.length ? created : all;
+        }
       }
       setTickets(scoped);
     }).catch(() => ticketApi.getAll().then(setTickets)).finally(() => setLoading(false));
@@ -247,10 +231,10 @@ export default function TicketsPage() {
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.specialization || '—'}</td>
                   <td className="px-4 py-3 text-xs max-w-48 truncate">{t.issue_description || t.title}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${STATUS_CLASSES[t.status] ?? ''}`}>{t.status.replace(/_/g, ' ')}</span>
+                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full ${ticketStatusBadgeClass(t.status)}`}>{t.status.replace(/_/g, ' ')}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASSES_NUM[t.priority] ?? ''}`}>{PRIORITY_LABEL[t.priority] ?? t.priority}</span>
+                    <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${ticketPriorityBadgeClass(t.priority)}`}>{ticketPriorityLabel(t.priority) || t.priority}</span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.assigned_to}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{t.created_by}</td>
@@ -279,11 +263,11 @@ export default function TicketsPage() {
                     <SheetTitle className="font-mono text-primary text-sm">{selected.ticket_id}</SheetTitle>
                     <p className="text-sm font-semibold mt-0.5">{selected.title}</p>
                     <div className="flex gap-2 mt-2">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_CLASSES[editing ? (editForm.status ?? selected.status) : selected.status]}`}>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${ticketStatusBadgeClass(editing ? (editForm.status ?? selected.status) : selected.status)}`}>
                         {(editing ? (editForm.status ?? selected.status) : selected.status).replace(/_/g, ' ')}
                       </span>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASSES_NUM[editing ? (editForm.priority ?? selected.priority) : selected.priority] ?? ''}`}>
-                        {PRIORITY_LABEL[editing ? (editForm.priority ?? selected.priority) : selected.priority] ?? (editing ? editForm.priority : selected.priority)}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${ticketPriorityBadgeClass(editing ? (editForm.priority ?? selected.priority) : selected.priority)}`}>
+                        {ticketPriorityLabel(editing ? (editForm.priority ?? selected.priority) : selected.priority) ?? (editing ? editForm.priority : selected.priority)}
                       </span>
                     </div>
                   </div>
@@ -381,7 +365,7 @@ export default function TicketsPage() {
                     </div>
 
                     <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={() => { openFixItFelixForTicket(selected); setSelected(null); }}>
-                      <Bot className="h-4 w-4" /> Open Fix it Felix for this Ticket
+                      <Bot className="h-4 w-4" /> Open Fix-it Felix for this Ticket
                     </Button>
                   </div>
                 )}

@@ -17,23 +17,12 @@ import { FelixChatMessage, formatFelixError } from '@/services/felixChatService'
 import PdfViewer from '@/components/PdfViewer';
 import { technicianApi } from '@/services/technicianApi';
 import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
+import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import {
   Send, Loader2, Wrench, BookOpen, Package, Clock,
   FileText, ExternalLink, Sparkles, AlertCircle, Eye, Ticket as TicketIcon,
 } from 'lucide-react';
 
-const STATUS_CLASSES: Record<string, string> = {
-  open: 'status-open', assigned: 'status-open', in_progress: 'status-in-progress',
-  awaiting_parts: 'status-in-progress', awaiting_approval: 'status-urgent', completed: 'status-closed',
-};
-const PRIORITY_LABEL: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical' };
-const PRIORITY_CLASSES_NUM: Record<number, string> = {
-  1: 'text-muted-foreground bg-muted/50 border border-border',
-  2: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
-  3: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
-  4: 'text-primary bg-primary/10 border border-primary/20',
-  5: 'text-primary bg-primary/10 border border-primary/20',
-};
 const PRIORITY_ORDER: Record<number, number> = { 5: 0, 4: 1, 3: 2, 2: 3, 1: 4 };
 
 interface ChatMessage {
@@ -175,7 +164,7 @@ export default function TechnicianDashboard() {
                 <Sparkles className="h-7 w-7 text-primary" />
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground text-center">
-                Fix it Felix
+                Fix-it Felix
               </h1>
               <p className="text-muted-foreground text-sm text-center max-w-md mt-1">
                 Describe a fault code, symptom, or equipment issue. I'll find diagnostics, parts, manuals, and repair steps.
@@ -194,10 +183,10 @@ export default function TechnicianDashboard() {
               </div>
 
               {ticketsLoading ? (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {[1, 2, 3, 4].map(i => (
                     <Card key={i} className="bg-card border-border">
-                      <CardContent className="p-4"><Skeleton className="h-16 w-full" /></CardContent>
+                      <CardContent className="p-5"><Skeleton className="h-20 w-full" /></CardContent>
                     </Card>
                   ))}
                 </div>
@@ -209,31 +198,31 @@ export default function TechnicianDashboard() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {topTickets.map(t => (
                     <Card
                       key={t.id}
                       className="bg-card border-border card-hover cursor-pointer group"
                       onClick={() => navigate(`/tickets/${t.id}`)}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-3">
                           <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-mono text-primary font-semibold">{t.ticket_id}</p>
-                            <p className="text-xs font-medium text-foreground mt-0.5 truncate">{t.title}</p>
+                            <p className="text-xs font-mono text-primary font-semibold">{t.ticket_id}</p>
+                            <p className="text-sm font-medium text-foreground mt-1 truncate">{t.title}</p>
                           </div>
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize flex-shrink-0 ml-2 ${PRIORITY_CLASSES_NUM[t.priority] ?? ''}`}>
-                            {PRIORITY_LABEL[t.priority] ?? t.priority}
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize flex-shrink-0 ml-2 ${ticketPriorityBadgeClass(t.priority)}`}>
+                            {ticketPriorityLabel(t.priority) || t.priority}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Badge className={`text-[10px] ${STATUS_CLASSES[t.status]}`}>{t.status.replace(/_/g, ' ')}</Badge>
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{new Date(t.created_at).toLocaleDateString()}</span>
+                            <Badge className={`text-xs ${ticketStatusBadgeClass(t.status)}`}>{t.status.replace(/_/g, ' ')}</Badge>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(t.created_at).toLocaleDateString()}</span>
                           </div>
-                          <Eye className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5 truncate">{t.customer}</p>
+                        <p className="text-xs text-muted-foreground mt-2 truncate">{t.customer}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -241,10 +230,10 @@ export default function TechnicianDashboard() {
               )}
             </div>
 
-            {/* Suggestion chips */}
+            {/* Suggestion chips — kept smaller so tickets stand out */}
             <div className="flex flex-wrap justify-center gap-2 max-w-lg mb-4">
               {SUGGESTIONS.map(s => (
-                <button key={s} onClick={() => handleSubmit(s)} className="text-xs px-3 py-2 rounded-lg bg-card border border-border hover:border-primary/40 hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-all">
+                <button key={s} onClick={() => handleSubmit(s)} className="text-[11px] px-2.5 py-1.5 rounded-md bg-card border border-border hover:border-primary/40 hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-all">
                   {s}
                 </button>
               ))}
@@ -266,7 +255,7 @@ export default function TechnicianDashboard() {
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-primary font-semibold mb-1">Fix it Felix</p>
+                      <p className="text-[10px] text-primary font-semibold mb-1">Fix-it Felix</p>
                       <div className="prose prose-sm prose-invert max-w-none text-sm text-foreground/90 leading-relaxed [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:text-foreground [&_ul]:space-y-1 [&_ol]:space-y-1 [&_li]:text-xs [&_p]:text-xs [&_strong]:text-foreground">
                         <MessageContent content={msg.content} />
                       </div>
@@ -333,7 +322,7 @@ export default function TechnicianDashboard() {
                 <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
                 </div>
-                <span className="text-xs text-muted-foreground">Fix it Felix is analyzing your issue...</span>
+                <span className="text-xs text-muted-foreground">Fix-it Felix is analyzing your issue...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -350,7 +339,7 @@ export default function TechnicianDashboard() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-              placeholder="Ask Fix it Felix about a fault code, symptom, or equipment issue..."
+              placeholder="Ask Fix-it Felix about a fault code, symptom, or equipment issue..."
               rows={1}
               className="w-full bg-transparent px-4 py-3 pr-12 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
               disabled={isStreaming}
@@ -359,7 +348,7 @@ export default function TechnicianDashboard() {
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">Powered by Fix it Felix · Searches manuals, parts, diagnostics & components</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-2">Powered by Fix-it Felix · Searches manuals, parts, diagnostics & components</p>
         </div>
       </div>
 

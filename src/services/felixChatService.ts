@@ -326,7 +326,7 @@ const readErrorBody = async (resp: Response): Promise<{ message: string; details
 export const formatFelixError = (error: unknown): string => {
   if (error instanceof FelixChatError) return error.message;
   if (error instanceof Error) return error.message;
-  return 'Could not reach Fix it Felix. Please try again.';
+  return 'Could not reach Fix-it Felix. Please try again.';
 };
 
 export const streamFelixChat = async (
@@ -377,7 +377,7 @@ export const streamFelixChat = async (
   }
 
   if (!FELIX_CHAT_URL) {
-    throw new FelixChatError('Fix it Felix is not configured.');
+    throw new FelixChatError('Fix-it Felix is not configured.');
   }
 
   const body = {
@@ -405,7 +405,7 @@ export const streamFelixChat = async (
 
   const reader = resp.body?.getReader();
   if (!reader) {
-    throw new FelixChatError('Fix it Felix returned an empty stream.');
+    throw new FelixChatError('Fix-it Felix returned an empty stream.');
   }
 
   const decoder = new TextDecoder();

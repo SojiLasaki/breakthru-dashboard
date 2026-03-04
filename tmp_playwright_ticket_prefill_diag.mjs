@@ -28,7 +28,7 @@ for (let i = 0; i < count; i++) {
   values.push({ index: i, value: value.slice(0, 200) });
 }
 
-const askBox = page.locator('textarea[placeholder*="Ask Fix it Felix anything"]');
+const askBox = page.locator('textarea[placeholder*="Ask Fix-it Felix anything"]');
 let askValue = '';
 if (await askBox.count()) {
   askValue = await askBox.first().inputValue();

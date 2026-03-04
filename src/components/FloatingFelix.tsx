@@ -77,7 +77,7 @@ export default function FloatingFelix({ ticketContext, componentContext }: Props
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:bg-primary/90 transition-all active:scale-95"
-        title="Ask Fix it Felix"
+        title="Ask Fix-it Felix"
       >
         <Sparkles className="h-6 w-6" />
       </button>
@@ -92,7 +92,7 @@ export default function FloatingFelix({ ticketContext, componentContext }: Props
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-foreground">Fix it Felix</p>
+            <p className="text-xs font-semibold text-foreground">Fix-it Felix</p>
             <p className="text-[10px] text-muted-foreground">Ask anything mid-repair</p>
           </div>
         </div>

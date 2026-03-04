@@ -34,7 +34,7 @@ const SPEC_ICONS: Record<string, typeof Wrench> = {
   'electrical technician': Zap,
 };
 const getAvatarUrl = (t: Technician) =>
-  t.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((t.first_name ?? '') + ' ' + (t.last_name ?? ''))}&background=1a1f2e&color=e61409&size=96`;
+  t.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((t.first_name_display ?? '') + ' ' + (t.last_name_display ?? ''))}&background=1a1f2e&color=e61409&size=96`;
 
 
 export default function TechnicianProfilePage() {
@@ -124,7 +124,7 @@ export default function TechnicianProfilePage() {
               </div>
 
               <div className="text-center">
-                <h1 className="font-bold text-lg leading-tight">{tech.first_name} {tech.last_name}</h1>
+                <h1 className="font-bold text-lg leading-tight">{tech.first_name_display} {tech.last_name_display}</h1>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-muted-foreground">
                   <SpecIcon className="h-3.5 w-3.5" />
                   <span className="text-xs">{getSpecializationLabel(tech.specialization)}</span>

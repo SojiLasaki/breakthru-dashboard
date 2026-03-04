@@ -59,7 +59,7 @@ function ProtectedRoutes() {
   const guard = (allowed: boolean, element: JSX.Element) =>
     allowed ? element : <Navigate to="/" replace />;
 
-  // Technician gets their own minimal layout (Fix it Felix)
+  // Technician gets their own minimal layout (Fix-it Felix)
   if (isTech) {
     return (
       <Routes>
@@ -90,7 +90,8 @@ function ProtectedRoutes() {
 
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/manuals" element={guard(isAdminOrStaff, <ManualsPage />)} />
-        <Route path="/ask-ai" element={<AskAiPage />} />
+        {/* Fix-it Felix is technician-only; non-tech users should never hit this route */}
+        <Route path="/ask-ai" element={<Navigate to="/" replace />} />
 
         <Route path="/customers"    element={<CustomersPage />} />
         <Route path="/orders"       element={<OrdersPage />} />

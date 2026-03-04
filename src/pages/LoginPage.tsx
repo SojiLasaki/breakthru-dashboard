@@ -14,14 +14,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const demoUsers = [
-    { username: 'admin', label: 'admin' },
-    { username: 'office', label: 'office' },
-    { username: 'engine', label: 'technician' },
-    { username: 'electrical', label: 'technician 2' },
-    { username: 'customer', label: 'customer' },
-    { username: 'login_probe', label: 'probe admin' },
-  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +37,7 @@ export default function LoginPage() {
           <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
             <span className="text-primary-foreground font-bold text-2xl italic">b</span>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">Breakthru</h1>
+          <h1 className="text-2xl font-semibold text-foreground">breakthru</h1>
           <p className="text-muted-foreground text-sm mt-1">Sign in to your account</p>
         </div>
 
@@ -88,25 +80,6 @@ export default function LoginPage() {
               {loading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Signing in...</> : 'Sign In'}
             </Button>
           </form>
-
-          <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-2">
-              Demo accounts (after running <code>uv run --no-sync python manage.py seed_demo_users</code>)
-            </p>
-            <div className="grid grid-cols-3 gap-1">
-              {demoUsers.map(({ username: demoUsername, label }) => {
-                return (
-                <button
-                  key={demoUsername}
-                  onClick={() => { setUsername(demoUsername); setPassword(demoUsername); }}
-                  className="text-[10px] px-2 py-1.5 rounded bg-accent hover:bg-accent/70 text-muted-foreground transition-colors capitalize"
-                >
-                  {label}
-                </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
     </div>

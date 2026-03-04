@@ -56,7 +56,7 @@ export default function AiTutorPanel() {
             ) : session?.task ? (
               <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{session.task}</p>
             ) : (
-              <p className="text-[10px] text-muted-foreground">Breakthru Assistant</p>
+              <p className="text-[10px] text-muted-foreground">breakthru Assistant</p>
             )}
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function AiTutorPanel() {
           /* No session yet — show contextual suggestions */
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              I'm your Breakthru assistant. Pick a quick action or open any ticket to get step-by-step guidance.
+              I'm your breakthru assistant. Pick a quick action or open any ticket to get step-by-step guidance.
             </p>
 
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2">

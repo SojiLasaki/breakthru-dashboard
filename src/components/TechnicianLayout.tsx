@@ -18,7 +18,7 @@ export default function TechnicianLayout() {
   };
 
   const navItems = [
-    { to: '/ask-ai', label: 'Fix it Felix', icon: Sparkles },
+    { to: '/ask-ai', label: 'Fix-it Felix', icon: Sparkles },
     { to: '/tickets', label: 'Tickets', icon: Ticket },
     { to: '/schedules', label: 'Schedules', icon: Calendar },
     { to: '/profile', label: 'Profile', icon: User },
@@ -35,7 +35,7 @@ export default function TechnicianLayout() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm italic">b</span>
             </div>
-            <span className="text-sm font-semibold text-foreground hidden sm:block">Breakthru</span>
+            <span className="text-sm font-semibold text-foreground hidden sm:block">breakthru</span>
           </div>
 
           {/* Nav links */}

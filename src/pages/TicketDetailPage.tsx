@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import PdfViewer from '@/components/PdfViewer';
 import DiagnosticReportModal from '@/components/DiagnosticReportModal';
 import RepairChecklist, { RepairStep } from '@/components/RepairChecklist';
+import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import {
   ArrowLeft, Search as SearchIcon, User, MapPin, Building,
   Cpu, Wrench, BookOpen, ShieldAlert, Clock, FileText, Save,
@@ -27,22 +28,9 @@ import {
   Cog, Hammer, Settings,
 } from 'lucide-react';
 
-const STATUS_CLASSES: Record<string, string> = {
-  open: 'status-open', assigned: 'status-open', in_progress: 'status-in-progress',
-  awaiting_parts: 'status-in-progress', awaiting_approval: 'status-urgent', completed: 'status-closed',
-};
 const STATUS_LABELS: Record<string, string> = {
   open: 'Open', assigned: 'Assigned', in_progress: 'In Progress',
   awaiting_parts: 'Awaiting Parts', awaiting_approval: 'Escalated', completed: 'Completed',
-};
-
-const PRIORITY_LABEL: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Severe', 5: 'Critical' };
-const PRIORITY_CLASS: Record<number, string> = {
-  1: 'text-muted-foreground bg-muted/50 border border-border',
-  2: 'text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20',
-  3: 'text-orange-400 bg-orange-400/10 border border-orange-400/20',
-  4: 'text-primary bg-primary/10 border border-primary/20',
-  5: 'text-primary bg-primary/10 border border-primary/20',
 };
 
 function stockIndicator(status: string, qty: number) {
@@ -208,9 +196,9 @@ export default function TicketDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-primary text-sm font-semibold">{ticket.ticket_id}</span>
-              <Badge className={`text-[10px] ${STATUS_CLASSES[ticket.status]}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
-              <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${PRIORITY_CLASS[ticket.priority] ?? ''}`}>
-                {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
+              <Badge className={`text-[10px] ${ticketStatusBadgeClass(ticket.status)}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
+              <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${ticketPriorityBadgeClass(ticket.priority)}`}>
+                {ticketPriorityLabel(ticket.priority) || ticket.priority}
               </span>
             </div>
             <h1 className="text-lg font-semibold text-foreground mt-1">{ticket.title}</h1>
@@ -368,9 +356,9 @@ export default function TicketDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-primary text-xs font-semibold">{ticket.ticket_id}</span>
-            <Badge className={`text-[9px] ${STATUS_CLASSES[ticket.status]}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
-            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full capitalize ${PRIORITY_CLASS[ticket.priority] ?? ''}`}>
-              {PRIORITY_LABEL[ticket.priority] ?? ticket.priority}
+            <Badge className={`text-[9px] ${ticketStatusBadgeClass(ticket.status)}`}>{STATUS_LABELS[ticket.status] ?? ticket.status.replace(/_/g, ' ')}</Badge>
+            <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full capitalize ${ticketPriorityBadgeClass(ticket.priority)}`}>
+              {ticketPriorityLabel(ticket.priority) || ticket.priority}
             </span>
           </div>
           <h1 className="text-sm font-semibold text-foreground truncate">{ticket.title}</h1>

@@ -1,6 +1,6 @@
-# Breakthru Dashboard (Frontend)
+# breakthru Dashboard (Frontend)
 
-React + Vite dashboard for Breakthru operations and Fix it Felix chat.
+React + Vite dashboard for breakthru operations and Fix-it Felix chat.
 
 ## Requirements
 
@@ -75,9 +75,9 @@ cd Cummins-Backend
 uv run --no-sync python manage.py seed_demo_users
 ```
 
-## Fix it Felix usage flow
+## Fix-it Felix usage flow
 
-1. Open `Fix it Felix` from the left nav.
+1. Open `Fix-it Felix` from the left nav.
 2. Pick `Model` and `Execution Policy` from the top bar.
 3. Use the paperclip icon to add resources:
    - upload docs

@@ -40,7 +40,9 @@ const ticketAssignedKeys = (ticket: Ticket): string[] =>
   uniqueNonEmpty([
     ticket.assigned_to,
     ticket.assigned_technician,
+    ticket.assigned_technician_username,
     ticket.assigned_technician_profile_id,
+    ticket.assigned_technician_id,
     fullNameFrom(ticket.assigned_technician_first_name, ticket.assigned_technician_last_name),
   ]);
 
@@ -73,7 +75,7 @@ const intersects = (a: string[], b: string[]): boolean => {
 
 export const isTicketAssignedToUser = (ticket: Ticket, user: User | null | undefined): boolean => {
   const ids = userIdentityIds(user);
-  const assignedId = toId(ticket.assigned_technician_profile_id);
+  const assignedId = toId(ticket.assigned_technician_profile_id) || toId(ticket.assigned_technician_id);
   if (ids.length && assignedId && ids.includes(assignedId)) return true;
   return intersects(ticketAssignedKeys(ticket), userIdentityKeys(user));
 };

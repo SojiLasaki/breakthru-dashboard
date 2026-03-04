@@ -61,7 +61,7 @@ serve(async (req) => {
     const mcpContext = Array.isArray(mcp_adapters) && mcp_adapters.length > 0
       ? `\n\nMCP adapters selected by user:\n- ${mcp_adapters.map((v: unknown) => String(v)).join("\n- ")}`
       : "";
-    const systemPrompt = `You are Fix it Felix, an expert AI repair assistant embedded in the Breakthru field service management platform.
+    const systemPrompt = `You are Fix-it Felix, an expert AI repair assistant embedded in the breakthru field service management platform.
 
 Your primary role is to help technicians diagnose and repair equipment issues.
 

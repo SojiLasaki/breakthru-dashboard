@@ -5,11 +5,15 @@ export interface Ticket {
   id: string;
   ticket_id: string;
   assigned_technician: string;
+  /** Backend username for the assigned technician (e.g. "johndoe") */
+  assigned_technician_username?: string;
+  assigned_technician_id?: string | number | null;
   assigned_technician_profile_id: string;
   assigned_technician_first_name: string;
   assigned_technician_last_name: string;
   title: string;
   customer: string;
+  city?: string;
   issue_description: string;
   specialization: string;
   severity: number;
@@ -88,6 +92,10 @@ const unwrapList = (data: any): any[] => {
   return [];
 };
 
+const looksLikeUuid = (value: unknown): boolean =>
+  typeof value === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+
 const normalizeTicket = (raw: any): Ticket => {
   const assignedObj = raw?.assigned_to ?? raw?.assigned_technician;
   const assignedName = userDisplay(assignedObj)
@@ -105,15 +113,26 @@ const normalizeTicket = (raw: any): Ticket => {
   const assignedUser = typeof assignedObj === 'object' && assignedObj !== null ? assignedObj as Record<string, unknown> : null;
   const createdUser = typeof createdObj === 'object' && createdObj !== null ? createdObj as Record<string, unknown> : null;
 
+  const customerFullName = joinName(raw?.customer_first_name, raw?.customer_last_name);
+  const rawCustomer = pick(customerFullName, raw?.customer_name, raw?.customer_display, raw?.customer);
+  const customer = looksLikeUuid(rawCustomer) ? '' : rawCustomer;
+
   return {
     id,
     ticket_id: ticketId,
     assigned_technician: assignedName,
+    assigned_technician_username: pick(
+      raw?.assigned_technician_username,
+      (assignedUser as any)?.username,
+      (assignedUser as any)?.username_display,
+    ),
+    assigned_technician_id: raw?.assigned_technician_id ?? (assignedUser as any)?.id ?? null,
     assigned_technician_profile_id: pick(raw?.assigned_technician_profile_id, (assignedUser as any)?.id),
     assigned_technician_first_name: pick(raw?.assigned_technician_first_name, assignedUser?.first_name),
     assigned_technician_last_name: pick(raw?.assigned_technician_last_name, assignedUser?.last_name),
     title: pick(raw?.title, raw?.summary),
-    customer: pick(raw?.customer),
+    customer,
+    city: pick(raw?.customer_city, raw?.city),
     issue_description: pick(raw?.issue_description, raw?.description),
     specialization: pick(raw?.specialization, raw?.category),
     severity: toNum(raw?.severity, 3),

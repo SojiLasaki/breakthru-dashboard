@@ -65,7 +65,6 @@ const ADMIN_NAV: NavGroup[] = [
     label: 'Resources',
     items: [
       { to: '/manuals',   label: 'Manuals',    icon: BookOpen },
-      { to: '/ask-ai',    label: 'Fix it Felix',  icon: Sparkles },
       { to: '/ai-agents', label: 'Agent Studio',  icon: Bot },
       { to: '/logs',      label: 'Logs',       icon: FileText },
     ],
@@ -109,7 +108,6 @@ const STAFF_NAV: NavGroup[] = [
     label: 'Resources',
     items: [
       { to: '/manuals',   label: 'Manuals',    icon: BookOpen },
-      { to: '/ask-ai',    label: 'Fix it Felix',  icon: Sparkles },
       { to: '/ai-agents', label: 'Agent Studio',  icon: Bot },
       { to: '/logs',      label: 'Logs',       icon: FileText },
     ],
@@ -130,7 +128,7 @@ const TECHNICIAN_NAV: NavGroup[] = [
     label: 'Resources',
     items: [
       { to: '/manuals', label: 'Manuals',   icon: BookOpen },
-      { to: '/ask-ai',  label: 'Fix it Felix', icon: Sparkles },
+      { to: '/ask-ai',  label: 'Fix-it Felix', icon: Sparkles },
     ],
   },
 ];
@@ -147,7 +145,7 @@ const CUSTOMER_NAV: NavGroup[] = [
   {
     label: 'Help',
     items: [
-      { to: '/ask-ai', label: 'Support', icon: HeadphonesIcon },
+      { to: '/manuals', label: 'Support', icon: HeadphonesIcon },
     ],
   },
 ];

@@ -14,15 +14,26 @@ import {
   AtSign,
   Paperclip,
   Database,
+  AlertCircle,
+  Clock,
+  Ticket as TicketIcon,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ticketApi, type Ticket } from '@/services/ticketApi';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
+import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import {
   ExtractedDocument,
   buildKnowledgeDocumentIngestionPlan,
@@ -74,6 +85,40 @@ const STARTERS = [
   'What are the service intervals for a Cummins ISX15?',
   'Explain how to replace fuel injectors',
 ];
+
+const PRIORITY_ORDER: Record<number, number> = { 5: 0, 4: 1, 3: 2, 2: 3, 1: 4 };
+
+const SEVERITY_BADGE_CLASS: Record<number, string> = {
+  1: 'text-muted-foreground',
+  2: 'text-blue-400',
+  3: 'text-yellow-400',
+  4: 'text-orange-400',
+  5: 'text-red-400',
+};
+
+const SEVERITY_LABEL: Record<number, string> = {
+  1: 'Low',
+  2: 'Medium',
+  3: 'High',
+  4: 'Severe',
+  5: 'Critical',
+};
+
+const PRIORITY_LABEL_CARD: Record<number, string> = {
+  1: 'Low',
+  2: 'Medium',
+  3: 'High',
+  4: 'Severe',
+  5: 'Urgent',
+};
+
+const PRIORITY_TEXT_CLASS: Record<number, string> = {
+  1: 'text-muted-foreground',
+  2: 'text-blue-400',
+  3: 'text-yellow-400',
+  4: 'text-orange-400',
+  5: 'text-red-400',
+};
 
 const KNOWLEDGE_GRAPH_COMMAND = 'add this to my knowledge graph';
 type PolicyMode = 'manual' | 'semi_auto' | 'auto';
@@ -217,6 +262,7 @@ const buildResourceMentions = (docs: ExtractedDocument[], urls: string[]): Resou
 export default function AskAiPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isRole } = useAuth();
   const { isStreaming, sendStream } = useFelixChat();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -244,6 +290,9 @@ export default function AskAiPage() {
   const intent: FelixIntent = 'qa';
   const [resourcesOpen, setResourcesOpen] = useState(false);
 
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -253,6 +302,7 @@ export default function AskAiPage() {
   const availableModelEndpoints = modelEndpoints;
   const defaultModelEndpoint = getDefaultModel(availableModelEndpoints);
   const resourceMentions = buildResourceMentions(documents, contextUrls);
+  const isTechnician = isRole ? isRole('technician') : user?.role === 'technician';
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -301,6 +351,43 @@ export default function AskAiPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user || !isTechnician) {
+      setTickets([]);
+      setTicketsLoading(false);
+      return;
+    }
+
+    setTicketsLoading(true);
+    ticketApi
+      .getAll()
+      .then(all => {
+        // Technicians should see ONLY tickets assigned to them
+        const mine = all.filter(t => isTicketAssignedToUser(t, user) && t.status !== 'completed');
+
+        // Sort by "most urgent and most recent":
+        // 1) higher priority first, 2) higher severity, 3) newest created_at.
+        mine.sort((a, b) => {
+          const pa = typeof a.priority === 'number' ? a.priority : 0;
+          const pb = typeof b.priority === 'number' ? b.priority : 0;
+          if (pb !== pa) return pb - pa;
+
+          const sa = typeof a.severity === 'number' ? a.severity : 0;
+          const sb = typeof b.severity === 'number' ? b.severity : 0;
+          if (sb !== sa) return sb - sa;
+
+          const ta = a.created_at || '';
+          const tb = b.created_at || '';
+          return tb.localeCompare(ta);
+        });
+
+        // Show at most 4 top-scoring tickets.
+        setTickets(mine.slice(0, 4));
+      })
+      .catch(() => setTickets([]))
+      .finally(() => setTicketsLoading(false));
+  }, [isTechnician, user?.id]);
 
 
   const toBase64 = (file: File): Promise<string> =>
@@ -645,7 +732,7 @@ export default function AskAiPage() {
       );
     } catch (error) {
       const message = formatFelixError(error);
-      toast({ title: 'Fix it Felix error', description: message, variant: 'destructive' });
+      toast({ title: 'Fix-it Felix error', description: message, variant: 'destructive' });
       setMessages(prev => prev.map(msg => (
         msg.id === assistantId
           ? { ...msg, content: msg.content || 'Sorry, I encountered an error.' }
@@ -681,18 +768,8 @@ export default function AskAiPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] -m-4 sm:-m-6">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center relative">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[hsl(142,70%,55%)] border-2 border-card" />
-          </div>
-          <div>
-            <p className="font-semibold text-sm">Fix it Felix</p>
-            <p className="text-[10px] text-muted-foreground">Breakthru AI Assistant · Online</p>
-          </div>
-        </div>
-        {messages.length > 0 && (
+      {messages.length > 0 && (
+        <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-card flex-shrink-0">
           <Button
             variant="ghost"
             size="sm"
@@ -702,46 +779,106 @@ export default function AskAiPage() {
             <Trash2 className="h-3.5 w-3.5" />
             Clear chat
           </Button>
-        )}
-      </div>
-
-      <div className="px-4 py-2 border-b border-border bg-card/60 flex-shrink-0">
-        <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1">
-            <Database className="h-3 w-3" />
-            Provider: {PROVIDER_LABELS[defaultModelEndpoint?.provider || 'langgraph'] || defaultModelEndpoint?.provider || 'langgraph'}
-          </span>
-          <span>·</span>
-          <span className="inline-flex items-center gap-1">
-            <Cable className="h-3 w-3" />
-            Active connectors: {activeConnectorIds.length}
-          </span>
-          <span>·</span>
-          <span>Model & policy auto-selected from your query</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px]"
-            onClick={() => navigate('/ai-agents?tab=connectors')}
-          >
-            Manage in Agent Studio
-          </Button>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
+          <div className="flex flex-col items-center justify-center min-h-full w-full max-w-3xl mx-auto gap-6 text-center py-8">
             <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
               <Sparkles className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold mb-1">Hi, I'm Fix it Felix</h2>
+              <h2 className="text-lg font-semibold mb-1">Hi, I'm Fix-it Felix</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Your Breakthru AI assistant. Ask about diagnostics, parts, and procedures, or attach visuals and context files.
+                Your breakthru AI assistant. Ask about diagnostics, parts, and procedures, or attach visuals and context files.
               </p>
             </div>
+
+            {/* Technicians: show their most recent assigned tickets above the suggestions (compact cards) */}
+            {isTechnician && tickets.length > 0 && (
+              <div className="w-full flex flex-col items-center text-center">
+                <h3 className="text-xs font-semibold text-foreground flex items-center gap-2">
+                  <AlertCircle className="h-3 w-3 text-primary" /> Your recent tickets
+                </h3>
+
+                <div className="mt-2 w-full">
+                  <div className="grid gap-2 sm:grid-cols-2 max-w-2xl mx-auto">
+                    {tickets.map(t => (
+                      <Button
+                        key={t.id}
+                        variant="outline"
+                        className="flex flex-col items-start gap-1.5 p-2 h-auto text-left border-border hover:border-primary/40 hover:bg-accent/30"
+                        onClick={() => navigate(`/tickets/${t.id}`)}
+                      >
+                        <div className="flex items-start w-full gap-2">
+                          {/* Left column: ID + title + customer/location */}
+                          <div className="min-w-0 flex-1">
+                            <span className="block text-[10px] font-mono text-primary font-semibold truncate">
+                              {t.ticket_id}
+                            </span>
+                            <span className="block text-xs font-medium text-foreground truncate">
+                              {t.title || 'Untitled ticket'}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground truncate">
+                              {t.customer || 'Unknown customer'}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground truncate">
+                              {t.city || 'Unknown location'}
+                            </span>
+                          </div>
+
+                          {/* Right wrapper: vertical divider tight to the right column */}
+                          <div className="flex items-stretch gap-0.5 flex-shrink-0">
+                            <div className="h-[70%] w-px bg-border self-center" />
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[10px] text-muted-foreground">
+                                {t.created_at
+                                  ? new Date(t.created_at).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  : ''}
+                              </span>
+                              <div className="flex flex-col items-end gap-0.5 text-[9px]">
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center font-medium',
+                                    SEVERITY_BADGE_CLASS[t.severity] ?? SEVERITY_BADGE_CLASS[1]
+                                  )}
+                                >
+                                  <span className="mr-1 text-[9px] text-muted-foreground">Severity</span>
+                                  {SEVERITY_LABEL[t.severity] ?? `Sev ${t.severity}`}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center font-medium',
+                                    PRIORITY_TEXT_CLASS[t.priority] ?? PRIORITY_TEXT_CLASS[1]
+                                  )}
+                                >
+                                  <span className="mr-1 text-[9px] text-muted-foreground">Priority</span>
+                                  {PRIORITY_LABEL_CARD[t.priority] ?? `P${t.priority}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 text-[10px] text-primary h-6 px-2"
+                  onClick={() => navigate('/tickets')}
+                >
+                  View all
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
               {STARTERS.map(starter => (
                 <button
@@ -1051,7 +1188,7 @@ export default function AskAiPage() {
             value={input}
             onChange={event => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Fix it Felix anything… (Enter to send, Shift+Enter for new line)"
+            placeholder="Ask Fix-it Felix anything… (Enter to send, Shift+Enter for new line)"
             className="flex-1 min-h-[40px] max-h-32 resize-none bg-background text-sm"
             rows={1}
           />
@@ -1071,7 +1208,7 @@ export default function AskAiPage() {
         </div>
 
         <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-          Fix it Felix can make mistakes. Always verify critical information.
+          Fix-it Felix can make mistakes. Always verify critical information.
         </p>
       </div>
 

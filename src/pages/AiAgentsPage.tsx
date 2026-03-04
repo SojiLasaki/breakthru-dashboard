@@ -303,7 +303,7 @@ export default function AiAgentsPage() {
       });
       toast({
         title: 'MCP adapter added',
-        description: `${created.name} is now available in Fix it Felix.`,
+        description: `${created.name} is now available in Fix-it Felix.`,
       });
     } catch (error) {
       toast({
@@ -492,7 +492,7 @@ export default function AiAgentsPage() {
         <div>
           <h1 className="text-xl font-semibold">Agent Studio</h1>
           <p className="text-muted-foreground text-sm">
-            Configure Fix it Felix behavior, connector integrations, and approval-gated automation.
+            Configure Fix-it Felix behavior, connector integrations, and approval-gated automation.
           </p>
         </div>
         <div className="flex gap-2">
@@ -502,7 +502,7 @@ export default function AiAgentsPage() {
           </Button>
           <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={() => navigate('/ask-ai')}>
             <Sparkles className="h-4 w-4" />
-            Open Fix it Felix
+            Open Fix-it Felix
           </Button>
         </div>
       </div>
@@ -673,7 +673,7 @@ export default function AiAgentsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Register and manage external connectors here. Fix it Felix chat uses enabled connectors from this panel automatically.
+                Register and manage external connectors here. Fix-it Felix chat uses enabled connectors from this panel automatically.
               </p>
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
@@ -976,7 +976,7 @@ export default function AiAgentsPage() {
             <CardContent>
               {agentActions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No agent actions yet. Ask Fix it Felix to create or route a ticket and proposals will appear here.
+                  No agent actions yet. Ask Fix-it Felix to create or route a ticket and proposals will appear here.
                 </p>
               ) : (
                 <div className="space-y-3">

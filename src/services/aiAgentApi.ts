@@ -79,7 +79,7 @@ export interface AgentActionProposal {
 
 const DEFAULT_PROMPT_CONFIG: AgentPromptConfig = {
   system_prompt:
-    'You are Fix it Felix, an expert Cummins repair copilot. Prioritize fast ticket resolution, clear summaries, and actionable steps.',
+    'You are Fix-it Felix, an expert Cummins repair copilot. Prioritize fast ticket resolution, clear summaries, and actionable steps.',
   domain_guardrail_prompt:
     'Only answer Cummins diagnostics, repair, maintenance, parts, and service workflow questions. Refuse non-domain topics with a brief redirect.',
   updated_at: new Date().toISOString(),
