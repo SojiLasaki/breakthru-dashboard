@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local env / temp automation artifacts
+.env
+.env.*
+.playwright-cli/
+playwright-report/
+test-results/
+tmp_playwright*.mjs
