@@ -34,6 +34,29 @@ export interface Ticket {
   diagnostic_reports: [];
   /** Schedules for this ticket (from GET /api/tickets/ or GET /api/tickets/{id}/) */
   schedules?: Schedule[];
+  checklist_template?: TicketChecklistStep[];
+  checklist_progress?: TicketChecklistProgress[];
+  checklist_meta?: Record<string, unknown>;
+}
+
+export interface TicketChecklistStep {
+  id: string;
+  category: 'diagnosis' | 'repair' | 'verification' | 'safety' | string;
+  title: string;
+  instructions?: string;
+  required?: boolean;
+  source_refs?: Array<Record<string, unknown>>;
+}
+
+export interface TicketChecklistProgress {
+  item_id: string;
+  done: boolean;
+  note?: string;
+  flagged?: boolean;
+  time_minutes?: number;
+  photos?: string[];
+  updated_by?: string;
+  updated_at?: string;
 }
 
 const toText = (value: unknown): string => {
@@ -95,6 +118,25 @@ const unwrapList = (data: any): any[] => {
   return [];
 };
 
+const extractErrorMessage = (error: unknown, fallback: string): string => {
+  if (!isAxiosError(error)) return fallback;
+  const payload = error.response?.data as any;
+  if (typeof payload?.detail === 'string' && payload.detail.trim()) return payload.detail.trim();
+  if (typeof payload?.error === 'string' && payload.error.trim()) return payload.error.trim();
+  if (payload && typeof payload === 'object') {
+    const firstEntry = Object.entries(payload).find(([, value]) => {
+      if (typeof value === 'string') return value.trim().length > 0;
+      return Array.isArray(value) && value.length > 0;
+    });
+    if (firstEntry) {
+      const [, value] = firstEntry;
+      if (typeof value === 'string') return value.trim();
+      if (Array.isArray(value)) return String(value[0] || fallback);
+    }
+  }
+  return fallback;
+};
+
 const looksLikeUuid = (value: unknown): boolean =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
@@ -154,6 +196,9 @@ const normalizeTicket = (raw: any): Ticket => {
     description: pick(raw?.description, raw?.issue_description),
     diagnostic_reports: Array.isArray(raw?.diagnostic_reports) ? raw.diagnostic_reports : [],
     schedules: Array.isArray(raw?.schedules) ? raw.schedules.map((s: any) => normalizeSchedule(s)) : undefined,
+    checklist_template: Array.isArray(raw?.checklist_template) ? raw.checklist_template : [],
+    checklist_progress: Array.isArray(raw?.checklist_progress) ? raw.checklist_progress : [],
+    checklist_meta: raw?.checklist_meta && typeof raw.checklist_meta === 'object' ? raw.checklist_meta : {},
   };
 };
 
@@ -336,8 +381,13 @@ export const ticketApi = {
       const { data } = await api.post('/tickets/', payload);
       return normalizeTicket(data);
     } catch (error) {
-      const status = isAxiosError(error) ? error.response?.status : undefined;
-      if (status === 401 || status === 403) throw error;
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 401 || status === 403) throw error;
+        if (status && status < 500) {
+          throw new Error(extractErrorMessage(error, 'Ticket validation failed.'));
+        }
+      }
       // Fallback: create a mock ticket
       const newTicket: Ticket = {
         id: Date.now().toString(),
@@ -378,14 +428,50 @@ export const ticketApi = {
       const { data } = await api.patch(`/tickets/${id}/`, payload);
       return normalizeTicket(data);
     } catch (error) {
-      const status = isAxiosError(error) ? error.response?.status : undefined;
-      if (status === 401 || status === 403) throw error;
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 401 || status === 403) throw error;
+        if (status && status < 500) {
+          throw new Error(extractErrorMessage(error, 'Ticket update failed.'));
+        }
+      }
       const idx = mockTickets.findIndex(t => t.id === id);
       if (idx !== -1) {
         mockTickets[idx] = { ...mockTickets[idx], ...payload, updated_at: new Date().toISOString() };
         return mockTickets[idx];
       }
       throw new Error('Ticket not found');
+    }
+  },
+  updateChecklistProgress: async (id: string, progress: TicketChecklistProgress[]): Promise<Ticket> => {
+    try {
+      const { data } = await api.patch(`/tickets/${id}/checklist_progress/`, { progress });
+      return normalizeTicket(data);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
+      const idx = mockTickets.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        mockTickets[idx] = {
+          ...mockTickets[idx],
+          checklist_progress: progress,
+          updated_at: new Date().toISOString(),
+        };
+        return mockTickets[idx];
+      }
+      throw error;
+    }
+  },
+  regenerateChecklist: async (id: string): Promise<Ticket> => {
+    try {
+      const { data } = await api.post(`/tickets/${id}/regenerate_checklist/`);
+      return normalizeTicket(data);
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401 || status === 403) throw error;
+      const idx = mockTickets.findIndex(t => t.id === id);
+      if (idx !== -1) return mockTickets[idx];
+      throw error;
     }
   },
   delete: async (id: string): Promise<void> => {

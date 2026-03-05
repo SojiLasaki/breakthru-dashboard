@@ -20,6 +20,8 @@ import {
   Eye,
   History,
   Share2,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,6 +39,7 @@ import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
+import { aiAgentApi, type AgentActionProposal } from '@/services/aiAgentApi';
 import {
   ExtractedDocument,
   buildKnowledgeDocumentIngestionPlan,
@@ -295,6 +298,7 @@ export default function AskAiPage() {
   const [activeConnectorIds, setActiveConnectorIds] = useState<string[]>([]);
   const intent: FelixIntent = 'qa';
   const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [proposalBusy, setProposalBusy] = useState<Record<string, boolean>>({});
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [totalTicketCount, setTotalTicketCount] = useState(0);
@@ -713,7 +717,7 @@ export default function AskAiPage() {
     const inferred = inferModelAndPolicy(text, images.length > 0, availableModelEndpoints, defaultModelEndpoint);
 
     const assistantId = `${Date.now()}-assistant`;
-    setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+    setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', proposals: [] }]);
 
     const apiMessages: FelixApiMessage[] = nextHistory.map(message => {
       if (message.role === 'user' && message.images?.length) {
@@ -728,7 +732,7 @@ export default function AskAiPage() {
     });
 
     try {
-      await sendStream(
+      const response = await sendStream(
         {
           messages: apiMessages,
           provider: inferred.provider,
@@ -752,6 +756,26 @@ export default function AskAiPage() {
           },
         }
       );
+      const proposals = Array.isArray(response?.proposals)
+        ? response.proposals.filter((item): item is AgentActionProposal => (
+          Boolean(item)
+          && typeof item === 'object'
+          && String((item as any).action_type || '') !== ''
+          && String((item as any).id || '') !== ''
+        )).map(item => ({
+          ...item,
+          payload: typeof item.payload === 'object' && item.payload ? item.payload : {},
+          result: typeof item.result === 'object' && item.result ? item.result : {},
+          metadata: typeof item.metadata === 'object' && item.metadata ? item.metadata : {},
+        }))
+        : [];
+      if (proposals.length > 0) {
+        setMessages(prev => prev.map(message => (
+          message.id === assistantId
+            ? { ...message, proposals }
+            : message
+        )));
+      }
     } catch (error) {
       const message = formatFelixError(error);
       toast({ title: 'Fix-it Felix error', description: message, variant: 'destructive' });
@@ -780,6 +804,62 @@ export default function AskAiPage() {
     documents,
     mcpAdapters,
   ]);
+
+  const updateProposalInMessage = useCallback((messageId: string, proposal: AgentActionProposal) => {
+    setMessages(prev => prev.map(message => {
+      if (message.id !== messageId || !Array.isArray(message.proposals)) return message;
+      return {
+        ...message,
+        proposals: message.proposals.map(existing => (existing.id === proposal.id ? proposal : existing)),
+      };
+    }));
+  }, [setMessages]);
+
+  const handleProposalApprove = useCallback(async (messageId: string, proposalId: string) => {
+    setProposalBusy(prev => ({ ...prev, [proposalId]: true }));
+    try {
+      const updated = await aiAgentApi.approveAgentAction(proposalId);
+      updateProposalInMessage(messageId, updated);
+      if (updated.action_type === 'create_ticket' && updated.status === 'executed') {
+        const ticketUuid = String(updated.result?.local_ticket_uuid || '').trim();
+        const ticketRef = String(updated.result?.local_ticket_id || '').trim();
+        toast({
+          title: 'Ticket created',
+          description: ticketRef ? `Created ${ticketRef}.` : 'Ticket proposal executed successfully.',
+        });
+        if (ticketUuid) {
+          navigate(`/tickets/${ticketUuid}`);
+        }
+      } else {
+        toast({ title: 'Proposal approved', description: 'Action executed successfully.' });
+      }
+    } catch (error) {
+      toast({
+        title: 'Approval failed',
+        description: error instanceof Error ? error.message : 'Could not approve this proposal.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProposalBusy(prev => ({ ...prev, [proposalId]: false }));
+    }
+  }, [navigate, toast, updateProposalInMessage]);
+
+  const handleProposalReject = useCallback(async (messageId: string, proposalId: string) => {
+    setProposalBusy(prev => ({ ...prev, [proposalId]: true }));
+    try {
+      const updated = await aiAgentApi.rejectAgentAction(proposalId, 'Rejected from chat panel');
+      updateProposalInMessage(messageId, updated);
+      toast({ title: 'Proposal rejected' });
+    } catch (error) {
+      toast({
+        title: 'Rejection failed',
+        description: error instanceof Error ? error.message : 'Could not reject this proposal.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProposalBusy(prev => ({ ...prev, [proposalId]: false }));
+    }
+  }, [toast, updateProposalInMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1152,6 +1232,74 @@ export default function AskAiPage() {
                   )}
                 </div>
               )}
+              {msg.role === 'assistant' && Array.isArray(msg.proposals) && msg.proposals
+                .filter(proposal => proposal.action_type === 'create_ticket')
+                .map(proposal => {
+                  const ticketTitle = String(proposal.payload?.title || 'Proposed Service Ticket');
+                  const ticketDescription = String(proposal.payload?.description || '');
+                  const checklistPreview = Array.isArray(proposal.payload?.checklist_preview)
+                    ? proposal.payload.checklist_preview as string[]
+                    : [];
+                  const missingFields = Array.isArray(proposal.payload?.missing_fields)
+                    ? proposal.payload.missing_fields as string[]
+                    : [];
+                  const isBusy = Boolean(proposalBusy[proposal.id]);
+                  const statusLabel = String(proposal.status || 'pending').replace(/_/g, ' ');
+                  return (
+                    <Card key={proposal.id} className="border-border bg-card/80">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <TicketIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <p className="text-xs font-semibold truncate">{ticketTitle}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] capitalize">{statusLabel}</Badge>
+                        </div>
+                        {ticketDescription && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{ticketDescription}</p>
+                        )}
+                        {missingFields.length > 0 && (
+                          <p className="text-[11px] text-primary">
+                            Missing: {missingFields.join(', ')}
+                          </p>
+                        )}
+                        {checklistPreview.length > 0 && (
+                          <div className="rounded-md border border-border bg-background p-2 space-y-1">
+                            <p className="text-[10px] font-medium text-muted-foreground">Checklist Preview</p>
+                            {checklistPreview.slice(0, 3).map((step, idx) => (
+                              <p key={`${proposal.id}-step-${idx}`} className="text-[11px] text-foreground/90">
+                                {idx + 1}. {step}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {proposal.status === 'pending' ? (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={() => handleProposalApprove(msg.id, proposal.id)}
+                              disabled={isBusy}
+                            >
+                              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                              Confirm
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={() => handleProposalReject(msg.id, proposal.id)}
+                              disabled={isBusy}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Reject
+                            </Button>
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
             </div>
             {msg.role === 'user' && (
               <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">

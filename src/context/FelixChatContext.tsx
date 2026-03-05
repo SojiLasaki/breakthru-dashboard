@@ -1,11 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/context';
+import type { FelixChatProposal } from '@/services/felixChatService';
 
 export interface FelixChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   images?: string[];
+  proposals?: FelixChatProposal[];
 }
 
 export interface FelixHistoryEntry {

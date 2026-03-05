@@ -54,6 +54,21 @@ export interface StreamFelixChatRequest {
   signal?: AbortSignal;
 }
 
+export interface FelixChatProposal {
+  id: string;
+  action_type: 'create_ticket' | 'assign_employee' | 'order_part';
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+  payload: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StreamFelixChatResult {
+  answer: string;
+  proposals: FelixChatProposal[];
+  telemetry?: Record<string, unknown>;
+}
+
 export interface StreamFelixChatHandlers {
   onDelta?: (delta: string, fullText: string) => void;
 }
@@ -332,14 +347,14 @@ export const formatFelixError = (error: unknown): string => {
 export const streamFelixChat = async (
   request: StreamFelixChatRequest,
   handlers: StreamFelixChatHandlers = {}
-): Promise<string> => {
+): Promise<StreamFelixChatResult> => {
   const provider = (request.provider || '').toLowerCase();
   const query = extractLastUserText(request.messages);
   const promptOverrides = readPromptOverrides();
   if (!isLikelyDomainQuestion(query, request.contextBlock)) {
     const refusal = promptOverrides.domain_guardrail_prompt || DEFAULT_DOMAIN_GUARDRAIL_PROMPT;
     handlers.onDelta?.(refusal, refusal);
-    return refusal;
+    return { answer: refusal, proposals: [] };
   }
 
   const backendProviders = new Set(['langgraph', 'openai', 'ollama', 'vllm', 'llamacpp', 'local']);
@@ -366,8 +381,12 @@ export const streamFelixChat = async (
         mcp_adapters: request.mcpAdapters || [],
       });
       const answer = typeof data?.answer === 'string' ? data.answer : '';
+      const proposals = Array.isArray(data?.proposals) ? data.proposals as FelixChatProposal[] : [];
+      const telemetry = data?.telemetry && typeof data.telemetry === 'object'
+        ? data.telemetry as Record<string, unknown>
+        : undefined;
       if (answer) handlers.onDelta?.(answer, answer);
-      return answer;
+      return { answer, proposals, telemetry };
     } catch (error: unknown) {
       const message = extractApiErrorMessage(error, 'Chat request failed');
       const status = isAxiosError(error) ? error.response?.status : undefined;
@@ -445,7 +464,7 @@ export const streamFelixChat = async (
     }
   }
 
-  return fullText;
+  return { answer: fullText, proposals: [] };
 };
 
 const normalizeModelEndpoints = (raw: unknown): FelixModelEndpoint[] => {
