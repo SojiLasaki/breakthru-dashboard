@@ -9,6 +9,12 @@ export interface LogEntry {
   performed_by: string;
   details: string;
   type: 'status_change' | 'ai_recommendation' | 'order' | 'ticket' | 'system';
+  /** Optional ticket id like TK-001, if present */
+  ticket_id?: string;
+  /** Optional customer display name, if present on the log payload */
+  customer_name?: string;
+  /** Optional technician display name/username, if present on the log payload */
+  technician_name?: string;
 }
 
 const MOCK_LOGS: LogEntry[] = [
@@ -36,6 +42,14 @@ function normalizeLogEntry(raw: any, index: number): LogEntry {
     performed_by: toStr(raw?.performed_by ?? raw?.user ?? raw?.username) || 'System',
     details: toStr(raw?.details ?? raw?.description ?? raw?.summary) || '—',
     type,
+    ticket_id: toStr(raw?.ticket_id ?? raw?.ticket_ticket_id ?? raw?.ticket_no ?? raw?.ticket),
+    customer_name: toStr(raw?.customer_name ?? raw?.customer_display ?? raw?.customer),
+    technician_name: toStr(
+      raw?.technician_name ??
+      raw?.technician_display_name ??
+      raw?.assigned_technician ??
+      raw?.technician_username
+    ),
   };
 }
 

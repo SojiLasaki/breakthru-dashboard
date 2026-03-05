@@ -14,17 +14,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 
-const SEVERITY_CONFIG = {
-  Low:     { label: 'Low',     class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',       dot: 'bg-blue-400',     icon: Activity },
-  Medium:  { label: 'Warning',  class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400',   icon: AlertTriangle },
-  Critical: { label: 'Critical', class: 'text-primary bg-primary/10 border border-primary/20',          dot: 'bg-primary',      icon: Zap },
+// Keys must match backend values: severity in {"info","warning","critical"}, status in {"pending","in_progress","resolved","failed"}.
+const SEVERITY_CONFIG: Record<string, { label: string; class: string; dot: string; icon: React.ComponentType<{ className?: string }> }> = {
+  info:     { label: 'Info',     class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',       dot: 'bg-blue-400',     icon: Activity },
+  warning:  { label: 'Warning',  class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', dot: 'bg-yellow-400',   icon: AlertTriangle },
+  critical: { label: 'Critical', class: 'text-primary bg-primary/10 border border-primary/20',          dot: 'bg-primary',      icon: Zap },
 };
 
-const STATUS_CONFIG = {
-  Pending:     { label: 'Pending',     class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', icon: Clock },
-  In_Progress: { label: 'In Progress', class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',       icon: Activity },
-  Resolved:    { label: 'Resolved',    class: 'text-green-400 bg-green-400/10 border border-green-400/20',    icon: CheckCircle2 },
-  Failed:      { label: 'Failed',      class: 'text-primary bg-primary/10 border border-primary/20',          icon: XCircle },
+const STATUS_CONFIG: Record<string, { label: string; class: string; icon: React.ComponentType<{ className?: string }> }> = {
+  pending:      { label: 'Pending',     class: 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20', icon: Clock },
+  in_progress:  { label: 'In Progress', class: 'text-blue-400 bg-blue-400/10 border border-blue-400/20',       icon: Activity },
+  resolved:     { label: 'Resolved',    class: 'text-green-400 bg-green-400/10 border border-green-400/20',    icon: CheckCircle2 },
+  failed:       { label: 'Failed',      class: 'text-primary bg-primary/10 border border-primary/20',          icon: XCircle },
 };
 
 function ConfidenceBadge({ score }: { score: number }) {
@@ -75,15 +76,21 @@ export default function DiagnosticsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = useMemo(() =>
-    diagnostics.filter(d => {
-      const matchSearch = !search || d.title.toLowerCase().includes(search.toLowerCase()) || d.fault_code.toLowerCase().includes(search.toLowerCase()) || d.specialization.toLowerCase().includes(search.toLowerCase());
-      const matchStatus   = statusFilter === 'all'   || d.status === statusFilter;
-      const matchSeverity = severityFilter === 'all' || d.severity === severityFilter;
+  const filtered = useMemo(() => {
+    const searchQ = search.toLowerCase();
+    return diagnostics.filter(d => {
+      const matchSearch =
+        !searchQ ||
+        d.title.toLowerCase().includes(searchQ) ||
+        d.fault_code.toLowerCase().includes(searchQ) ||
+        d.specialization.toLowerCase().includes(searchQ);
+      const sStatus = d.status?.toLowerCase?.() ?? '';
+      const sSeverity = d.severity?.toLowerCase?.() ?? '';
+      const matchStatus   = statusFilter === 'all'   || sStatus === statusFilter.toLowerCase();
+      const matchSeverity = severityFilter === 'all' || sSeverity === severityFilter.toLowerCase();
       return matchSearch && matchStatus && matchSeverity;
-    }),
-    [diagnostics, search, statusFilter, severityFilter]
-  );
+    });
+  }, [diagnostics, search, statusFilter, severityFilter]);
 
   const handleUpdateStatus = async (id: string, status: Diagnostic['status']) => {
     setSaving(true);
@@ -99,9 +106,9 @@ export default function DiagnosticsPage() {
     }
   };
 
-  const Critical  = diagnostics.filter(d => d.severity === 'Critical').length;
-  const Pending   = diagnostics.filter(d => d.status === 'Pending').length;
-  const Resolved  = diagnostics.filter(d => d.status === 'Resolved').length;
+  const Critical  = diagnostics.filter(d => d.severity.toLowerCase() === 'critical').length;
+  const Pending   = diagnostics.filter(d => d.status.toLowerCase() === 'pending').length;
+  const Resolved  = diagnostics.filter(d => d.status.toLowerCase() === 'resolved').length;
   const avgConfidence = diagnostics.length > 0
     ? Math.round(diagnostics.reduce((sum, d) => sum + d.confidence_score, 0) / diagnostics.length)
     : 0;
@@ -186,8 +193,10 @@ export default function DiagnosticsPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={12} className="text-center py-12 text-muted-foreground text-sm">No diagnostics found</td></tr>
               ) : filtered.map((d, i) => {
-                const sev = SEVERITY_CONFIG[d.severity];
-                const sta = STATUS_CONFIG[d.status];
+                const sevKey = d.severity?.toLowerCase?.() ?? '';
+                const staKey = d.status?.toLowerCase?.() ?? '';
+                const sev = SEVERITY_CONFIG[sevKey] ?? SEVERITY_CONFIG['info'];
+                const sta = STATUS_CONFIG[staKey] ?? STATUS_CONFIG['pending'];
                 const StatusIcon = sta.icon;
                 return (
                   <tr
@@ -228,8 +237,10 @@ export default function DiagnosticsPage() {
       <Sheet open={!!selected} onOpenChange={open => !open && setSelected(null)}>
         <SheetContent side="right" className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
           {selected && (() => {
-            const sev = SEVERITY_CONFIG[selected.severity];
-            const sta = STATUS_CONFIG[selected.status];
+            const sevKey = selected.severity?.toLowerCase?.() ?? '';
+            const staKey = selected.status?.toLowerCase?.() ?? '';
+            const sev = SEVERITY_CONFIG[sevKey] ?? SEVERITY_CONFIG['info'];
+            const sta = STATUS_CONFIG[staKey] ?? STATUS_CONFIG['pending'];
             const SevIcon = sev.icon;
             return (
               <>

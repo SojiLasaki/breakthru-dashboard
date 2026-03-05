@@ -23,6 +23,7 @@ import CustomersPage from "@/pages/CustomersPage";
 import ComponentsPage from "@/pages/ComponentsPage";
 import PartsPage from "@/pages/PartsPage";
 import AiAgentsPage from "@/pages/AiAgentsPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import DiagnosticsPage from "@/pages/DiagnosticsPage";
 import AssetsPage from "@/pages/AssetsPage";
@@ -89,7 +90,8 @@ function ProtectedRoutes() {
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/tickets/:id" element={<TicketDetailPage />} />
 
-        <Route path="/assets" element={<AssetsPage />} />
+        {/* Assets and Diagnostics are customer-only */}
+        <Route path="/assets" element={guard(isCustomer, <AssetsPage />)} />
         <Route path="/manuals" element={guard(isAdminOrStaff, <ManualsPage />)} />
         {/* Fix-it Felix is technician-only; non-tech users should never hit this route */}
         <Route path="/ask-ai" element={<Navigate to="/" replace />} />
@@ -101,11 +103,12 @@ function ProtectedRoutes() {
         <Route path="/staff"        element={<StaffPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/logs"         element={<LogsPage />} />
+        <Route path="/analytics"    element={guard(isAdmin, <AnalyticsPage />)} />
         <Route path="/schedules"    element={<SchedulesPage />} />
 
         <Route path="/components"  element={<ComponentsPage />} />
         <Route path="/parts"       element={<PartsPage />} />
-        <Route path="/diagnostics" element={<DiagnosticsPage />} />
+        <Route path="/diagnostics" element={guard(isCustomer, <DiagnosticsPage />)} />
 
         <Route path="/ai-agents" element={guard(isAdminOrStaff, <AiAgentsPage />)} />
 

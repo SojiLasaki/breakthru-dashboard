@@ -13,6 +13,7 @@ export interface Technician {
   email_display?: string;
   email?: string;
   phone_number?: string;
+  hourly_rate?: number;
   specialization?: string;
   status?: string;
   street_address?: string;
@@ -55,6 +56,14 @@ const mapTechnician = (c: any): Technician => {
   const emailDisplay = c.email_display ?? c.email ?? '';
   const fullName = `${firstNameDisplay || ''} ${lastNameDisplay || ''}`.trim() || 'Unknown';
 
+  const hourlyRaw = c.hourly_rate ?? c.hourlyRate ?? c.hourly ?? c.rate;
+  const hourlyRate =
+    typeof hourlyRaw === 'number'
+      ? hourlyRaw
+      : typeof hourlyRaw === 'string'
+        ? Number(hourlyRaw)
+        : undefined;
+
   return {
     id: String(c.id),
     first_name_display: firstNameDisplay || undefined,
@@ -64,6 +73,7 @@ const mapTechnician = (c: any): Technician => {
     email_display: emailDisplay || undefined,
     email: emailDisplay || undefined,
     phone_number: c.phone_number ?? '',
+    hourly_rate: Number.isFinite(hourlyRate as number) ? (hourlyRate as number) : undefined,
     specialization: c.specialization ?? '',
     status: c.status ?? '',
     street_address: c.street_address ?? '',

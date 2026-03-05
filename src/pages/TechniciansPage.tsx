@@ -422,7 +422,7 @@ export default function TechniciansPage() {
                   <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                   </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Phone <Number></Number></Label>
+                  <Label className="text-xs">Phone</Label>
                   <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { customerApi, Customer } from '@/services/customerApi';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Loader2, Search, User, MapPin, Phone, Mail, Building2, Ticket as TicketIcon,
-  Calendar, Hash, Plus, X,
+  Calendar, Hash, Plus, X, LayoutGrid, List,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -25,11 +26,12 @@ const BLANK_CUSTOMER = { first_name: '', last_name: '', email: '', phone: '', co
 
 export default function CustomersPage() {
   const { isRole } = useAuth();
+  const { defaultView } = useTheme();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<'table' | 'cards'>('table');
+  const [view, setView] = useState<'table' | 'cards'>(defaultView);
   const [selected, setSelected] = useState<Customer | null>(null);
   const [relatedTickets, setRelatedTickets] = useState<Ticket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -96,8 +98,6 @@ export default function CustomersPage() {
               <Plus className="h-4 w-4" /> New Customer
             </Button>
           )}
-          <button onClick={() => setView('table')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${view === 'table' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>Table</button>
-          <button onClick={() => setView('cards')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${view === 'cards' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}>Cards</button>
         </div>
       </div>
 
@@ -117,10 +117,37 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative flex-shrink-0">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers, companies, locations..." className="pl-9 bg-card" />
+      {/* Search + View Toggle (table/cards) */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search customers, companies, locations..."
+            className="pl-9 bg-card"
+          />
+        </div>
+        <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
+          <Button
+            variant={view === 'table' ? 'default' : 'ghost'}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setView('table')}
+            title="Table View"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={view === 'cards' ? 'default' : 'ghost'}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setView('cards')}
+            title="Card View"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Main content: list + detail panel side by side */}

@@ -34,6 +34,7 @@ const ADMIN_NAV: NavGroup[] = [
     label: 'Overview',
     items: [
       { to: '/',         label: 'Dashboard',    icon: LayoutDashboard },
+      { to: '/analytics', label: 'Analytics',   icon: Activity },
     ],
   },
   {
@@ -45,13 +46,6 @@ const ADMIN_NAV: NavGroup[] = [
       { to: '/orders',       label: 'Orders',       icon: ShoppingCart },
       { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
       { to: '/schedules',    label: 'Schedules',    icon: CalendarDays },
-    ],
-  },
-  {
-    label: 'Equipment',
-    items: [
-      { to: '/assets',      label: 'Assets',      icon: Cpu },
-      { to: '/diagnostics', label: 'Diagnostics', icon: Activity },
     ],
   },
   {
@@ -91,13 +85,6 @@ const STAFF_NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Equipment',
-    items: [
-      { to: '/assets',      label: 'Assets',      icon: Cpu },
-      { to: '/diagnostics', label: 'Diagnostics', icon: Activity },
-    ],
-  },
-  {
     label: 'Inventory',
     items: [
       { to: '/components', label: 'Components', icon: Package },
@@ -121,7 +108,6 @@ const TECHNICIAN_NAV: NavGroup[] = [
       { to: '/',          label: 'Dashboard',    icon: LayoutDashboard },
       { to: '/tickets',   label: 'My Tickets',   icon: Ticket },
       { to: '/schedules', label: 'My Schedules', icon: CalendarDays },
-      { to: '/assets',    label: 'My Assets',    icon: Cpu },
     ],
   },
   {
