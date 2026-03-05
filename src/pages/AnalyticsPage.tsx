@@ -244,7 +244,7 @@ export default function AnalyticsPage() {
     );
   }, [tickets, technicians]);
 
-  // Average repair time (completed tickets)
+  // Average repair time (from predicted / estimated minutes)
   const avgRepairTimeData = useMemo(() => {
     const today = new Date();
     const days = 30;
@@ -252,11 +252,17 @@ export default function AnalyticsPage() {
     const buckets = new Map<number, { date: string; totalHours: number; n: number }>();
 
     tickets.forEach((t) => {
-      if (t.status !== 'completed') return;
       const created = new Date(t.created_at || '');
-      const updated = new Date(t.updated_at || '');
-      if (Number.isNaN(created.getTime()) || Number.isNaN(updated.getTime())) return;
-      if (created < start || created > today) return;
+      if (Number.isNaN(created.getTime()) || created < start || created > today) return;
+
+      const minutes =
+        typeof t.estimated_resolution_time_minutes === 'number' && t.estimated_resolution_time_minutes > 0
+          ? t.estimated_resolution_time_minutes
+          : typeof t.actual_resolution_time_minutes === 'number' && t.actual_resolution_time_minutes > 0
+            ? t.actual_resolution_time_minutes
+            : 0;
+      const hours = minutes / 60;
+      if (!hours) return;
 
       let bucketDate: Date;
       switch (granularity) {
@@ -285,7 +291,7 @@ export default function AnalyticsPage() {
         buckets.set(ts, { date: label, totalHours: 0, n: 0 });
       }
       const bucket = buckets.get(ts)!;
-      bucket.totalHours += Math.max(0, differenceInHours(updated, created));
+      bucket.totalHours += Math.max(0, hours);
       bucket.n += 1;
     });
 
@@ -378,12 +384,12 @@ export default function AnalyticsPage() {
     tickets.forEach((ticket) => {
       const created = new Date(ticket.created_at || ticket.updated_at || '');
       if (Number.isNaN(created.getTime()) || created < start || created > now) return;
-      // Labor: use actual resolution minutes when available, else estimate
+      // Labor: use predicted / estimated minutes, fall back to actual if needed
       const minutes =
-        typeof ticket.actual_resolution_time_minutes === 'number' && ticket.actual_resolution_time_minutes > 0
-          ? ticket.actual_resolution_time_minutes
-          : typeof ticket.estimated_resolution_time_minutes === 'number' && ticket.estimated_resolution_time_minutes > 0
-            ? ticket.estimated_resolution_time_minutes
+        typeof ticket.estimated_resolution_time_minutes === 'number' && ticket.estimated_resolution_time_minutes > 0
+          ? ticket.estimated_resolution_time_minutes
+          : typeof ticket.actual_resolution_time_minutes === 'number' && ticket.actual_resolution_time_minutes > 0
+            ? ticket.actual_resolution_time_minutes
             : 0;
       const hours = minutes / 60;
 
