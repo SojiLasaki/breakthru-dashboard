@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { getDisplayFullName } from '@/lib/displayUser';
 import { Ticket, Calendar, User, LogOut, Sparkles, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -21,7 +22,6 @@ export default function TechnicianLayout() {
     { to: '/ask-ai', label: 'Fix-it Felix', icon: Sparkles },
     { to: '/tickets', label: 'Tickets', icon: Ticket },
     { to: '/schedules', label: 'Schedules', icon: Calendar },
-    { to: '/profile', label: 'Profile', icon: User },
     { to: '/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -62,8 +62,16 @@ export default function TechnicianLayout() {
 
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground hidden md:block">
-            {user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : ''}
+            {user ? getDisplayFullName(user) : ''}
           </span>
+          <NavLink
+            to="/profile"
+            title={user?.username ? `@${user.username}` : 'Profile'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          >
+            <User className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Profile</span>
+          </NavLink>
           <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleLogout}>
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Logout</span>

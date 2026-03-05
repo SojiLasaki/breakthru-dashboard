@@ -20,11 +20,31 @@ const MOCK_LOGS: LogEntry[] = [
   { id: 6, timestamp: '2024-02-14T09:00:00Z', action: 'Technician Assigned', entity_type: 'Ticket', entity_id: 'TK-002', performed_by: 'Office Staff', details: 'Maria Garcia assigned to fuel injector replacement', type: 'status_change' },
 ];
 
+const toStr = (v: unknown): string => (typeof v === 'string' && v) ? v : '';
+
+function normalizeLogEntry(raw: any, index: number): LogEntry {
+  const id = typeof raw?.id === 'number' ? raw.id : index + 1;
+  const type = (['status_change', 'ai_recommendation', 'order', 'ticket', 'system'] as const).includes(raw?.type)
+    ? raw.type
+    : 'system';
+  return {
+    id,
+    timestamp: toStr(raw?.timestamp ?? raw?.created_at) || new Date().toISOString(),
+    action: toStr(raw?.action ?? raw?.message ?? raw?.title) || 'Event',
+    entity_type: toStr(raw?.entity_type ?? raw?.entity_type_display) || '—',
+    entity_id: toStr(raw?.entity_id ?? raw?.entity_id_display) || '',
+    performed_by: toStr(raw?.performed_by ?? raw?.user ?? raw?.username) || 'System',
+    details: toStr(raw?.details ?? raw?.description ?? raw?.summary) || '—',
+    type,
+  };
+}
+
 export const logApi = {
   getAll: async (): Promise<LogEntry[]> => {
     try {
       const { data } = await api.get('/logs/');
-      return data.results || data;
+      const list = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      return list.length ? list.map((item: any, i: number) => normalizeLogEntry(item, i)) : MOCK_LOGS;
     } catch {
       return MOCK_LOGS;
     }

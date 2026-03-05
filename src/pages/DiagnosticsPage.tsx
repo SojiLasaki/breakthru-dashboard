@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { diagnosticsApi, Diagnostic } from '@/services/diagnosticsApi';
 import { useAuth } from '@/context/AuthContext';
+import { getDisplayFullName } from '@/lib/displayUser';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, Search, AlertTriangle, CheckCircle2, Clock, XCircle,
@@ -52,7 +53,7 @@ export default function DiagnosticsPage() {
   const isAdmin = isRole('admin', 'office');
   const isTech = isRole('technician');
   const isCustomer = isRole('customer');
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const fullName = user ? getDisplayFullName(user) : '';
 
   const load = () => {
     setLoading(true);

@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context';
 import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
@@ -291,6 +291,7 @@ export default function AskAiPage() {
   const [resourcesOpen, setResourcesOpen] = useState(false);
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [totalTicketCount, setTotalTicketCount] = useState(0);
   const [ticketsLoading, setTicketsLoading] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -355,6 +356,7 @@ export default function AskAiPage() {
   useEffect(() => {
     if (!user || !isTechnician) {
       setTickets([]);
+      setTotalTicketCount(0);
       setTicketsLoading(false);
       return;
     }
@@ -382,10 +384,10 @@ export default function AskAiPage() {
           return tb.localeCompare(ta);
         });
 
-        // Show at most 4 top-scoring tickets.
+        setTotalTicketCount(mine.length);
         setTickets(mine.slice(0, 4));
       })
-      .catch(() => setTickets([]))
+      .catch(() => { setTickets([]); setTotalTicketCount(0); })
       .finally(() => setTicketsLoading(false));
   }, [isTechnician, user?.id]);
 
@@ -802,7 +804,7 @@ export default function AskAiPage() {
                   <AlertCircle className="h-3 w-3 text-primary" /> Your recent tickets
                 </h3>
 
-                <div className="mt-2 w-full">
+                <div className="mt-3 w-full">
                   <div className="grid gap-2 sm:grid-cols-2 max-w-2xl mx-auto">
                     {tickets.map(t => (
                       <Button
@@ -874,7 +876,7 @@ export default function AskAiPage() {
                   className="mt-3 text-[10px] text-primary h-6 px-2"
                   onClick={() => navigate('/tickets')}
                 >
-                  View all
+                  ({totalTicketCount}) View all
                 </Button>
               </div>
             )}
@@ -1012,14 +1014,16 @@ export default function AskAiPage() {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                  title="Attach resources"
+                  title="Resources"
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-[min(92vw,28rem)] p-3 space-y-3">
+                <p className="text-xs font-semibold text-foreground">Resources</p>
+
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium">Resources</p>
+                  <span className="text-xs text-muted-foreground">Agent Studio</span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -1027,7 +1031,7 @@ export default function AskAiPage() {
                     className="h-6 px-2 text-[10px]"
                     onClick={() => navigate('/ai-agents?tab=connectors')}
                   >
-                    Agent Studio
+                    Open
                   </Button>
                 </div>
 
@@ -1068,7 +1072,7 @@ export default function AskAiPage() {
                     className="h-8 text-xs"
                   />
                   <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={addContextUrl}>
-                    <Link2 className="h-3 w-3 mr-1" /> Add
+                    Add
                   </Button>
                 </div>
 
@@ -1107,7 +1111,7 @@ export default function AskAiPage() {
                   </div>
                 ) : null}
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 border-t border-border pt-3">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       checked={attachKnowledge}
@@ -1163,24 +1167,6 @@ export default function AskAiPage() {
                 ) : null}
               </PopoverContent>
             </Popover>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 text-muted-foreground hover:text-foreground"
-              onClick={() => cameraInputRef.current?.click()}
-              title="Take photo"
-            >
-              <Camera className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 text-muted-foreground hover:text-foreground"
-              onClick={() => fileInputRef.current?.click()}
-              title="Upload image"
-            >
-              <ImagePlus className="h-4 w-4" />
-            </Button>
           </div>
 
           <Textarea

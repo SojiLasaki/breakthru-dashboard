@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { useAuth } from '@/context/AuthContext';
+import { getDisplayFullName } from '@/lib/displayUser';
 import { isTicketAssignedToUser, isTicketCreatedByUser } from '@/lib/ticketIdentity';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,7 @@ export default function TicketsPage() {
   const [newTicket, setNewTicket] = useState<Partial<Ticket>>({ ...BLANK_TICKET });
   const [creating, setCreating]   = useState(false);
 
-  const fullName    = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const fullName    = user ? getDisplayFullName(user) : '';
   const isAdmin     = isRole('admin', 'office');
   const isTech      = isRole('technician');
   const isCustomer  = isRole('customer');

@@ -1,5 +1,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { getDisplayFullName, getDisplayEmail } from '@/lib/displayUser';
 import { useTheme } from '@/context/ThemeContext';
 import { Bell, Menu, LogOut, User, ChevronDown, Sparkles, Wifi, WifiOff, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -121,7 +122,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 </div>
                 <div className="hidden sm:flex flex-col items-start">
                   <span className="text-xs font-medium">
-                    {user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : 'User'}
+                    {user ? getDisplayFullName(user) : 'User'}
                   </span>
                   <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[user?.role || '']}</span>
                 </div>
@@ -130,7 +131,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
-                {user?.email || '(no email)'}
+                {user && getDisplayEmail(user) !== '—' ? getDisplayEmail(user) : '(no email)'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => window.location.href = '/profile'} className="gap-2 text-sm">

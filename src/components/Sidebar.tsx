@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/context/AuthContext';
+import { getDisplayFullName, getDisplayEmail } from '@/lib/displayUser';
 import {
   LayoutDashboard, Ticket, Users, BookOpen, X, Bot,
   User, Wrench, FileText, ChevronDown, ChevronRight,
@@ -38,7 +39,6 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Operations',
     items: [
-      { to: '/tickets',      label: 'Tickets',      icon: Ticket },
       { to: '/customers',    label: 'Customers',    icon: User },
       { to: '/technicians',  label: 'Technicians',  icon: Users },
       { to: '/staff',        label: 'Staff',        icon: Users },
@@ -264,16 +264,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           >
             <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
               <span className="text-[10px] font-bold text-primary">
-                {user
-                  ? (user.first_name?.[0] ?? user.last_name?.[0] ?? user.username?.[0] ?? '').toUpperCase() || 'U'
-                  : 'U'}
+                {(user && (getDisplayFullName(user)[0] || user.username?.[0] || '')).toUpperCase() || 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate">
-                {user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : 'User'}
+                {user ? getDisplayFullName(user) : 'User'}
               </p>
-              <p className="text-[10px] text-muted-foreground truncate">{user?.email || '(no email)'}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{getDisplayEmail(user) !== '—' ? getDisplayEmail(user) : '(no email)'}</p>
             </div>
           </NavLink>
 

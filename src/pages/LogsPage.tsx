@@ -24,22 +24,29 @@ export default function LogsPage() {
 
   const load = () => {
     setLoading(true);
-    logApi.getAll().then(setLogs).finally(() => setLoading(false));
+    logApi.getAll()
+      .then(data => setLogs(Array.isArray(data) ? data : []))
+      .catch(() => setLogs([]))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const filtered = useMemo(() =>
-    logs.filter(l => {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+
+  const filtered = useMemo(() => {
+    if (!Array.isArray(logs)) return [];
+    return logs.filter(l => {
       const matchSearch = !search ||
-        l.action.toLowerCase().includes(search.toLowerCase()) ||
-        l.details.toLowerCase().includes(search.toLowerCase()) ||
-        l.performed_by.toLowerCase().includes(search.toLowerCase());
+        (l.action || '').toLowerCase().includes(search.toLowerCase()) ||
+        (l.details || '').toLowerCase().includes(search.toLowerCase()) ||
+        (l.performed_by || '').toLowerCase().includes(search.toLowerCase());
       const matchType = typeFilter === 'all' || l.type === typeFilter;
       return matchSearch && matchType;
-    }),
-    [logs, search, typeFilter]
-  );
+    });
+  }, [logs, search, typeFilter]);
 
   return (
     <div className="space-y-4">
@@ -56,7 +63,7 @@ export default function LogsPage() {
       {/* Stat strip */}
       <div className="grid grid-cols-5 gap-2">
         {Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
-          const count = logs.filter(l => l.type === key).length;
+          const count = safeLogs.filter(l => l.type === key).length;
           const Icon = cfg.icon;
           return (
             <button
@@ -108,7 +115,7 @@ export default function LogsPage() {
               const Icon = cfg.icon;
               return (
                 <div
-                  key={log.id}
+                  key={log.id ?? `log-${i}`}
                   className={`flex gap-4 p-4 cursor-pointer ${i % 2 === 1 ? 'bg-muted/10' : ''} hover:bg-accent/30 transition-colors`}
                   onClick={() => setSelected(log)}
                 >
@@ -137,7 +144,7 @@ export default function LogsPage() {
           </div>
         )}
         {!loading && (
-          <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground">{filtered.length} of {logs.length} log entries</div>
+          <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground">{filtered.length} of {safeLogs.length} log entries</div>
         )}
       </div>
 

@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/AuthContext';
+import { getDisplayFullName } from '@/lib/displayUser';
 import { useEffect, useState } from 'react';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { assetsApi } from '@/services/assetsApi';
@@ -16,7 +17,7 @@ export default function CustomerDashboard() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const fullName = user ? getDisplayFullName(user) : '';
 
   useEffect(() => {
     Promise.all([

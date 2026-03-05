@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   User, Mail, Shield, Wrench, Zap, Settings, Users, Search, Clock,
-  CheckCircle2, AlertCircle, Loader2, TrendingUp, Phone, MapPin, Award, Star, Calendar
+  CheckCircle2, AlertCircle, Loader2, TrendingUp, Phone, MapPin, Award, Star, Calendar, Building2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getExpertiseLabel, getSpecializationLabel } from '@/lib/technicianProfile';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass, ticketStatusTextClass } from '@/lib/ticketBadges';
+import { getDisplayFullName, getDisplayEmail, getDisplayPhone, getDisplayStation, getDisplayLocation } from '@/lib/displayUser';
 
 const ROLE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; description: string }> = {
   admin:       { label: 'Administrator',  icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access.' },
@@ -84,6 +85,11 @@ export default function ProfilePage() {
   }, [user?.id, fetchProfile]);
 
   useEffect(() => {
+    if (user?.role === 'admin') {
+      setTickets([]);
+      setLoading(false);
+      return;
+    }
     ticketApi
       .getAll()
       .then(all => {
@@ -92,7 +98,7 @@ export default function ProfilePage() {
           if (user.role === 'technician') {
             scoped = all.filter(t => isTicketAssignedToUser(t, user));
           } else {
-            // For students/customers and other non-technician roles, show only tickets they created.
+            // For customers and other non-technician roles, show only tickets they created.
             scoped = all.filter(t => isTicketCreatedByUser(t, user));
           }
         }
@@ -102,11 +108,15 @@ export default function ProfilePage() {
       .catch(() => setLoading(false));
   }, [user]);
 
+  // Only fetch certifications for technicians (they have technician_profile_id and backend has certs).
   useEffect(() => {
-    if (!user) return;
-    const profileId = user.technician_profile_id ?? user.id;
+    if (!user?.technician_profile_id) {
+      setCertifications([]);
+      setCertificationsLoading(false);
+      return;
+    }
     setCertificationsLoading(true);
-    authApi.getProfile(profileId).then(profileData => {
+    authApi.getProfile(user.technician_profile_id).then(profileData => {
       const root = (profileData && typeof profileData === 'object') ? profileData as any : null;
       const list: any[] = Array.isArray(root?.certifications)
         ? root.certifications
@@ -167,30 +177,36 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
+  const isTechnician = user.role === 'technician';
   const cfg = ROLE_CONFIG[user.role] ?? ROLE_CONFIG['customer'];
   const RoleIcon = cfg.icon;
-  const fullName = [
-    user.first_name_display || user.first_name,
-    user.last_name_display || user.last_name,
-  ].filter(Boolean).join(' ').trim();
-  const displayName = fullName || user.username;
+  const displayName = getDisplayFullName(user);
+  const displayEmail = getDisplayEmail(user);
+  const displayPhone = getDisplayPhone(user);
+  const displayStation = getDisplayStation(user);
+  const displayLocation = getDisplayLocation(user);
   const expScore = user.skill_score ?? EXP_MAP[user.role] ?? 0;
-  const specialization = user.specialization || '—';
-  const expertise = user.expertise || '—';
+  const specialization = user.specialization || (isTechnician ? '—' : '');
+  const expertise = user.expertise || (isTechnician ? '—' : '');
 
   const completedCount = user.total_jobs_completed ?? tickets.filter(t => t.status === 'completed').length;
   const openCount = user.assigned_tickets_count ?? tickets.filter(t => t.status !== 'completed').length;
+
+  const isAdmin = user.role === 'admin';
+  const defaultTab = isTechnician && certifications.length > 0 ? 'certifications' : 'tickets';
 
   return (
     <div className="space-y-6 w-full">
       <div>
         <h1 className="text-xl font-semibold">My Profile</h1>
-        <p className="text-muted-foreground text-sm">Account details, certifications, and ticket history</p>
+        <p className="text-muted-foreground text-sm">
+          {isAdmin ? 'Account details' : 'Account details, certifications, and ticket history'}
+        </p>
       </div>
 
-      {/* Top row: Identity + Experience */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
-        {/* Identity card */}
+      {/* Top row: Identity (+ Experience for technicians only) */}
+      <div className={`grid grid-cols-1 gap-4 ${isTechnician ? 'lg:grid-cols-[1fr_220px]' : ''}`}>
+        {/* Identity card — name, role, contact; for technicians also specialization/expertise */}
         <Card className="bg-card border-border">
           <CardContent className="p-0">
             <div className="flex flex-col sm:flex-row">
@@ -203,7 +219,7 @@ export default function ProfilePage() {
                 <div className="text-center">
                   <p className="font-semibold text-sm">{displayName}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {fullName || user.email || '—'}
+                    {user.username || displayName || displayEmail || '—'}
                   </p>
                 </div>
                 <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full border ${cfg.color}`}>
@@ -216,27 +232,35 @@ export default function ProfilePage() {
                 )}
               </div>
               <div className="flex-1 p-5">
-                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Mail className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Email</p><p className="text-sm">{user.email ? String(user.email).trim() : '—'}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Email</p><p className="text-sm">{displayEmail}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Phone className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Phone</p><p className="text-sm">{user.phone ? String(user.phone).trim() : '—'}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Phone</p><p className="text-sm">{displayPhone}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><MapPin className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Station</p><p className="text-sm">{user.station_name ? String(user.station_name).trim() : '—'}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Station</p><p className="text-sm">{displayStation}</p></div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Wrench className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Specialization</p><p className="text-sm capitalize">{specialization}</p></div>
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Building2 className="h-3.5 w-3.5 text-primary" /></div>
+                    <div><p className="text-[10px] text-muted-foreground uppercase">Location</p><p className="text-sm">{displayLocation}</p></div>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Star className="h-3.5 w-3.5 text-primary" /></div>
-                    <div><p className="text-[10px] text-muted-foreground uppercase">Expertise</p><p className="text-sm capitalize">{expertise}</p></div>
-                  </div>
+                  {isTechnician && (
+                    <>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Wrench className="h-3.5 w-3.5 text-primary" /></div>
+                        <div><p className="text-[10px] text-muted-foreground uppercase">Specialization</p><p className="text-sm capitalize">{specialization}</p></div>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><Star className="h-3.5 w-3.5 text-primary" /></div>
+                        <div><p className="text-[10px] text-muted-foreground uppercase">Expertise</p><p className="text-sm capitalize">{expertise}</p></div>
+                      </div>
+                    </>
+                  )}
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><RoleIcon className="h-3.5 w-3.5 text-primary" /></div>
                     <div><p className="text-[10px] text-muted-foreground uppercase">Role</p><p className="text-sm">{cfg.label}</p></div>
@@ -253,59 +277,64 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Experience + Stats — compact side column */}
-        <div className="flex flex-col gap-3">
-          <Card className="bg-card border-border flex-1">
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                Experience
-              </div>
-              <div className="flex items-end gap-2">
-                <span className="text-3xl font-black text-primary leading-none">{expScore}</span>
-                <span className="text-xs text-muted-foreground pb-0.5">/ 100</span>
-              </div>
-              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${expScore}%` }} />
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                {expScore >= 80 ? 'Expert' : expScore >= 60 ? 'Proficient' : expScore >= 40 ? 'Intermediate' : 'Beginner'}
-              </p>
-              {typeof user.total_years_experience === 'number' && Number.isFinite(user.total_years_experience) && (
+        {/* Experience + Stats — technicians only */}
+        {isTechnician && (
+          <div className="flex flex-col gap-3">
+            <Card className="bg-card border-border flex-1">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                  Experience
+                </div>
+                <div className="flex items-end gap-2">
+                  <span className="text-3xl font-black text-primary leading-none">{expScore}</span>
+                  <span className="text-xs text-muted-foreground pb-0.5">/ 100</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${expScore}%` }} />
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  {user.total_years_experience} year{user.total_years_experience === 1 ? '' : 's'} experience
+                  {expScore >= 80 ? 'Expert' : expScore >= 60 ? 'Proficient' : expScore >= 40 ? 'Intermediate' : 'Beginner'}
                 </p>
-              )}
-            </CardContent>
-          </Card>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-card border border-border rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-primary">{completedCount}</p>
-              <p className="text-[9px] text-muted-foreground">Completed</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-primary">{openCount}</p>
-              <p className="text-[9px] text-muted-foreground">Open</p>
-            </div>
-            <div className="bg-card border border-border rounded-lg p-2 text-center">
-              <p className="text-lg font-bold text-primary">{certifications.filter(c => c.status === 'active').length}</p>
-              <p className="text-[9px] text-muted-foreground">Certs</p>
+                {typeof user.total_years_experience === 'number' && Number.isFinite(user.total_years_experience) && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {user.total_years_experience} year{user.total_years_experience === 1 ? '' : 's'} experience
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-card border border-border rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-primary">{completedCount}</p>
+                <p className="text-[9px] text-muted-foreground">Completed</p>
+              </div>
+              <div className="bg-card border border-border rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-primary">{openCount}</p>
+                <p className="text-[9px] text-muted-foreground">Open</p>
+              </div>
+              <div className="bg-card border border-border rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-primary">{certifications.filter(c => c.status === 'active').length}</p>
+                <p className="text-[9px] text-muted-foreground">Certs</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Tabs: Tickets / Certifications — default to certifications when user has them */}
-      <Tabs defaultValue={certifications.length > 0 ? 'certifications' : 'tickets'} className="w-full">
+      {/* Tabs: No tickets for admin. Certifications only for technicians. Customers see "Previous tickets". */}
+      {!isAdmin && (
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="bg-muted/30 border border-border">
-          <TabsTrigger value="certifications" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-            <Award className="h-3.5 w-3.5" />
-            Certifications
-            <Badge variant="outline" className="text-[10px] ml-1 h-4 px-1.5">{certifications.length}</Badge>
-          </TabsTrigger>
+          {isTechnician && (
+            <TabsTrigger value="certifications" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Award className="h-3.5 w-3.5" />
+              Certifications
+              <Badge variant="outline" className="text-[10px] ml-1 h-4 px-1.5">{certifications.length}</Badge>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="tickets" className="text-xs gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
             <Settings className="h-3.5 w-3.5" />
-            Tickets
+            {user.role === 'customer' ? 'Previous tickets' : 'Tickets'}
             <Badge variant="outline" className="text-[10px] ml-1 h-4 px-1.5">{filtered.length}</Badge>
           </TabsTrigger>
         </TabsList>
@@ -436,6 +465,7 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }

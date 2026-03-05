@@ -18,6 +18,7 @@ import PdfViewer from '@/components/PdfViewer';
 import { technicianApi } from '@/services/technicianApi';
 import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
+import { getDisplayFullName } from '@/lib/displayUser';
 import {
   Send, Loader2, Wrench, BookOpen, Package, Clock,
   FileText, ExternalLink, Sparkles, AlertCircle, Eye, Ticket as TicketIcon,
@@ -61,7 +62,7 @@ export default function TechnicianDashboard() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { isStreaming, sendStream } = useFelixChat();
 
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : '';
+  const fullName = user ? getDisplayFullName(user) : '';
 
   // Fetch tickets
   useEffect(() => {

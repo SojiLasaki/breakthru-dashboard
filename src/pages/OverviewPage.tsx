@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/AuthContext';
+import { getDisplayFullName } from '@/lib/displayUser';
 import { useEffect, useState } from 'react';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { technicianApi, Technician } from '@/services/technicianApi';
@@ -24,7 +25,7 @@ export default function OverviewPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const displayName = user ? [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username : '';
+  const displayName = user ? getDisplayFullName(user) : '';
   const fullName = displayName;
   const isTech = isRole('technician');
   const isCustomer = isRole('customer');
@@ -62,10 +63,10 @@ export default function OverviewPage() {
 
   const statCards = isAdminOrStaff
     ? [
-        { label: 'Open Tickets',    value: openTickets,    icon: TicketIcon,   color: 'text-[hsl(var(--info))]',    bg: 'bg-[hsl(var(--info))]/10' },
-        { label: 'Urgent Issues',   value: urgentTickets,  icon: AlertCircle,  color: 'text-primary',               bg: 'bg-primary/10' },
         { label: 'Available Techs', value: availableTechs, icon: Users,        color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10' },
         { label: 'Pending Orders',  value: pendingOrders,  icon: ShoppingCart,  color: 'text-[hsl(var(--warning))]', bg: 'bg-[hsl(var(--warning))]/10' },
+        { label: 'Customers',       value: customers.length, icon: User,      color: 'text-[hsl(var(--info))]',    bg: 'bg-[hsl(var(--info))]/10' },
+        { label: 'Technicians',     value: technicians.length, icon: Wrench, color: 'text-primary',               bg: 'bg-primary/10' },
       ]
     : isTech
     ? [
@@ -121,9 +122,9 @@ export default function OverviewPage() {
         ))}
       </div>
 
-      {/* ── ADMIN / STAFF: Three-section layout ── */}
+      {/* ── ADMIN / STAFF: Customers + Technicians (no tickets) ── */}
       {isAdminOrStaff && (
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-2 gap-6">
           {/* Customers */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
@@ -182,33 +183,6 @@ export default function OverviewPage() {
                     </div>
                   </div>
                   <span className="text-[10px] text-muted-foreground">{t.active_tickets} tickets</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Recent Tickets */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <TicketIcon className="h-4 w-4 text-primary" /> Recent Tickets
-                </CardTitle>
-                <button onClick={() => navigate('/tickets')} className="text-[10px] text-primary hover:underline">View all</button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {tickets.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground text-sm">No tickets</p>
-              ) : tickets.slice(0, 6).map((t, i) => (
-                <div key={t.id} className={`flex items-center justify-between px-4 py-2.5 ${i % 2 === 1 ? 'bg-muted/20' : ''} hover:bg-accent/30 transition-colors`}>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-foreground truncate">{t.ticket_id}: {t.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Tech: {t.assigned_to}</p>
-                  </div>
-                  <Badge className={`text-[10px] flex-shrink-0 ml-2 ${ticketStatusBadgeClass(t.status)}`}>
-                    {t.status.replace('_', ' ')}
-                  </Badge>
                 </div>
               ))}
             </CardContent>

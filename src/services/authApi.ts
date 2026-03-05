@@ -2,11 +2,13 @@ import { api } from './apiClient';
 import { User } from '@/context/AuthContext';
 
 /**
- * API docs: POST /auth/login/, POST /auth/refresh/ — no GET current-user endpoint.
- * Technicians: GET /technicians/{id}/ for profile.
+ * Login response: { access, refresh, user: { ... }, role?, username? }
+ * Token: data.access. User: data.user.
+ * Technician user fields: email (user.email), phone (user.phone_number), station display (user.station_name), station UUID (user.station), location/city (user.location), specialization (user.specialization), expertise (user.expertise), role (user.role).
+ * Non-technicians may have station, station_name, location where applicable.
  */
 export const authApi = {
-  login: async (username: string, password: string): Promise<User> => {
+  login: async (username: string, password: string): Promise<unknown> => {
     try {
       const { data } = await api.post('/auth/login/', { username, password });
       return data;
@@ -18,6 +20,31 @@ export const authApi = {
 
   /** No /me/ or /auth/user/ endpoint — use stored login data. Returns null so callers keep existing user. */
   getMe: async (): Promise<null> => {
+    return null;
+  },
+
+  /**
+   * Fetch user profile by username to fill null fields. Uses backend routes: all-users, admin-users.
+   */
+  getProfileByUsername: async (username: string): Promise<unknown | null> => {
+    if (!username || !String(username).trim()) return null;
+    const q = encodeURIComponent(username);
+    const endpoints = [
+      `/all-users/?username=${q}`,
+      `/admin-users/?username=${q}`,
+    ];
+    for (const url of endpoints) {
+      try {
+        const { data } = await api.get(url);
+        if (data != null && typeof data === 'object') {
+          const list = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+          const raw = list[0] ?? (typeof data === 'object' && !Array.isArray(data) ? data : null);
+          if (raw && typeof raw === 'object') return raw;
+        }
+      } catch {
+        continue;
+      }
+    }
     return null;
   },
 

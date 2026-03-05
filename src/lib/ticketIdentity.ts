@@ -27,12 +27,14 @@ const uniqueNonEmpty = (values: string[]): string[] => {
 
 const userIdentityKeys = (user: User | null | undefined): string[] => {
   if (!user) return [];
+  const first = (user as any).first_name_display || user.first_name;
+  const last = (user as any).last_name_display || user.last_name;
   return uniqueNonEmpty([
-    fullNameFrom(user.first_name, user.last_name),
+    fullNameFrom(first, last),
     user.username,
     user.email,
-    user.first_name,
-    user.last_name,
+    typeof first === 'string' ? first : '',
+    typeof last === 'string' ? last : '',
   ]);
 };
 
