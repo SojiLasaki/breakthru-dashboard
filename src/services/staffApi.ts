@@ -75,9 +75,14 @@ function loadFromCache(): StaffProfile[] {
   return cached ? JSON.parse(cached) : [];
 }
 
-const STAFF_ROLE_SET = new Set(['admin', 'office', 'superuser']);
-function isStaffRole(rawRole: unknown): boolean {
-  return STAFF_ROLE_SET.has(String(rawRole ?? '').toLowerCase());
+const STAFF_ROLE_SET = new Set(['admin', 'office', 'ofice', 'superuser']);
+function isStaffUser(raw: any): boolean {
+  const role = String(raw?.role ?? '').toLowerCase();
+  const position = String(raw?.position ?? raw?.job_title ?? '').toLowerCase();
+  if (STAFF_ROLE_SET.has(role)) return true;
+  // Some backends expose staff-ness via "position" rather than role.
+  if (position === 'office staff' || position === 'office' || position === 'ofice') return true;
+  return false;
 }
 
 const mapStaff = (s: any): StaffProfile => {
@@ -125,7 +130,8 @@ export const staffApi = {
     try {
       // Backend sources for staff profiles vary by environment; prefer admin-only list,
       // fall back to the global profile list and filter by role.
-      const endpoints = ['/admin-users/', '/all-users/', '/staffs/'] as const;
+      // Prefer /all-users/ here since Staff page needs BOTH admin + office staff.
+      const endpoints = ['/all-users/', '/admin-users/', '/staffs/'] as const;
 
       for (const url of endpoints) {
         try {
@@ -133,7 +139,7 @@ export const staffApi = {
           const list = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
           if (!Array.isArray(list) || list.length === 0) continue;
 
-          const staffOnly = list.filter((u: any) => isStaffRole(u?.role));
+          const staffOnly = list.filter((u: any) => isStaffUser(u));
           const staffs: StaffProfile[] = staffOnly.map(mapStaff);
           saveToCache(staffs);
           return staffs;
