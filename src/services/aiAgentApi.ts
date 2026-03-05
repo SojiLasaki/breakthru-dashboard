@@ -60,6 +60,13 @@ export interface McpOAuthStartResult {
 
 export type AgentActionType = 'create_ticket' | 'assign_employee' | 'order_part';
 export type AgentActionStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+export interface AgentActionFilters {
+  status?: AgentActionStatus;
+  action_type?: AgentActionType;
+  risk_level?: 'low' | 'medium' | 'high';
+  ticket_id?: string;
+  agent_name?: string;
+}
 
 export interface AgentActionProposal {
   id: string;
@@ -394,10 +401,14 @@ export const aiAgentApi = {
     }
   },
 
-  getAgentActions: async (status?: AgentActionStatus): Promise<AgentActionProposal[]> => {
-    const { data } = await api.get('/ai/agent_actions/', {
-      params: status ? { status } : {},
-    });
+  getAgentActions: async (filters: AgentActionFilters = {}): Promise<AgentActionProposal[]> => {
+    const params: Record<string, string> = {};
+    if (filters.status) params.status = filters.status;
+    if (filters.action_type) params.action_type = filters.action_type;
+    if (filters.risk_level) params.risk_level = filters.risk_level;
+    if (filters.ticket_id) params.ticket_id = filters.ticket_id;
+    if (filters.agent_name) params.agent_name = filters.agent_name;
+    const { data } = await api.get('/ai/agent_actions/', { params });
     return toAgentActionList(data);
   },
 

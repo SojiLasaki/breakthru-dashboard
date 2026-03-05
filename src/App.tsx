@@ -110,7 +110,7 @@ function ProtectedRoutes() {
         <Route path="/parts"       element={<PartsPage />} />
         <Route path="/diagnostics" element={guard(isCustomer, <DiagnosticsPage />)} />
 
-        <Route path="/ai-agents" element={guard(isAdminOrStaff, <AiAgentsPage />)} />
+        <Route path="/ai-agents" element={guard(isAdmin, <AiAgentsPage />)} />
 
         <Route path="*" element={<NotFound />} />
       </Route>
