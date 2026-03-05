@@ -666,6 +666,7 @@ export default function AnalyticsPage() {
                   />
                   <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
                   <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted))' }}
                     wrapperStyle={{
                       backgroundColor: 'hsl(var(--background))',
                       borderColor: 'hsl(var(--border))',
