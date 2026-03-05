@@ -15,7 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getExpertiseLabel, getSpecializationLabel } from '@/lib/technicianProfile';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass, ticketStatusTextClass } from '@/lib/ticketBadges';
-import { getDisplayFullName, getDisplayEmail, getDisplayPhone, getDisplayStation, getDisplayLocation } from '@/lib/displayUser';
+import { getDisplayFullName, getDisplayEmail, getDisplayPhone, getDisplayStation, getDisplayCity } from '@/lib/displayUser';
 
 const ROLE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; description: string }> = {
   admin:       { label: 'Administrator',  icon: Shield,   color: 'text-red-400 bg-red-400/10 border-red-400/20',     description: 'Full system access.' },
@@ -110,21 +110,87 @@ export default function ProfilePage() {
 
   // Only fetch certifications for technicians (they have technician_profile_id and backend has certs).
   useEffect(() => {
-    if (!user?.technician_profile_id) {
+    if (!user || user.role !== 'technician') {
       setCertifications([]);
       setCertificationsLoading(false);
       return;
     }
+
+    // 1) Prefer certifications coming directly from JWT user payload (login response)
+    const fromUser = (user as any).certifications;
+    if (Array.isArray(fromUser) && fromUser.length > 0) {
+      setCertificationsLoading(true);
+      const now = new Date();
+      const normalizedFromUser: Certification[] = fromUser.map((item: any) => {
+        const name = String(item?.name ?? item?.certification ?? '').trim();
+        const issuer = String(item?.institution ?? item?.issuer ?? '').trim();
+        const date = String(item?.date_obtained ?? item?.issued_date ?? '').trim();
+        const expires = String(item?.expiration_date ?? item?.expires ?? '—').trim() || '—';
+        const statusRaw = String(item?.status ?? '').trim().toLowerCase();
+
+        const statusFromDates = (() => {
+          if (!expires || expires === '—') return 'active' as const;
+          const exp = new Date(expires);
+          if (Number.isNaN(exp.getTime())) return 'active' as const;
+          if (exp.getTime() < now.getTime()) return 'expired' as const;
+          const days = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          return days <= 60 ? ('expiring' as const) : ('active' as const);
+        })();
+
+        const status: CertificationStatus =
+          statusRaw === 'expired' ? 'expired'
+          : statusRaw === 'expiring' ? 'expiring'
+          : statusRaw === 'active' ? 'active'
+          : statusFromDates;
+
+        return {
+          name: name || 'Certification',
+          issuer: issuer || '—',
+          date: date || new Date().toISOString(),
+          expires: expires || '—',
+          status,
+        };
+      }).filter(c => c.name && c.name !== 'Certification');
+
+      setCertifications(normalizedFromUser);
+      setCertificationsLoading(false);
+      return;
+    }
+
+    // 2) Fallback: fetch from technician profile endpoint only if id looks like a UUID (backend often 404s for numeric ids)
+    const profileIdStr = user.technician_profile_id != null ? String(user.technician_profile_id) : '';
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profileIdStr.trim());
+    if (!profileIdStr || !isUuid) {
+      setCertifications([]);
+      setCertificationsLoading(false);
+      return;
+    }
+
     setCertificationsLoading(true);
-    authApi.getProfile(user.technician_profile_id).then(profileData => {
+    authApi.getProfile(profileIdStr).then(profileData => {
       const root = (profileData && typeof profileData === 'object') ? profileData as any : null;
-      const list: any[] = Array.isArray(root?.certifications)
-        ? root.certifications
-        : Array.isArray(root?.certs)
-          ? root.certs
-          : Array.isArray(root?.certifications_list)
-            ? root.certifications_list
-            : [];
+      let list: any[] = [];
+
+      // Backend may return certifications in several shapes:
+      // - plain array: root.certifications / root.certs / root.certifications_list
+      // - paginated object: { results: [...] }
+      // - dict of id -> certification
+      const rawCerts =
+        root?.certifications ??
+        root?.certs ??
+        root?.certifications_list ??
+        root?.certifications_data ??
+        null;
+
+      if (Array.isArray(rawCerts)) {
+        list = rawCerts;
+      } else if (rawCerts && typeof rawCerts === 'object') {
+        if (Array.isArray((rawCerts as any).results)) {
+          list = (rawCerts as any).results;
+        } else {
+          list = Object.values(rawCerts as Record<string, any>);
+        }
+      }
 
       const now = new Date();
       const normalized: Certification[] = list.map(item => {
@@ -160,7 +226,7 @@ export default function ProfilePage() {
 
       setCertifications(normalized);
     }).catch(() => setCertifications([])).finally(() => setCertificationsLoading(false));
-  }, [user?.id, user?.technician_profile_id]);
+  }, [user]);
 
   const filtered = useMemo(() => {
     return tickets.filter(t => {
@@ -184,7 +250,8 @@ export default function ProfilePage() {
   const displayEmail = getDisplayEmail(user);
   const displayPhone = getDisplayPhone(user);
   const displayStation = getDisplayStation(user);
-  const displayLocation = getDisplayLocation(user);
+  // Location should reflect the station's location (station_city), falling back to profile city.
+  const displayLocation = (user as any).station_city || getDisplayCity(user);
   const expScore = user.skill_score ?? EXP_MAP[user.role] ?? 0;
   const specialization = user.specialization || (isTechnician ? '—' : '');
   const expertise = user.expertise || (isTechnician ? '—' : '');

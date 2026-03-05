@@ -18,6 +18,8 @@ import {
   Clock,
   Ticket as TicketIcon,
   Eye,
+  History,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context';
+import { useFelixChatContext, type FelixChatMessage } from '@/context/FelixChatContext';
 import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
@@ -40,7 +43,7 @@ import {
   extractDocumentContext,
 } from '@/lib/contextIngestion';
 import {
-  FelixChatMessage,
+  type FelixChatMessage as FelixApiMessage,
   FelixMessagePart,
   FelixModelEndpoint,
   KnowledgeSnippet,
@@ -54,13 +57,6 @@ import {
   getMcpAdapters,
   searchKnowledgeSnippets,
 } from '@/services/felixChatService';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  images?: string[];
-}
 
 interface KnowledgeIngestionStatus {
   attempted: number;
@@ -264,9 +260,19 @@ export default function AskAiPage() {
   const { toast } = useToast();
   const { user, isRole } = useAuth();
   const { isStreaming, sendStream } = useFelixChat();
+  const {
+    messages,
+    setMessages,
+    history,
+    addToHistory,
+    loadFromHistory,
+    removeFromHistory,
+    shareConversation,
+    loadSharedConversation,
+  } = useFelixChatContext();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [sharedLinkInput, setSharedLinkInput] = useState('');
   const [input, setInput] = useState('');
   const [images, setImages] = useState<string[]>([]);
 
@@ -308,6 +314,20 @@ export default function AskAiPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const sharedId = searchParams.get('shared');
+    if (sharedId) {
+      const shared = loadSharedConversation(sharedId);
+      if (shared?.length) {
+        setMessages(shared);
+        toast({ title: 'Shared conversation loaded', variant: 'default' });
+      }
+      const updated = new URLSearchParams(searchParams);
+      updated.delete('shared');
+      setSearchParams(updated, { replace: true });
+    }
+  }, [searchParams, setSearchParams, loadSharedConversation, toast]);
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -622,7 +642,7 @@ export default function AskAiPage() {
         .filter((ref): ref is string => Boolean(ref))
     );
 
-    const userMsg: ChatMessage = {
+    const userMsg: FelixChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: text,
@@ -695,7 +715,7 @@ export default function AskAiPage() {
     const assistantId = `${Date.now()}-assistant`;
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
 
-    const apiMessages: FelixChatMessage[] = nextHistory.map(message => {
+    const apiMessages: FelixApiMessage[] = nextHistory.map(message => {
       if (message.role === 'user' && message.images?.length) {
         const parts: FelixMessagePart[] = [];
         if (message.content) parts.push({ type: 'text', text: message.content });
@@ -771,12 +791,119 @@ export default function AskAiPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] -m-4 sm:-m-6">
       {messages.length > 0 && (
-        <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-card flex-shrink-0">
+        <div className="flex items-center justify-end gap-1 px-4 py-2 border-b border-border bg-card flex-shrink-0">
+          {isTechnician && (
+            <>
+              <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
+                    <History className="h-3.5 w-3.5" />
+                    History
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 max-h-[320px] overflow-y-auto p-0" align="end">
+                  <div className="p-2 border-b border-border font-medium text-sm">Chat history</div>
+                  {history.length === 0 ? (
+                    <div className="p-4 text-sm text-muted-foreground">No past conversations yet.</div>
+                  ) : (
+                    <ul className="p-2 space-y-1">
+                      {history.map((entry) => (
+                        <li key={entry.id} className="flex items-center gap-2 group">
+                          <button
+                            type="button"
+                            className="flex-1 text-left text-sm truncate rounded px-2 py-1.5 hover:bg-accent"
+                            onClick={() => {
+                              loadFromHistory(entry.id);
+                              setHistoryOpen(false);
+                            }}
+                          >
+                            {entry.title}
+                          </button>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {new Date(entry.createdAt).toLocaleDateString()}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                            onClick={() => removeFromHistory(entry.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="p-2 border-t border-border space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">Open shared conversation</div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Paste shared link or ID"
+                        value={sharedLinkInput}
+                        onChange={(e) => setSharedLinkInput(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 shrink-0"
+                        onClick={() => {
+                          const raw = sharedLinkInput.trim();
+                          let shareId = raw;
+                          if (raw.includes('shared=')) {
+                            try {
+                              const url = new URL(raw.startsWith('http') ? raw : `https://x?${raw.split('?')[1] || ''}`);
+                              shareId = url.searchParams.get('shared') || raw;
+                            } catch {
+                              const q = raw.includes('?') ? raw.split('?')[1] : raw;
+                              shareId = new URLSearchParams(q).get('shared') || raw;
+                            }
+                          }
+                          if (shareId) {
+                            const shared = loadSharedConversation(shareId);
+                            if (shared?.length) {
+                              setMessages(shared);
+                              setHistoryOpen(false);
+                              setSharedLinkInput('');
+                              toast({ title: 'Shared conversation loaded' });
+                            } else {
+                              toast({ title: 'Invalid or expired link', variant: 'destructive' });
+                            }
+                          }
+                        }}
+                      >
+                        Open
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-xs text-muted-foreground"
+                onClick={() => {
+                  const url = shareConversation();
+                  if (url) {
+                    navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copied', description: 'Share this link with another technician to open this conversation.' });
+                  } else {
+                    toast({ title: 'Nothing to share', variant: 'destructive' });
+                  }
+                }}
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share
+              </Button>
+            </>
+          )}
           <Button
             variant="ghost"
             size="sm"
             className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
-            onClick={() => setMessages([])}
+            onClick={() => {
+              if (messages.length > 0) addToHistory(messages);
+              setMessages([]);
+            }}
           >
             <Trash2 className="h-3.5 w-3.5" />
             Clear chat
@@ -787,6 +914,89 @@ export default function AskAiPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-full w-full max-w-3xl mx-auto gap-6 text-center py-8">
+            {isTechnician && history.length > 0 && (
+              <div className="flex justify-end w-full max-w-2xl -mt-2 mb-2">
+                <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
+                      <History className="h-3.5 w-3.5" />
+                      Chat history
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 max-h-[320px] overflow-y-auto p-0" align="end">
+                    <div className="p-2 border-b border-border font-medium text-sm">Chat history</div>
+                    <ul className="p-2 space-y-1">
+                      {history.map((entry) => (
+                        <li key={entry.id} className="flex items-center gap-2 group">
+                          <button
+                            type="button"
+                            className="flex-1 text-left text-sm truncate rounded px-2 py-1.5 hover:bg-accent"
+                            onClick={() => {
+                              loadFromHistory(entry.id);
+                              setHistoryOpen(false);
+                            }}
+                          >
+                            {entry.title}
+                          </button>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {new Date(entry.createdAt).toLocaleDateString()}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                            onClick={() => removeFromHistory(entry.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="p-2 border-t border-border space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">Open shared conversation</div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Paste shared link or ID"
+                          value={sharedLinkInput}
+                          onChange={(e) => setSharedLinkInput(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 shrink-0"
+                          onClick={() => {
+                            const raw = sharedLinkInput.trim();
+                            let shareId = raw;
+                            if (raw.includes('shared=')) {
+                              try {
+                                const url = new URL(raw.startsWith('http') ? raw : `https://x?${raw.split('?')[1] || ''}`);
+                                shareId = url.searchParams.get('shared') || raw;
+                              } catch {
+                                const q = raw.includes('?') ? raw.split('?')[1] : raw;
+                                shareId = new URLSearchParams(q).get('shared') || raw;
+                              }
+                            }
+                            if (shareId) {
+                              const shared = loadSharedConversation(shareId);
+                              if (shared?.length) {
+                                setMessages(shared);
+                                setHistoryOpen(false);
+                                setSharedLinkInput('');
+                                toast({ title: 'Shared conversation loaded' });
+                              } else {
+                                toast({ title: 'Invalid or expired link', variant: 'destructive' });
+                              }
+                            }
+                          }}
+                        >
+                          Open
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
             <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
               <Sparkles className="h-7 w-7 text-primary" />
             </div>

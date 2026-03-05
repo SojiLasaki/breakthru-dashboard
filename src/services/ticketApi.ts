@@ -1,5 +1,6 @@
 import { api } from './apiClient';
 import { isAxiosError } from 'axios';
+import { normalizeSchedule, type Schedule } from './scheduleApi';
 
 export interface Ticket {
   id: string;
@@ -31,6 +32,8 @@ export interface Ticket {
   updated_at: string;
   description: string;
   diagnostic_reports: [];
+  /** Schedules for this ticket (from GET /api/tickets/ or GET /api/tickets/{id}/) */
+  schedules?: Schedule[];
 }
 
 const toText = (value: unknown): string => {
@@ -150,6 +153,7 @@ const normalizeTicket = (raw: any): Ticket => {
     updated_at: pick(raw?.updated_at, raw?.updatedAt, raw?.created_at, raw?.createdAt),
     description: pick(raw?.description, raw?.issue_description),
     diagnostic_reports: Array.isArray(raw?.diagnostic_reports) ? raw.diagnostic_reports : [],
+    schedules: Array.isArray(raw?.schedules) ? raw.schedules.map((s: any) => normalizeSchedule(s)) : undefined,
   };
 };
 

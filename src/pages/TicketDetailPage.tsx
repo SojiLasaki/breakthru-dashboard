@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ticketApi, Ticket } from '@/services/ticketApi';
+import { scheduleApi, Schedule, formatDuration } from '@/services/scheduleApi';
 import { diagnosticsApi, Diagnostic } from '@/services/diagnosticsApi';
 import { manualApi, Manual } from '@/services/manualApi';
 import { partApi, Part } from '@/services/partApi';
@@ -25,7 +26,7 @@ import {
   Cpu, Wrench, BookOpen, ShieldAlert, Clock, FileText, Save,
   Play, Package, CheckCircle2, Loader2, ExternalLink, AlertTriangle,
   ListChecks, ChevronRight, ChevronDown, Eye, Plus,
-  Cog, Hammer, Settings,
+  Cog, Hammer, Settings, CalendarDays,
 } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -88,6 +89,7 @@ export default function TicketDetailPage() {
   const [repairNotes, setRepairNotes] = useState('');
   const [timeSpent, setTimeSpent] = useState('');
   const [customerExpanded, setCustomerExpanded] = useState(false);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -109,6 +111,16 @@ export default function TicketDetailPage() {
       navigate(-1);
     }).finally(() => setLoading(false));
   }, [id]);
+
+  // Schedules: use ticket.schedules if present, else fetch GET /api/tickets/{id}/schedules/
+  useEffect(() => {
+    if (!id) return;
+    if (ticket?.schedules && ticket.schedules.length > 0) {
+      setSchedules(ticket.schedules);
+      return;
+    }
+    scheduleApi.getByTicketId(id).then(setSchedules).catch(() => setSchedules([]));
+  }, [id, ticket?.schedules]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!ticket) return;
@@ -226,6 +238,31 @@ export default function TicketDetailPage() {
                     {ticket.issue_description || ticket.description || 'No description provided.'}
                   </p>
                 </div>
+
+                {/* Schedule */}
+                {schedules.length > 0 && (
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5" /> Schedule
+                    </p>
+                    <div className="space-y-2">
+                      {schedules.map((s) => (
+                        <div key={s.id} className="text-xs bg-muted/30 border border-border rounded-lg p-3 space-y-1">
+                          <p><span className="text-muted-foreground">Starts:</span> {new Date(s.scheduled_time).toLocaleString()}</p>
+                          {(s.estimated_end_time || s.estimated_duration_minutes != null) && (
+                            <p>
+                              <span className="text-muted-foreground">Estimated end:</span>{' '}
+                              {s.estimated_end_time ? new Date(s.estimated_end_time).toLocaleString() : `+${s.estimated_duration_minutes} min`}
+                            </p>
+                          )}
+                          <p><span className="text-muted-foreground">Duration:</span> {formatDuration(s.duration)}</p>
+                          <p><span className="text-muted-foreground">Technician:</span> {s.technician_name || '—'}</p>
+                          {s.description && <p className="text-muted-foreground mt-1">{s.description}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Customer Info */}
                 <Collapsible open={customerExpanded} onOpenChange={setCustomerExpanded}>

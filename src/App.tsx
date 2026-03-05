@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { FelixChatProvider } from "@/context/FelixChatContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 
@@ -138,6 +139,7 @@ const App = () => (
     <TooltipProvider>
       <ThemeProvider>
         <AuthProvider>
+          <FelixChatProvider>
           <NotificationProvider>
             <Toaster />
             <Sonner />
@@ -145,6 +147,7 @@ const App = () => (
               <AppRouter />
             </BrowserRouter>
           </NotificationProvider>
+          </FelixChatProvider>
         </AuthProvider>
       </ThemeProvider>
     </TooltipProvider>

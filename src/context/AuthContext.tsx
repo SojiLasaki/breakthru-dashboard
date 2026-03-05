@@ -19,6 +19,10 @@ export interface User {
   phone?: string;
   status?: string;
   station_name?: string;
+  /** Station city from API (station_city) — use for Location display */
+  station_city?: string;
+  /** Station state from API (station_state) */
+  station_state?: string;
   street_address?: string;
   city?: string;
   state?: string;
@@ -32,6 +36,8 @@ export interface User {
   date_joined?: string;
   performance_rating?: number;
   assigned_tickets_count?: number;
+  /** Optional raw certifications array from JWT for technicians */
+  certifications?: unknown[];
 }
 
 interface AuthContextType {
@@ -203,23 +209,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toNonEmptyString((payload as any)?.station_display) ||
       toNonEmptyString(((payload as any)?.station && typeof (payload as any)?.station === 'object') ? (payload as any).station.name : '');
 
-    // Location (city): user.location = station city or profile city
-    const city =
+    // Location: backend may set user.location to \"STATE, CITY\" derived from station.
+    // We try to extract structured city/state from that, but still respect explicit fields.
+    const locationRaw =
       toNonEmptyString((base as any).location) ||
       toNonEmptyString((base as any).location_display) ||
+      toNonEmptyString((payload as any)?.location) ||
+      toNonEmptyString((payload as any)?.location_display);
+
+    let city =
       toNonEmptyString((base as any).city) ||
       toNonEmptyString((base as any).city_display) ||
-      toNonEmptyString((payload as any)?.location) ||
-      toNonEmptyString((payload as any)?.location_display) ||
+      toNonEmptyString((base as any).station_city) ||
       toNonEmptyString((payload as any)?.city) ||
-      toNonEmptyString((payload as any)?.city_display);
+      toNonEmptyString((payload as any)?.city_display) ||
+      toNonEmptyString((payload as any)?.station_city);
+
+    let state =
+      toNonEmptyString((base as any).state) ||
+      toNonEmptyString((base as any).station_state) ||
+      toNonEmptyString((payload as any)?.state) ||
+      toNonEmptyString((payload as any)?.station_state);
+
+    // If we have a combined location like \"STATE, CITY\" and either city or state is missing,
+    // split it and fill the structured fields so the profile can show \"City, State\".
+    if (locationRaw && (!city || !state)) {
+      if (locationRaw.includes(',')) {
+        const [first, ...rest] = locationRaw.split(',');
+        const parsedState = toNonEmptyString(first);
+        const parsedCity = toNonEmptyString(rest.join(','));
+        if (!state && parsedState) state = parsedState;
+        if (!city && parsedCity) city = parsedCity;
+      } else if (!city) {
+        city = locationRaw;
+      }
+    }
 
     const streetAddress =
       toNonEmptyString((base as any).street_address) ||
       toNonEmptyString((payload as any)?.street_address);
-    const state =
-      toNonEmptyString((base as any).state) ||
-      toNonEmptyString((payload as any)?.state);
     const postalCode =
       toNonEmptyString((base as any).postal_code) ||
       toNonEmptyString((payload as any)?.postal_code);
@@ -250,6 +278,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const performanceRating = typeof perfRaw === 'number' && Number.isFinite(perfRaw) ? perfRaw : undefined;
     const assignedRaw = (base as any).assigned_tickets_count ?? (payload as any)?.assigned_tickets_count;
     const assignedTicketsCount = typeof assignedRaw === 'number' && Number.isFinite(assignedRaw) ? assignedRaw : undefined;
+    const rawCerts = (base as any).certifications ?? (payload as any)?.certifications;
+    const certifications = Array.isArray(rawCerts) ? rawCerts : undefined;
+
+    const stationCity =
+      toNonEmptyString((base as any).station_city) || toNonEmptyString((payload as any)?.station_city);
+    const stationState =
+      toNonEmptyString((base as any).station_state) || toNonEmptyString((payload as any)?.station_state);
 
     return {
       id,
@@ -266,6 +301,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...(phone && { phone }),
       ...(status && { status }),
       ...(stationName && { station_name: stationName }),
+      ...(stationCity && { station_city: stationCity }),
+      ...(stationState && { station_state: stationState }),
       ...(city && { city }),
       ...(streetAddress && { street_address: streetAddress }),
       ...(state && { state }),
@@ -279,6 +316,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...(dateJoined && { date_joined: dateJoined }),
       ...(performanceRating != null && { performance_rating: performanceRating }),
       ...(assignedTicketsCount != null && { assigned_tickets_count: assignedTicketsCount }),
+      ...(certifications && { certifications }),
     };
   };
 
@@ -376,8 +414,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isEmpty = (v: unknown): boolean =>
     v == null || (typeof v === 'string' && !v.trim());
 
-  const fill = (cur: unknown, from: unknown): unknown =>
-    isEmpty(cur) && !isEmpty(from) ? from : cur;
+  // Helper to prefer `from` when `cur` is empty, always returning a string or undefined.
+  const fill = (cur: unknown, from: unknown): string | undefined => {
+    if (isEmpty(cur) && !isEmpty(from)) {
+      return typeof from === 'string' ? from : String(from);
+    }
+    if (!isEmpty(cur)) {
+      return typeof cur === 'string' ? cur : String(cur);
+    }
+    return undefined;
+  };
 
   const fetchProfile = useCallback(async () => {
     const token = localStorage.getItem('access');
@@ -393,18 +439,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isEmpty(current.station_name) ||
       isEmpty(current.city);
 
+    // Backend GET /api/technicians/{id}/ often expects a UUID; numeric ids (e.g. 16) can 404.
+    const looksLikeUuid = (v: string | number) =>
+      typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim());
+
     try {
       let fromTech: User | null = null;
       let fromUsername: User | null = null;
 
-      if (isTech && profileId != null && profileId !== '') {
+      const profileIdStr = profileId != null ? String(profileId) : '';
+      if (isTech && profileIdStr !== '' && looksLikeUuid(profileIdStr)) {
         try {
-          const profileData = await authApi.getProfile(profileId);
+          const profileData = await authApi.getProfile(profileIdStr);
           if (profileData && typeof profileData === 'object') {
             fromTech = normalizeUserPayload(profileData);
           }
         } catch {
-          /* backend may not have /api/technicians/ */
+          /* backend may not have /api/technicians/ or endpoint uses different id format */
         }
       }
       if (current.username && needsFill) {

@@ -8,13 +8,48 @@ export interface Schedule {
   customer_name: string;
   technician: string;
   technician_name: string;
+  technician_username?: string | null;
+  technician_profile_id?: string | null;
+  technician_id?: number | string | null;
   ticket: string | null;
   ticket_id: string | null;
   scheduled_time: string;
-  duration: string; // ISO 8601 duration or "HH:MM:SS"
+  duration: string;
+  estimated_end_time?: string | null;
+  estimated_duration_minutes?: number | null;
   description: string;
   created_at: string;
   updated_at: string;
+}
+
+/** Map backend schedule object to frontend Schedule (list + ticket's schedules use same shape). */
+export function normalizeSchedule(raw: any): Schedule {
+  const id = raw?.id != null ? String(raw.id) : '';
+  const scheduled = raw?.scheduled_time ?? raw?.scheduled_at ?? '';
+  const duration = typeof raw?.duration === 'string' ? raw.duration : (raw?.duration ? '01:00:00' : '00:00:00');
+  const techId = raw?.technician_id ?? raw?.technician_profile_id ?? raw?.technician;
+  const custId = raw?.customer_id ?? raw?.customer;
+  const techProfileId = raw?.technician_profile_id != null ? String(raw.technician_profile_id) : null;
+  const techIdNum = raw?.technician_id != null ? (typeof raw.technician_id === 'number' ? raw.technician_id : Number(raw.technician_id)) : null;
+  return {
+    id,
+    customer: typeof custId === 'string' ? custId : (custId != null ? String(custId) : ''),
+    customer_name: (raw?.customer_display_name ?? raw?.customer_name ?? '').trim() || '—',
+    technician: typeof techId === 'string' ? techId : (techId != null ? String(techId) : ''),
+    technician_name: (raw?.technician_display_name ?? raw?.technician_name ?? '').trim() || '—',
+    technician_username: typeof raw?.technician_username === 'string' ? raw.technician_username.trim() : undefined,
+    technician_profile_id: techProfileId || undefined,
+    technician_id: techIdNum ?? (typeof raw?.technician_id === 'number' ? raw.technician_id : undefined),
+    ticket: raw?.ticket_id ?? raw?.ticket ?? null,
+    ticket_id: (raw?.ticket_ticket_id ?? raw?.ticket_id ?? raw?.ticket_no ?? '').trim() || null,
+    scheduled_time: scheduled,
+    duration,
+    estimated_end_time: raw?.estimated_end_time ?? null,
+    estimated_duration_minutes: typeof raw?.estimated_duration_minutes === 'number' ? raw.estimated_duration_minutes : null,
+    description: (raw?.description ?? '').trim() || '',
+    created_at: raw?.created_at ?? raw?.createdAt ?? '',
+    updated_at: raw?.updated_at ?? raw?.updatedAt ?? raw?.created_at ?? '',
+  };
 }
 
 export function getScheduleStatus(scheduled_time: string, duration: string): ScheduleStatus {
@@ -134,20 +169,41 @@ const MOCK_SCHEDULES: Schedule[] = [
 
 let mockSchedules = [...MOCK_SCHEDULES];
 
+export interface ScheduleListParams {
+  technician?: string | number;
+  customer?: string;
+  ticket?: string;
+  from_date?: string;
+  to_date?: string;
+  ordering?: string;
+}
+
 export const scheduleApi = {
-  getAll: async (params?: Record<string, string>): Promise<Schedule[]> => {
+  getAll: async (params?: ScheduleListParams): Promise<Schedule[]> => {
     try {
-      const { data } = await api.get('/schedules/', { params });
-      return data.results || data;
+      const { data } = await api.get('/schedules/', { params: params as Record<string, string> });
+      const list = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      return list.map((raw: any) => normalizeSchedule(raw));
     } catch {
       return mockSchedules;
+    }
+  },
+
+  /** Schedules for a specific ticket. GET /api/tickets/{ticket_id}/schedules/ */
+  getByTicketId: async (ticketId: string): Promise<Schedule[]> => {
+    try {
+      const { data } = await api.get(`/tickets/${ticketId}/schedules/`);
+      const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      return list.map((raw: any) => normalizeSchedule(raw));
+    } catch {
+      return [];
     }
   },
 
   getById: async (id: string): Promise<Schedule> => {
     try {
       const { data } = await api.get(`/schedules/${id}/`);
-      return data;
+      return normalizeSchedule(data ?? {});
     } catch {
       const s = mockSchedules.find(s => s.id === id);
       if (!s) throw new Error('Schedule not found');

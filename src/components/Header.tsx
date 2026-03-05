@@ -122,7 +122,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 </div>
                 <div className="hidden sm:flex flex-col items-start">
                   <span className="text-xs font-medium">
-                    {user ? getDisplayFullName(user) : 'User'}
+                    {/* Show only name (no username fallback) */}
+                    {user
+                      ? `${(user.first_name_display || user.first_name || '').trim()} ${(user.last_name_display || user.last_name || '').trim()}`.trim() || 'User'
+                      : 'User'}
                   </span>
                   <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[user?.role || '']}</span>
                 </div>

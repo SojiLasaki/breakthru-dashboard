@@ -61,12 +61,9 @@ export default function TechnicianLayout() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground hidden md:block">
-            {user ? getDisplayFullName(user) : ''}
-          </span>
           <NavLink
             to="/profile"
-            title={user?.username ? `@${user.username}` : 'Profile'}
+            title="Profile"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
           >
             <User className="h-3.5 w-3.5" />

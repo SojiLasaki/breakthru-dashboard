@@ -63,8 +63,6 @@ export default function SchedulesPage() {
   // ── State ──
   const [view, setView] = useState<'table' | 'calendar'>('table');
   const [search, setSearch] = useState('');
-  const [filterTechnician, setFilterTechnician] = useState('all');
-  const [filterCustomer, setFilterCustomer] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortAsc, setSortAsc] = useState(true);
   const [calMonth, setCalMonth] = useState(new Date());
@@ -76,10 +74,41 @@ export default function SchedulesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // ── Data ──
-  const { data: schedules = [], isLoading } = useQuery({
+  const isTechnician = isRole('technician');
+  const isCustomer = isRole('customer');
+  const isAdminOrOffice = isRole('admin', 'office');
+
+  // Always call GET /api/schedules/ (no technician param). We'll filter by logged-in user on the frontend.
+  const { data: schedulesRaw = [], isLoading } = useQuery({
     queryKey: ['schedules'],
-    queryFn: () => scheduleApi.getAll(),
+    queryFn: async () => {
+      if (isCustomer) return [];
+      return scheduleApi.getAll();
+    },
+    enabled: !isCustomer,
   });
+
+  // Technicians see only their schedules: match by username (technician_display_name normalized) or ids; admin/office see all; customers see none.
+  const normalizeForMatch = (v: string) => (v || '').toLowerCase().replace(/\s+/g, '');
+  const schedules = useMemo(() => {
+    if (isCustomer) return [];
+    if (isAdminOrOffice) return schedulesRaw;
+    if (isTechnician && user) {
+      const usernameNorm = normalizeForMatch(user.username || '');
+      const profileId = user.technician_profile_id != null ? String(user.technician_profile_id) : '';
+      const userId = user.id != null ? String(user.id) : '';
+      return schedulesRaw.filter(
+        (s) =>
+          (usernameNorm && normalizeForMatch(s.technician_name || '') === usernameNorm) ||
+          (typeof (s as any).technician_username === 'string' && normalizeForMatch((s as any).technician_username) === usernameNorm) ||
+          (s.technician_profile_id && s.technician_profile_id === profileId) ||
+          (s.technician_id != null && String(s.technician_id) === userId) ||
+          s.technician === profileId ||
+          s.technician === userId
+      );
+    }
+    return schedulesRaw;
+  }, [schedulesRaw, isCustomer, isAdminOrOffice, isTechnician, user]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => scheduleApi.delete(id),
@@ -111,31 +140,21 @@ export default function SchedulesPage() {
   });
 
   // ── Derived ──
-  const uniqueTechs = useMemo(() => [...new Set(schedules.map(s => s.technician_name))].sort(), [schedules]);
-  const uniqueCustomers = useMemo(() => [...new Set(schedules.map(s => s.customer_name))].sort(), [schedules]);
   const allTechIds = useMemo(() => [...new Set(schedules.map(s => s.technician))], [schedules]);
 
   const filtered = useMemo(() => {
     let list = schedules;
-
-    // RBAC filtering
-    if (isRole('technician')) {
-      list = list.filter(s => s.technician === user?.id?.toString());
-    } else if (isRole('customer')) {
-      list = list.filter(s => s.customer === user?.id?.toString());
-    }
+    const toLower = (v?: string | null) => (typeof v === 'string' ? v.toLowerCase() : '');
 
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(s =>
-        s.customer_name.toLowerCase().includes(q) ||
-        s.technician_name.toLowerCase().includes(q) ||
-        (s.ticket_id && s.ticket_id.toLowerCase().includes(q)) ||
-        s.description.toLowerCase().includes(q)
+        toLower(s.customer_name).includes(q) ||
+        toLower(s.technician_name).includes(q) ||
+        (s.ticket_id && toLower(s.ticket_id).includes(q)) ||
+        toLower(s.description).includes(q)
       );
     }
-    if (filterTechnician !== 'all') list = list.filter(s => s.technician_name === filterTechnician);
-    if (filterCustomer !== 'all') list = list.filter(s => s.customer_name === filterCustomer);
     if (filterStatus !== 'all') list = list.filter(s => getScheduleStatus(s.scheduled_time, s.duration) === filterStatus);
 
     list = [...list].sort((a, b) => {
@@ -144,7 +163,7 @@ export default function SchedulesPage() {
     });
 
     return list;
-  }, [schedules, search, filterTechnician, filterCustomer, filterStatus, sortAsc, user, isRole]);
+  }, [schedules, search, filterStatus, sortAsc]);
 
   // ── Summary cards ──
   const todaySchedules = useMemo(() => schedules.filter(s => isToday(new Date(s.scheduled_time))), [schedules]);
@@ -221,30 +240,14 @@ export default function SchedulesPage() {
       </div>
 
       {/* ── Filters & View Toggle ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search schedules…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        <Select value={filterTechnician} onValueChange={setFilterTechnician}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Technician" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Technicians</SelectItem>
-            {uniqueTechs.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
-        <Select value={filterCustomer} onValueChange={setFilterCustomer}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Customer" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Customers</SelectItem>
-            {uniqueCustomers.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] sm:w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="upcoming">Upcoming</SelectItem>
@@ -344,8 +347,9 @@ function TableView({ data, sortAsc, onToggleSort, onView, onEdit, onDelete }: {
           <thead>
             <tr className="border-b border-border bg-muted/30">
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap" onClick={onToggleSort}>
-                Date & Time {sortAsc ? '↑' : '↓'}
+                Start {sortAsc ? '↑' : '↓'}
               </th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Est. end</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Duration</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Customer</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Technician</th>
@@ -363,6 +367,13 @@ function TableView({ data, sortAsc, onToggleSort, onView, onEdit, onDelete }: {
                     <span className="font-medium text-foreground">{format(new Date(s.scheduled_time), 'MMM d, yyyy')}</span>
                     <span className="text-xs text-muted-foreground">{format(new Date(s.scheduled_time), 'h:mm a')}</span>
                   </div>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                  {s.estimated_end_time
+                    ? format(new Date(s.estimated_end_time), 'MMM d, h:mm a')
+                    : s.estimated_duration_minutes != null
+                      ? `${s.estimated_duration_minutes} min`
+                      : '—'}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{formatDuration(s.duration)}</td>
                 <td className="px-4 py-3 text-foreground">{s.customer_name}</td>

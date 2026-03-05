@@ -36,9 +36,13 @@ export function getDisplayCity(user: User | null | undefined): string {
   return str(user.city) || '—';
 }
 
-/** Location = city and state of station (e.g. "Indianapolis, IN") */
+/** Location = station city from API (station_city); if station_state present show "City, State" */
 export function getDisplayLocation(user: User | null | undefined): string {
   if (!user) return '';
+  const stationCity = str(user.station_city);
+  const stationState = str(user.station_state);
+  if (stationCity && stationState) return `${stationCity}, ${stationState}`;
+  if (stationCity) return stationCity;
   const city = str(user.city);
   const state = str(user.state);
   if (city && state) return `${city}, ${state}`;
