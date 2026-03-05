@@ -125,7 +125,7 @@ export default function TechnicianDashboard() {
     try {
       const context = await searchBackend(query);
       const assistantId = `${Date.now()}-assistant`;
-      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', context }]);
+      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', context: context as ChatMessage['context'] }]);
 
       const apiMessages: FelixChatMessage[] = history.map(m => ({
         role: m.role,
@@ -135,7 +135,7 @@ export default function TechnicianDashboard() {
       await sendStream(
         {
           messages: apiMessages,
-          contextBlock: buildContextPrompt(context),
+          contextBlock: buildContextPrompt(context as ChatMessage['context']),
         },
         {
           onDelta: (_delta, fullText) => {

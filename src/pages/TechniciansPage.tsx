@@ -123,7 +123,7 @@ export default function TechniciansPage() {
         email: form.email.trim(),
         phone_number: form.phone.trim(),
         street_address: form.street_address.trim(),
-        street_address_2: form.street_address.trim(),
+        street_address_2: form.street_address_2.trim(),
         city: form.city.trim(),
         state: form.state.trim(),
         country: form.country.trim(),
@@ -415,46 +415,76 @@ export default function TechniciansPage() {
               </div>
             </div>
 
-            <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Email *</Label>
-                  <Input placeholder="john@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-                  </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Phone <Number></Number></Label>
-                  <Input placeholder="+123456789" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email *</Label>
+                <Input
+                  placeholder="john@example.com"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Phone</Label>
+                <Input
+                  placeholder="+123456789"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+            </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-xs">Street Address *</Label>
+              <Input
+                placeholder="123 Main St"
+                value={form.street_address}
+                onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Street Address 2</Label>
+              <Input
+                placeholder="Apt D"
+                value={form.street_address_2}
+                onChange={e => setForm(f => ({ ...f, street_address_2: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Street Address *</Label>
-                <Input placeholder="123 Main St" value={form.street_address} onChange={e => setForm(f => ({ ...f, street_address: e.target.value }))} />
+                <Label className="text-xs">City</Label>
+                <Input
+                  placeholder="Indianapolis"
+                  value={form.city}
+                  onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Street Address 2 *</Label>
-                <Input placeholder="Apt D" value={form.street_address_2} onChange={e => setForm(f => ({ ...f, street_address_2: e.target.value }))} />
+                <Label className="text-xs">State</Label>
+                <Input
+                  placeholder="Indiana"
+                  value={form.state}
+                  onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"> 
-                  <Label className="text-xs">City</Label>
-                  <Input placeholder="New York" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">State</Label>
-                  <Input placeholder="+Indiana" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
-                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Country</Label>
+                <Input
+                  placeholder="USA"
+                  value={form.country}
+                  onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"> 
-                  <Label className="text-xs">Country</Label>
-                  <Input placeholder="New York" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Postal / Zip COde</Label>
-                  <Input placeholder="+Indiana" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} />
-                </div>
-              </div>  
+              <div className="space-y-1.5">
+                <Label className="text-xs">Postal / Zip Code</Label>
+                <Input
+                  placeholder="46201"
+                  value={form.postal_code}
+                  onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -493,15 +523,18 @@ export default function TechniciansPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={form.station || ''} onValueChange={v => setForm(f => ({ ...f, station: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Select a Station</SelectItem> {/* optional */}
-                {stations.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select
+                value={form.station ? form.station : '__none__'}
+                onValueChange={v => setForm(f => ({ ...f, station: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select Station" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No station</SelectItem>
+                  {stations.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button className="w-full gap-2 bg-primary hover:bg-primary/90" onClick={handleAdd} disabled={saving}>
               <Plus className="h-4 w-4" /> {saving ? 'Saving...' : 'Add Technician'}

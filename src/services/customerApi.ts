@@ -34,6 +34,30 @@ function loadFromCache(): Customer[] {
   return cached ? JSON.parse(cached) : [];
 }
 
+const mapCustomer = (c: any): Customer => ({
+  id: String(c.id),
+  first_name: c.first_name_display ?? c.first_name ?? '',
+  last_name: c.last_name_display ?? c.last_name ?? '',
+  email: c.email_display ?? c.email ?? '',
+  phone: c.phone_number ?? c.phone ?? '',
+  company: c.company_name ?? c.company ?? '',
+  street_address: c.street_address ?? '',
+  street_address_2: c.street_address_2 ?? '',
+  city: c.city ?? '',
+  state: c.state ?? '',
+  country: c.country ?? '',
+  postal_code: c.postal_code ?? c.zip_code ?? '',
+  zip_code: c.zip_code ?? c.postal_code ?? '',
+  status: c.is_active ? 'active' : 'inactive',
+  total_tickets: typeof c.total_tickets === 'number' ? c.total_tickets : 0,
+  open_tickets: typeof c.open_tickets === 'number' ? c.open_tickets : 0,
+  customer_info: c.customer_info ?? '',
+  // Use a consistent avatar URL if backend doesn't provide one
+  // (we don't store photo in the Customer interface but can extend if needed)
+  created_at: c.created_at ?? '',
+  contact_person: c.name || `${c.first_name_display ?? c.first_name ?? ''} ${c.last_name_display ?? c.last_name ?? ''}`.trim() || 'Unknown',
+});
+
 export const customerApi = {
   // getAll: async (): Promise<Customer[]> => {
   //   try {
@@ -54,29 +78,9 @@ export const customerApi = {
   getAll: async (): Promise<Customer[]> => {
     try {
       const { data } = await api.get('/customers/');
-      const customers: Customer[] = (data.results ?? data).map(c => ({
-        id: c.id,
-        first_name: c.first_name_display,
-        last_name: c.last_name_display,
-        // name: c.name || c.customer_info || 'Unknown',
-        email: c.email_display ?? '',
-        phone: c.phone_number ?? '',
-        company: c.company_name ?? '',
-        street_address: c.street_address ?? '',
-        street_address_2: c.street_address_2 ?? '',
-        city: c.city ?? '',
-        state: c.state ?? '',
-        country: c.country ?? '',
-        postal_code: c.postal_code ?? '',
-        status: c.is_active ? 'active' : 'inactive',
-        total_tickets: c.total_tickets ?? 0,
-        open_tickets: c.open_tickets ?? 0,
-        customer_info: c.customer_info ?? '',
-        photo: c.photo ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name_display ?? 'Unknown')}&background=1a1f2e&color=e61409&size=64`,
-        created_at: c.created_at,
-        contact_person: c.name || 'Unknown',
-      }));
-  
+      const list = data.results ?? data;
+      const customers: Customer[] = Array.isArray(list) ? list.map(mapCustomer) : [];
+
       saveToCache(customers);
       console.log('Mapped customers:', customers);
       return customers;
@@ -91,7 +95,7 @@ export const customerApi = {
   getById: async (id: string): Promise<Customer> => {
     try {
       const { data } = await api.get(`/customers/${id}/`);
-      return data;
+      return mapCustomer(data);
     } catch (error) {
       const cached = loadFromCache();
       const customer = cached.find(c => c.id === id);
@@ -103,11 +107,10 @@ export const customerApi = {
   create: async (payload: Partial<Customer>): Promise<Customer> => {
     try {
       const { data } = await api.post('/customers/', payload);
-
+      const mapped = mapCustomer(data);
       const cached = loadFromCache();
-      saveToCache([data, ...cached]);
-
-      return data;
+      saveToCache([mapped, ...cached]);
+      return mapped;
     } catch (error) {
       throw new Error('Failed to create customer');
     }
@@ -116,13 +119,13 @@ export const customerApi = {
   update: async (id: string, payload: Partial<Customer>): Promise<Customer> => {
     try {
       const { data } = await api.patch(`/customers/${id}/`, payload);
-
+      const mapped = mapCustomer(data);
       const cached = loadFromCache().map(c =>
-        c.id === id ? { ...c, ...data } : c
+        c.id === id ? mapped : c
       );
       saveToCache(cached);
 
-      return data;
+      return mapped;
     } catch (error) {
       throw new Error('Failed to update customer');
     }

@@ -66,14 +66,10 @@ export default function StaffPage() {
 
   useEffect(() => {
     staffApi.getAll().then(users => {
-      // Admins see all staff (admin + office_staff); office_staff see only office_staff
-      const staffUsers = users.filter(u => {
-        if (isAdmin) return u.role === 'admin' || u.role === 'office';
-        return u.role === 'office';
-      });
-      setStaffs(staffUsers);
+      // Show all staff users returned by the API (admins + office staff).
+      setStaffs(users);
     }).finally(() => setLoading(false));
-  }, [isAdmin]);
+  }, []);
 
   const filtered = staff.filter(s => {
     const q = search.toLowerCase();

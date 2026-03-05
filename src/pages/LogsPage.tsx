@@ -110,7 +110,7 @@ export default function LogsPage() {
           <div className="text-center py-12 text-muted-foreground text-sm">No logs match your filters</div>
         ) : (
           <div className="divide-y divide-border">
-            {filtered.map((log, i) => {
+              {filtered.map((log, i) => {
               const cfg = TYPE_CONFIG[log.type] || TYPE_CONFIG.system;
               const Icon = cfg.icon;
               return (
@@ -127,6 +127,25 @@ export default function LogsPage() {
                       <div>
                         <p className="text-sm font-medium text-foreground">{log.action}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{log.details}</p>
+                        {(log.ticket_id || log.customer_name || log.technician_name) && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5 flex flex-wrap gap-2">
+                            {log.ticket_id && (
+                              <span className="font-mono">
+                                Ticket <span className="text-foreground">{log.ticket_id}</span>
+                              </span>
+                            )}
+                            {log.customer_name && (
+                              <span>
+                                Customer <span className="text-foreground">{log.customer_name}</span>
+                              </span>
+                            )}
+                            {log.technician_name && (
+                              <span>
+                                Technician <span className="text-foreground">{log.technician_name}</span>
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}</p>
@@ -169,7 +188,18 @@ export default function LogsPage() {
               <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                 <div><span className="font-medium text-foreground">Performed by</span><br />{selected.performed_by}</div>
                 <div><span className="font-medium text-foreground">Time</span><br />{new Date(selected.timestamp).toLocaleString()}</div>
-                {selected.entity_id && <div><span className="font-medium text-foreground">Entity</span><br />{selected.entity_type} #{selected.entity_id}</div>}
+                {selected.ticket_id && (
+                  <div><span className="font-medium text-foreground">Ticket</span><br />{selected.ticket_id}</div>
+                )}
+                {selected.customer_name && (
+                  <div><span className="font-medium text-foreground">Customer</span><br />{selected.customer_name}</div>
+                )}
+                {selected.technician_name && (
+                  <div><span className="font-medium text-foreground">Technician</span><br />{selected.technician_name}</div>
+                )}
+                {selected.entity_id && !selected.ticket_id && (
+                  <div><span className="font-medium text-foreground">Entity</span><br />{selected.entity_type} #{selected.entity_id}</div>
+                )}
               </div>
             </div>
           )}
