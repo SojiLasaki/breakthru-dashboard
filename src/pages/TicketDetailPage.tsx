@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { ticketApi, Ticket } from '@/services/ticketApi';
+import { ticketApi, Ticket, TicketChecklistProgress, TicketChecklistStep } from '@/services/ticketApi';
 import { scheduleApi, Schedule, formatDuration } from '@/services/scheduleApi';
 import { diagnosticsApi, Diagnostic } from '@/services/diagnosticsApi';
 import { manualApi, Manual } from '@/services/manualApi';
@@ -19,7 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PdfViewer from '@/components/PdfViewer';
 import DiagnosticReportModal from '@/components/DiagnosticReportModal';
-import RepairChecklist, { RepairStep } from '@/components/RepairChecklist';
+import RepairChecklist, { RepairStep, RepairStepProgress } from '@/components/RepairChecklist';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import {
   ArrowLeft, Search as SearchIcon, User, MapPin, Building,
@@ -40,30 +40,69 @@ function stockIndicator(status: string, qty: number) {
   return { icon: '✅', label: `In Stock (${qty} available)`, cls: 'text-[hsl(var(--success))] bg-[hsl(var(--success))]/10', detail: '' };
 }
 
-function generateRepairSteps(ticket: Ticket, diag: Diagnostic | null): RepairStep[] {
+function generateFallbackRepairSteps(ticket: Ticket, diag: Diagnostic | null): RepairStep[] {
   const steps: RepairStep[] = [];
   let id = 1;
-  steps.push({ id: id++, label: 'Verify ticket details and review diagnostic report', detail: 'Confirm fault code matches onsite conditions.', required: true });
-  steps.push({ id: id++, label: 'Gather required PPE and safety equipment', detail: 'Hard hat, safety glasses, gloves, steel-toe boots.', required: true });
+  const stepId = () => `fallback-${id++}`;
+  steps.push({ id: stepId(), label: 'Verify ticket details and review diagnostic report', detail: 'Confirm fault code matches onsite conditions.', required: true });
+  steps.push({ id: stepId(), label: 'Gather required PPE and safety equipment', detail: 'Hard hat, safety glasses, gloves, steel-toe boots.', required: true });
   if (diag) {
-    steps.push({ id: id++, label: `Confirm fault code ${diag.fault_code} on equipment`, detail: `Use diagnostic scanner to verify ${diag.fault_code} is active.`, required: true });
+    steps.push({ id: stepId(), label: `Confirm fault code ${diag.fault_code} on equipment`, detail: `Use diagnostic scanner to verify ${diag.fault_code} is active.`, required: true });
     if (diag.recommended_actions) {
       diag.recommended_actions.split('.').filter(s => s.trim()).forEach(s => {
-        steps.push({ id: id++, label: s.trim(), required: true });
+        steps.push({ id: stepId(), label: s.trim(), required: true });
       });
     }
   } else {
-    steps.push({ id: id++, label: `Inspect ${ticket.specialization || 'system'} for reported issue`, required: true });
-    steps.push({ id: id++, label: 'Run diagnostic scan to identify fault codes', required: true });
+    steps.push({ id: stepId(), label: `Inspect ${ticket.specialization || 'system'} for reported issue`, required: true });
+    steps.push({ id: stepId(), label: 'Run diagnostic scan to identify fault codes', required: true });
   }
-  steps.push({ id: id++, label: 'Test affected components after repair', detail: 'Run system for 15 minutes under load.', required: true });
-  steps.push({ id: id++, label: 'Verify system operates within normal parameters', required: true });
-  steps.push({ id: id++, label: 'Clean work area and return tools', required: false });
-  steps.push({ id: id++, label: 'Take before/after photos', detail: 'Document equipment condition post-repair.', required: false });
-  steps.push({ id: id++, label: 'Log repair notes, parts used, and time spent', required: true });
-  steps.push({ id: id++, label: 'Update ticket status to completed', required: true });
+  steps.push({ id: stepId(), label: 'Test affected components after repair', detail: 'Run system for 15 minutes under load.', required: true });
+  steps.push({ id: stepId(), label: 'Verify system operates within normal parameters', required: true });
+  steps.push({ id: stepId(), label: 'Clean work area and return tools', required: false });
+  steps.push({ id: stepId(), label: 'Take before/after photos', detail: 'Document equipment condition post-repair.', required: false });
+  steps.push({ id: stepId(), label: 'Log repair notes, parts used, and time spent', required: true });
+  steps.push({ id: stepId(), label: 'Update ticket status to completed', required: true });
   return steps;
 }
+
+const mapChecklistSteps = (template: TicketChecklistStep[], ticket: Ticket, diag: Diagnostic | null): RepairStep[] => {
+  if (!Array.isArray(template) || template.length === 0) {
+    return generateFallbackRepairSteps(ticket, diag);
+  }
+  return template
+    .map((item) => {
+      const id = String(item?.id || '').trim();
+      const title = String(item?.title || '').trim();
+      if (!id || !title) return null;
+      const detail = String(item?.instructions || '').trim();
+      return {
+        id,
+        label: title,
+        detail: detail || undefined,
+        required: Boolean(item?.required ?? true),
+      } satisfies RepairStep;
+    })
+    .filter((item): item is RepairStep => Boolean(item));
+};
+
+const normalizeChecklistProgress = (progress: TicketChecklistProgress[]): RepairStepProgress[] => {
+  if (!Array.isArray(progress)) return [];
+  return progress
+    .map((item) => {
+      const itemId = String(item?.item_id || '').trim();
+      if (!itemId) return null;
+      return {
+        item_id: itemId,
+        done: Boolean(item?.done),
+        note: String(item?.note || ''),
+        flagged: Boolean(item?.flagged),
+        time_minutes: Number.isFinite(Number(item?.time_minutes)) ? Number(item?.time_minutes) : 0,
+        photos: Array.isArray(item?.photos) ? item.photos : [],
+      } satisfies RepairStepProgress;
+    })
+    .filter((item): item is RepairStepProgress => Boolean(item));
+};
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -90,6 +129,10 @@ export default function TicketDetailPage() {
   const [timeSpent, setTimeSpent] = useState('');
   const [customerExpanded, setCustomerExpanded] = useState(false);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [checklistProgress, setChecklistProgress] = useState<RepairStepProgress[]>([]);
+  const [savingChecklist, setSavingChecklist] = useState(false);
+  const [checklistDirtyTick, setChecklistDirtyTick] = useState(0);
+  const checklistSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -110,7 +153,7 @@ export default function TicketDetailPage() {
       toast({ title: 'Error', description: 'Ticket not found.', variant: 'destructive' });
       navigate(-1);
     }).finally(() => setLoading(false));
-  }, [id]);
+  }, [id, navigate, toast]);
 
   // Schedules: use ticket.schedules if present, else fetch GET /api/tickets/{id}/schedules/
   useEffect(() => {
@@ -121,6 +164,30 @@ export default function TicketDetailPage() {
     }
     scheduleApi.getByTicketId(id).then(setSchedules).catch(() => setSchedules([]));
   }, [id, ticket?.schedules]);
+
+  useEffect(() => {
+    if (!ticket) return;
+    setChecklistProgress(normalizeChecklistProgress(ticket.checklist_progress || []));
+  }, [ticket?.id, ticket?.checklist_progress]);
+
+  useEffect(() => {
+    if (!ticket || checklistDirtyTick <= 0) return;
+    if (checklistSaveTimer.current) clearTimeout(checklistSaveTimer.current);
+    checklistSaveTimer.current = setTimeout(async () => {
+      try {
+        setSavingChecklist(true);
+        const updated = await ticketApi.updateChecklistProgress(ticket.id, checklistProgress);
+        setTicket(prev => prev ? { ...prev, checklist_progress: updated.checklist_progress } : prev);
+      } catch {
+        toast({ title: 'Checklist save failed', description: 'Could not persist checklist progress.', variant: 'destructive' });
+      } finally {
+        setSavingChecklist(false);
+      }
+    }, 700);
+    return () => {
+      if (checklistSaveTimer.current) clearTimeout(checklistSaveTimer.current);
+    };
+  }, [checklistDirtyTick, checklistProgress, ticket, toast]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!ticket) return;
@@ -162,6 +229,27 @@ export default function TicketDetailPage() {
     toast({ title: `${action} Started`, description: `Sending ${action.toLowerCase()} data for ${manual.title}.` });
   };
 
+  const handleChecklistProgressChange = (progress: RepairStepProgress[]) => {
+    if (!ticket?.checklist_template?.length) return;
+    setChecklistProgress(progress);
+    setChecklistDirtyTick(Date.now());
+  };
+
+  const handleRegenerateChecklist = async () => {
+    if (!ticket) return;
+    setSavingChecklist(true);
+    try {
+      const updated = await ticketApi.regenerateChecklist(ticket.id);
+      setTicket(prev => prev ? { ...prev, ...updated } : updated);
+      setChecklistProgress(normalizeChecklistProgress(updated.checklist_progress || []));
+      toast({ title: 'Checklist regenerated', description: 'Updated steps from knowledge context.' });
+    } catch {
+      toast({ title: 'Regenerate failed', description: 'Could not regenerate checklist.', variant: 'destructive' });
+    } finally {
+      setSavingChecklist(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-4 lg:p-6 space-y-6">
@@ -194,7 +282,8 @@ export default function TicketDetailPage() {
     (c.group || '').toLowerCase() === spec ||
     (c.name || '').toLowerCase().includes(spec)
   );
-  const repairSteps = generateRepairSteps(ticket, diag);
+  const hasServerChecklist = Array.isArray(ticket.checklist_template) && ticket.checklist_template.length > 0;
+  const repairSteps = mapChecklistSteps(ticket.checklist_template || [], ticket, diag);
 
   // ── Summary view (before clicking "View Full Repair") ──
   if (!showFullDetail) {
@@ -413,6 +502,16 @@ export default function TicketDetailPage() {
             </Button>
           </div>
         )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-[10px] gap-1"
+          onClick={handleRegenerateChecklist}
+          disabled={savingChecklist}
+        >
+          {savingChecklist ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListChecks className="h-3 w-3" />}
+          Regenerate Checklist
+        </Button>
       </div>
 
       {/* Split panel */}
@@ -446,7 +545,14 @@ export default function TicketDetailPage() {
           )}
 
           {/* Repair Checklist */}
-          <RepairChecklist steps={repairSteps} ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`} componentContext={ticket.specialization} />
+          <RepairChecklist
+            steps={repairSteps}
+            progress={checklistProgress}
+            ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`}
+            componentContext={ticket.specialization}
+            onProgressChange={hasServerChecklist ? handleChecklistProgressChange : undefined}
+            saving={savingChecklist}
+          />
 
           {/* Technician Notes */}
           {isTech && ticket.status !== 'completed' && (
