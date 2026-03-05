@@ -17,10 +17,31 @@ import { Loader2, Search, Bot, Plus, ArrowUpDown, Info, Pencil, Save, X, Calenda
 
 type SortField = 'ticket_id' | 'status' | 'priority' | 'created_at';
 
+const ALLOWED_TICKET_STATUSES = ['pending', 'assigned', 'in_progress', 'awaiting_parts', 'awaiting_approval', 'completed', 'closed', 'cancelled'] as const;
+const ALLOWED_SPECIALIZATIONS = ['engine', 'electrical'] as const;
+
+const normalizeTicketStatus = (value: unknown): string => {
+  const status = String(value || '').trim().toLowerCase();
+  return ALLOWED_TICKET_STATUSES.includes(status as (typeof ALLOWED_TICKET_STATUSES)[number]) ? status : 'pending';
+};
+
+const normalizeSpecialization = (value: unknown): string => {
+  const specialization = String(value || '').trim().toLowerCase();
+  return ALLOWED_SPECIALIZATIONS.includes(specialization as (typeof ALLOWED_SPECIALIZATIONS)[number]) ? specialization : 'engine';
+};
+
+const clampSeverityOrPriority = (value: unknown, fallback: number): number => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(4, Math.max(1, Math.round(numeric)));
+};
+
 const BLANK_TICKET: Partial<Ticket> = {
   title: '', description: '', customer: '', issue_description: '',
-  status: 'open',
+  status: 'pending',
+  specialization: 'engine',
   priority: 2,
+  severity: 2,
   assigned_to: '',
 };
 
@@ -113,7 +134,12 @@ export default function TicketsPage() {
     if (!selected) return;
     setSaving(true);
     try {
-      const updated = await ticketApi.update(selected.id, editForm).catch(() => ({ ...selected, ...editForm }));
+      const updatePayload: Partial<Ticket> = {
+        status: normalizeTicketStatus(editForm.status ?? selected.status),
+        priority: clampSeverityOrPriority(editForm.priority ?? selected.priority, selected.priority || 2),
+        description: String(editForm.description ?? selected.description ?? ''),
+      };
+      const updated = await ticketApi.update(selected.id, updatePayload);
       const merged = { ...selected, ...updated } as Ticket;
       setTickets(prev => prev.map(t => t.id === merged.id ? merged : t));
       setSelected(merged);
@@ -130,7 +156,18 @@ export default function TicketsPage() {
     if (!newTicket.title?.trim()) return;
     setCreating(true);
     try {
-      const created = await ticketApi.create({ ...newTicket, created_by: fullName });
+      const title = String(newTicket.title || '').trim();
+      const issueDescription = String(newTicket.issue_description || newTicket.description || '').trim();
+      const created = await ticketApi.create({
+        title,
+        issue_description: issueDescription,
+        description: issueDescription,
+        status: 'pending',
+        specialization: normalizeSpecialization(newTicket.specialization),
+        priority: clampSeverityOrPriority(newTicket.priority, 2),
+        severity: clampSeverityOrPriority(newTicket.severity, 2),
+        created_by: fullName || user?.username || '',
+      });
       setTickets(prev => [created, ...prev]);
       setAddOpen(false);
       setNewTicket({ ...BLANK_TICKET });
@@ -182,13 +219,14 @@ export default function TicketsPage() {
           <SelectTrigger className="w-40 bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="assigned">Assigned</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
             <SelectItem value="awaiting_approval">Awaiting Approval</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="closed">Closed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -290,13 +328,14 @@ export default function TicketsPage() {
                         <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
                           <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="open">Open</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="assigned">Assigned</SelectItem>
                             <SelectItem value="in_progress">In Progress</SelectItem>
                             <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
                             <SelectItem value="awaiting_approval">Awaiting Approval</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -309,7 +348,6 @@ export default function TicketsPage() {
                             <SelectItem value="2">Medium</SelectItem>
                             <SelectItem value="3">High</SelectItem>
                             <SelectItem value="4">Severe</SelectItem>
-                            <SelectItem value="5">Critical</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -401,7 +439,13 @@ export default function TicketsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Specialization</Label>
-                <Input placeholder="Engine, Electrical…" value={newTicket.specialization ?? ''} onChange={e => setNewTicket(f => ({ ...f, specialization: e.target.value }))} className="bg-background" />
+                <Select value={String(newTicket.specialization ?? 'engine')} onValueChange={v => setNewTicket(f => ({ ...f, specialization: v }))}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="engine">Engine</SelectItem>
+                    <SelectItem value="electrical">Electrical</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -414,7 +458,6 @@ export default function TicketsPage() {
                     <SelectItem value="2">Medium</SelectItem>
                     <SelectItem value="3">High</SelectItem>
                     <SelectItem value="4">Severe</SelectItem>
-                    <SelectItem value="5">Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -427,7 +470,6 @@ export default function TicketsPage() {
                     <SelectItem value="2">2</SelectItem>
                     <SelectItem value="3">3 - Medium</SelectItem>
                     <SelectItem value="4">4</SelectItem>
-                    <SelectItem value="5">5 - Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

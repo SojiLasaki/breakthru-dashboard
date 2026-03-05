@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,10 +19,19 @@ import {
 } from 'lucide-react';
 
 export interface RepairStep {
-  id: number;
+  id: string;
   label: string;
   detail?: string;
   required: boolean;
+}
+
+export interface RepairStepProgress {
+  item_id: string;
+  done: boolean;
+  note?: string;
+  flagged?: boolean;
+  photos?: string[];
+  time_minutes?: number;
 }
 
 interface StepState {
@@ -35,51 +44,95 @@ interface StepState {
 
 interface Props {
   steps: RepairStep[];
+  progress?: RepairStepProgress[];
   ticketContext?: string;
   componentContext?: string;
+  onProgressChange?: (progress: RepairStepProgress[]) => void;
+  saving?: boolean;
 }
 
-export default function RepairChecklist({ steps, ticketContext, componentContext }: Props) {
-  const navigate = useNavigate();
-  const [states, setStates] = useState<Record<number, StepState>>(
-    () => Object.fromEntries(
-      steps.map(s => [s.id, {
-        checked: false,
-        note: '',
-        flagged: false,
-        photos: [],
-        timeMinutes: 0,
-      }]),
-    ),
-  );
+const emptyState = (): StepState => ({
+  checked: false,
+  note: '',
+  flagged: false,
+  photos: [],
+  timeMinutes: 0,
+});
 
-  const update = (id: number, patch: Partial<StepState>) => {
-    setStates(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+const toStateMap = (steps: RepairStep[], progress: RepairStepProgress[]): Record<string, StepState> => {
+  const progressMap = new Map(progress.map(item => [String(item.item_id), item]));
+  return Object.fromEntries(
+    steps.map(step => {
+      const row = progressMap.get(String(step.id));
+      return [
+        String(step.id),
+        {
+          checked: Boolean(row?.done),
+          note: String(row?.note || ''),
+          flagged: Boolean(row?.flagged),
+          photos: Array.isArray(row?.photos) ? row!.photos! : [],
+          timeMinutes: Number.isFinite(Number(row?.time_minutes)) ? Number(row?.time_minutes) : 0,
+        } satisfies StepState,
+      ];
+    }),
+  );
+};
+
+const toProgressRows = (states: Record<string, StepState>): RepairStepProgress[] =>
+  Object.entries(states).map(([itemId, state]) => ({
+    item_id: itemId,
+    done: state.checked,
+    note: state.note,
+    flagged: state.flagged,
+    photos: state.photos,
+    time_minutes: state.timeMinutes,
+  }));
+
+export default function RepairChecklist({
+  steps,
+  progress = [],
+  ticketContext,
+  componentContext,
+  onProgressChange,
+  saving = false,
+}: Props) {
+  const navigate = useNavigate();
+  const memoProgress = useMemo(() => progress, [progress]);
+  const [states, setStates] = useState<Record<string, StepState>>(() => toStateMap(steps, memoProgress));
+
+  useEffect(() => {
+    setStates(toStateMap(steps, memoProgress));
+  }, [steps, memoProgress]);
+
+  const emit = (next: Record<string, StepState>) => {
+    onProgressChange?.(toProgressRows(next));
+  };
+
+  const update = (id: string, patch: Partial<StepState>) => {
+    setStates(prev => {
+      const current = prev[id] || emptyState();
+      const next = { ...prev, [id]: { ...current, ...patch } };
+      emit(next);
+      return next;
+    });
   };
 
   const completed = Object.values(states).filter(s => s.checked).length;
   const total = steps.length;
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  const handlePhoto = (stepId: number) => {
+  const handleUpload = (stepId: string, useCamera = false) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = (e: any) => {
-      const file = e.target.files?.[0];
-      if (file) update(stepId, { photos: [...(states[stepId]?.photos || []), file.name] });
-    };
-    input.click();
-  };
-
-  const handleUpload = (stepId: number) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: any) => {
-      const file = e.target.files?.[0];
-      if (file) update(stepId, { photos: [...(states[stepId]?.photos || []), file.name] });
+    if (useCamera) input.capture = 'environment';
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement | null;
+      const file = target?.files?.[0];
+      if (file) {
+        const existing = states[stepId]?.photos || [];
+        update(stepId, { photos: [...existing, file.name] });
+      }
     };
     input.click();
   };
@@ -93,28 +146,23 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
           </CardTitle>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground">{completed}/{total}</span>
-            <span className={`text-[10px] font-bold ${progress === 100 ? 'text-[hsl(var(--success))]' : 'text-primary'}`}>{progress}%</span>
+            <span className={`text-[10px] font-bold ${progressPct === 100 ? 'text-[hsl(var(--success))]' : 'text-primary'}`}>{progressPct}%</span>
           </div>
         </div>
         <div className="w-full h-2 bg-muted rounded-full mt-2 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${progress === 100 ? 'bg-[hsl(var(--success))]' : 'bg-primary'}`}
-            style={{ width: `${progress}%` }}
+            className={`h-full rounded-full transition-all duration-500 ${progressPct === 100 ? 'bg-[hsl(var(--success))]' : 'bg-primary'}`}
+            style={{ width: `${progressPct}%` }}
           />
         </div>
       </CardHeader>
 
       <CardContent className="space-y-1 pb-4">
         {steps.map((step, idx) => {
-          const s = states[step.id] || {
-            checked: false,
-            note: '',
-            flagged: false,
-            photos: [],
-            timeMinutes: 0,
-          };
+          const stepId = String(step.id);
+          const s = states[stepId] || emptyState();
           return (
-            <Collapsible key={step.id}>
+            <Collapsible key={stepId}>
               <div className={`rounded-xl border transition-all ${
                 s.checked ? 'bg-[hsl(var(--success))]/5 border-[hsl(var(--success))]/20'
                   : s.flagged ? 'bg-primary/5 border-primary/20'
@@ -123,17 +171,23 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                 <div className="flex items-start gap-3 px-4 py-3">
                   <Checkbox
                     checked={s.checked}
+                    disabled={saving}
                     onCheckedChange={() => {
+                      if (saving) return;
                       const nowChecked = !s.checked;
                       if (nowChecked) {
-                        const patch: Record<number, StepState> = {};
-                        for (let i = 0; i <= idx; i++) {
-                          const sid = steps[i].id;
-                          patch[sid] = { ...states[sid], checked: true };
-                        }
-                        setStates(prev => ({ ...prev, ...patch }));
+                        setStates(prev => {
+                          const patch: Record<string, StepState> = {};
+                          for (let i = 0; i <= idx; i += 1) {
+                            const sid = String(steps[i].id);
+                            patch[sid] = { ...(prev[sid] || emptyState()), checked: true };
+                          }
+                          const next = { ...prev, ...patch };
+                          emit(next);
+                          return next;
+                        });
                       } else {
-                        update(step.id, { checked: false });
+                        update(stepId, { checked: false });
                       }
                     }}
                     className="mt-0.5"
@@ -165,7 +219,7 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                     )}
                     {s.note && (
                       <p className="text-[10px] text-muted-foreground mt-1 italic bg-muted/20 rounded px-2 py-1">
-                        📝 {s.note}
+                        Note: {s.note}
                       </p>
                     )}
                   </div>
@@ -180,17 +234,17 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                 <CollapsibleContent>
                   <div className="px-4 pb-3 pt-1 border-t border-border/50 space-y-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1.5 px-3" onClick={() => handlePhoto(step.id)}>
+                      <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1.5 px-3" onClick={() => handleUpload(stepId, true)}>
                         <Camera className="h-3 w-3" /> Take Photo
                       </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1.5 px-3" onClick={() => handleUpload(step.id)}>
+                      <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1.5 px-3" onClick={() => handleUpload(stepId)}>
                         <Paperclip className="h-3 w-3" /> Upload Image
                       </Button>
                       <Button
                         variant={s.flagged ? 'default' : 'outline'}
                         size="sm"
                         className={`h-8 text-[10px] gap-1.5 px-3 ${s.flagged ? 'bg-primary hover:bg-primary/90' : ''}`}
-                        onClick={() => update(step.id, { flagged: !s.flagged })}
+                        onClick={() => update(stepId, { flagged: !s.flagged })}
                       >
                         <AlertTriangle className="h-3 w-3" /> {s.flagged ? 'Unflag' : 'Flag Issue'}
                       </Button>
@@ -213,7 +267,7 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                       <Textarea
                         placeholder="Add a note for this step..."
                         value={s.note}
-                        onChange={e => update(step.id, { note: e.target.value })}
+                        onChange={e => update(stepId, { note: e.target.value })}
                         rows={2}
                         className="text-xs bg-background resize-none"
                       />
@@ -227,7 +281,7 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
                         step="5"
                         placeholder="Minutes"
                         value={s.timeMinutes || ''}
-                        onChange={e => update(step.id, { timeMinutes: parseInt(e.target.value, 10) || 0 })}
+                        onChange={e => update(stepId, { timeMinutes: parseInt(e.target.value, 10) || 0 })}
                         className="h-8 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                       <span className="text-[10px] text-muted-foreground">minutes</span>
@@ -239,7 +293,7 @@ export default function RepairChecklist({ steps, ticketContext, componentContext
           );
         })}
 
-        {progress === 100 && (
+        {progressPct === 100 && (
           <div className="flex items-center gap-2 justify-center py-3 text-[hsl(var(--success))]">
             <CheckCircle2 className="h-5 w-5" />
             <span className="text-sm font-semibold">All steps completed!</span>

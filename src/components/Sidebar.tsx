@@ -65,6 +65,7 @@ const ADMIN_NAV: NavGroup[] = [
     label: 'Resources',
     items: [
       { to: '/manuals',   label: 'Manuals',    icon: BookOpen },
+      { to: '/ai-agents', label: 'Agent Studio', icon: Bot },
       { to: '/logs',      label: 'Logs',       icon: FileText },
     ],
   },
