@@ -75,6 +75,11 @@ function loadFromCache(): StaffProfile[] {
   return cached ? JSON.parse(cached) : [];
 }
 
+const STAFF_ROLE_SET = new Set(['admin', 'office', 'superuser']);
+function isStaffRole(rawRole: unknown): boolean {
+  return STAFF_ROLE_SET.has(String(rawRole ?? '').toLowerCase());
+}
+
 const mapStaff = (s: any): StaffProfile => {
   const roleRaw = String(s.role ?? '').toLowerCase();
   const role: StaffProfile['role'] =
@@ -118,9 +123,26 @@ const mapStaff = (s: any): StaffProfile => {
 export const staffApi = {
   getAll: async (): Promise<StaffProfile[]> => {
     try {
-      const { data } = await api.get('/staffs/');
-      const list = Array.isArray(data?.results) ? data.results : data;
-      const staffs: StaffProfile[] = Array.isArray(list) ? list.map(mapStaff) : [];
+      // Backend sources for staff profiles vary by environment; prefer admin-only list,
+      // fall back to the global profile list and filter by role.
+      const endpoints = ['/admin-users/', '/all-users/', '/staffs/'] as const;
+
+      for (const url of endpoints) {
+        try {
+          const { data } = await api.get(url);
+          const list = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+          if (!Array.isArray(list) || list.length === 0) continue;
+
+          const staffOnly = list.filter((u: any) => isStaffRole(u?.role));
+          const staffs: StaffProfile[] = staffOnly.map(mapStaff);
+          saveToCache(staffs);
+          return staffs;
+        } catch {
+          continue;
+        }
+      }
+
+      const staffs: StaffProfile[] = [];
       saveToCache(staffs);
       return staffs;
     } catch (error) {
