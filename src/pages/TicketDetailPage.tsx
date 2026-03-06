@@ -104,6 +104,21 @@ const normalizeChecklistProgress = (progress: TicketChecklistProgress[]): Repair
     .filter((item): item is RepairStepProgress => Boolean(item));
 };
 
+const checklistProvenanceLabels = (meta: Record<string, unknown> | undefined): string[] => {
+  if (!meta || typeof meta !== 'object') return [];
+  const labels: string[] = [];
+  const provenance = (meta.provenance && typeof meta.provenance === 'object')
+    ? meta.provenance as Record<string, unknown>
+    : {};
+  const learnedSteps = Number(provenance.learned_steps || 0);
+  const knowledgeSteps = Number(provenance.knowledge_steps || 0);
+  const baselineSteps = Number(provenance.baseline_steps || 0);
+  if (baselineSteps > 0) labels.push('Baseline');
+  if (knowledgeSteps > 0) labels.push('Knowledge');
+  if (learnedSteps > 0) labels.push('Learned from similar completed tickets');
+  return labels;
+};
+
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -284,6 +299,10 @@ export default function TicketDetailPage() {
   );
   const hasServerChecklist = Array.isArray(ticket.checklist_template) && ticket.checklist_template.length > 0;
   const repairSteps = mapChecklistSteps(ticket.checklist_template || [], ticket, diag);
+  const checklistMeta = (ticket.checklist_meta && typeof ticket.checklist_meta === 'object')
+    ? ticket.checklist_meta as Record<string, unknown>
+    : undefined;
+  const checklistLabels = checklistProvenanceLabels(checklistMeta);
 
   // ── Summary view (before clicking "View Full Repair") ──
   if (!showFullDetail) {
@@ -545,11 +564,21 @@ export default function TicketDetailPage() {
           )}
 
           {/* Repair Checklist */}
+          {checklistLabels.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {checklistLabels.map(label => (
+                <Badge key={label} variant="outline" className="text-[10px]">
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          )}
           <RepairChecklist
             steps={repairSteps}
             progress={checklistProgress}
             ticketContext={`Ticket ${ticket.ticket_id}: ${ticket.title}`}
             componentContext={ticket.specialization}
+            diagnosticReportId={diag?.id}
             onProgressChange={hasServerChecklist ? handleChecklistProgressChange : undefined}
             saving={savingChecklist}
           />

@@ -47,6 +47,7 @@ interface Props {
   progress?: RepairStepProgress[];
   ticketContext?: string;
   componentContext?: string;
+  diagnosticReportId?: string;
   onProgressChange?: (progress: RepairStepProgress[]) => void;
   saving?: boolean;
 }
@@ -93,6 +94,7 @@ export default function RepairChecklist({
   progress = [],
   ticketContext,
   componentContext,
+  diagnosticReportId,
   onProgressChange,
   saving = false,
 }: Props) {
@@ -256,7 +258,12 @@ export default function RepairChecklist({
                           const prompt = `Help me with step ${idx + 1}: ${step.label}`;
                           const context = [ticketContext, componentContext].filter(Boolean).join(' | ');
                           const query = context ? `${prompt}. Context: ${context}` : prompt;
-                          navigate(`/ask-ai?q=${encodeURIComponent(query)}`);
+                          const params = new URLSearchParams();
+                          params.set('q', query);
+                          if (diagnosticReportId) {
+                            params.set('diagnostic_report_id', diagnosticReportId);
+                          }
+                          navigate(`/ask-ai?${params.toString()}`);
                         }}
                       >
                         <MessageSquare className="h-3 w-3" /> Open in Fix-it Felix
