@@ -20,13 +20,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import PdfViewer from '@/components/PdfViewer';
 import DiagnosticReportModal from '@/components/DiagnosticReportModal';
 import RepairChecklist, { RepairStep, RepairStepProgress } from '@/components/RepairChecklist';
+import TicketFelixChat from '@/components/TicketFelixChat';
 import { ticketPriorityBadgeClass, ticketPriorityLabel, ticketStatusBadgeClass } from '@/lib/ticketBadges';
 import {
   ArrowLeft, Search as SearchIcon, User, MapPin, Building,
   Cpu, Wrench, BookOpen, ShieldAlert, Clock, FileText, Save,
   Play, Package, CheckCircle2, Loader2, ExternalLink, AlertTriangle,
   ListChecks, ChevronRight, ChevronDown, Eye, Plus,
-  Cog, Hammer, Settings, CalendarDays,
+  Cog, Hammer, Settings, CalendarDays, Sparkles,
 } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -138,6 +139,7 @@ export default function TicketDetailPage() {
   // Modal states
   const [diagModal, setDiagModal] = useState<Diagnostic | null>(null);
   const [pdfModal, setPdfModal] = useState<Manual | null>(null);
+  const [felixChatOpen, setFelixChatOpen] = useState(false);
 
   // Technician actions
   const [repairNotes, setRepairNotes] = useState('');
@@ -248,6 +250,33 @@ export default function TicketDetailPage() {
     if (!ticket?.checklist_template?.length) return;
     setChecklistProgress(progress);
     setChecklistDirtyTick(Date.now());
+  };
+
+  // Handle checklist updates from Felix chat
+  const handleFelixChecklistUpdate = (updates: Partial<RepairStepProgress>[]) => {
+    if (!ticket?.checklist_template?.length) return;
+    setChecklistProgress(prev => {
+      const updated = [...prev];
+      updates.forEach(update => {
+        if (!update.item_id) return;
+        const idx = updated.findIndex(p => p.item_id === update.item_id);
+        if (idx >= 0) {
+          updated[idx] = { ...updated[idx], ...update };
+        } else {
+          updated.push({
+            item_id: update.item_id,
+            done: update.done ?? false,
+            note: update.note ?? '',
+            flagged: update.flagged ?? false,
+            time_minutes: update.time_minutes ?? 0,
+            photos: update.photos ?? [],
+          });
+        }
+      });
+      return updated;
+    });
+    setChecklistDirtyTick(Date.now());
+    toast({ title: 'Checklist Updated', description: 'Fix-it Felix applied the changes.' });
   };
 
   const handleRegenerateChecklist = async () => {
@@ -486,6 +515,26 @@ export default function TicketDetailPage() {
         {/* Diagnostic Modal */}
         <DiagnosticReportModal diagnostic={diagModal} open={!!diagModal} onClose={() => setDiagModal(null)} />
 
+        {/* Floating Ask Fix-it Felix button */}
+        <button
+          onClick={() => setFelixChatOpen(true)}
+          className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:bg-primary/90 transition-all active:scale-95"
+          title="Ask Fix-it Felix about this ticket"
+        >
+          <Sparkles className="h-6 w-6" />
+        </button>
+
+        {/* Felix Chat Panel */}
+        <TicketFelixChat
+          open={felixChatOpen}
+          onClose={() => setFelixChatOpen(false)}
+          ticket={ticket}
+          diagnostic={diag}
+          checklistSteps={repairSteps}
+          checklistProgress={checklistProgress}
+          onChecklistUpdate={handleFelixChecklistUpdate}
+        />
+
       </div>
     );
   }
@@ -530,6 +579,14 @@ export default function TicketDetailPage() {
         >
           {savingChecklist ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListChecks className="h-3 w-3" />}
           Regenerate Checklist
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 text-[10px] gap-1 bg-primary hover:bg-primary/90"
+          onClick={() => setFelixChatOpen(true)}
+        >
+          <Sparkles className="h-3 w-3" />
+          Ask Fix-it Felix
         </Button>
       </div>
 
@@ -754,6 +811,17 @@ export default function TicketDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Felix Chat Panel */}
+      <TicketFelixChat
+        open={felixChatOpen}
+        onClose={() => setFelixChatOpen(false)}
+        ticket={ticket}
+        diagnostic={diag}
+        checklistSteps={repairSteps}
+        checklistProgress={checklistProgress}
+        onChecklistUpdate={handleFelixChecklistUpdate}
+      />
 
     </div>
   );
