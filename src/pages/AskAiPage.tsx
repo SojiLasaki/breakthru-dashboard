@@ -25,6 +25,7 @@ import {
   Edit2,
   MessageSquarePlus,
   PanelLeft,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -869,6 +870,13 @@ export default function AskAiPage() {
           title: 'Ticket updated',
           description: ticketRef ? `Updated ${ticketRef}.` : 'Ticket update executed successfully.',
         });
+      } else if (updated.action_type === 'order_part' && updated.status === 'executed') {
+        const partName = String(updated.payload?.part_name || '').trim();
+        const quantity = Number(updated.payload?.quantity || 1);
+        toast({
+          title: 'Order placed',
+          description: partName ? `Ordered ${quantity}x ${partName}.` : 'Parts order placed successfully.',
+        });
       } else {
         toast({ title: 'Proposal approved', description: 'Action executed successfully.' });
       }
@@ -1497,6 +1505,103 @@ export default function AskAiPage() {
                                 Failed
                               </Button>
                             </div>
+                            {proposal.error && (
+                              <p className="text-[10px] text-destructive">{proposal.error}</p>
+                            )}
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              {msg.role === 'assistant' && Array.isArray(msg.proposals) && msg.proposals
+                .filter(proposal => proposal.action_type === 'order_part')
+                .map(proposal => {
+                  const partName = String(proposal.payload?.part_name || '').trim();
+                  const partNumber = String(proposal.payload?.part_number || '').trim();
+                  const quantity = Number(proposal.payload?.quantity || 1);
+                  const currentStock = Number(proposal.payload?.current_stock || 0);
+                  const estimatedTotal = proposal.payload?.estimated_total;
+                  const reason = String(proposal.payload?.reason || '').trim();
+                  const isBusy = Boolean(proposalBusy[proposal.id]);
+                  const statusLabel = String(proposal.status || 'pending').replace(/_/g, ' ');
+                  return (
+                    <Card key={proposal.id} className="border-border bg-card/80">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Package className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <p className="text-xs font-semibold truncate">
+                              Order Parts: {partName || partNumber || 'Unknown Part'}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] capitalize">{statusLabel}</Badge>
+                        </div>
+                        <div className="rounded-md border border-border bg-background p-2 space-y-1">
+                          <p className="text-[10px] font-medium text-muted-foreground">Order Details</p>
+                          <p className="text-[11px]">• Part: {partName} ({partNumber})</p>
+                          <p className="text-[11px]">• Quantity: {quantity}</p>
+                          <p className="text-[11px]">• Current Stock: {currentStock}</p>
+                          {estimatedTotal && (
+                            <p className="text-[11px]">• Est. Total: ${Number(estimatedTotal).toFixed(2)}</p>
+                          )}
+                        </div>
+                        {reason && (
+                          <p className="text-[10px] text-muted-foreground line-clamp-2">{reason}</p>
+                        )}
+                        {proposal.status === 'pending' ? (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={() => handleProposalApprove(msg.id, proposal.id)}
+                              disabled={isBusy}
+                            >
+                              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                              {isBusy ? 'Ordering...' : 'Place Order'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={() => handleProposalReject(msg.id, proposal.id)}
+                              disabled={isBusy}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : proposal.status === 'executed' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1 bg-green-500/10 cursor-default"
+                            disabled
+                          >
+                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            Order Placed
+                          </Button>
+                        ) : proposal.status === 'rejected' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1 bg-muted/50 cursor-default text-muted-foreground"
+                            disabled
+                          >
+                            <XCircle className="h-3 w-3" />
+                            Cancelled
+                          </Button>
+                        ) : proposal.status === 'failed' ? (
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 bg-destructive/10 cursor-default text-destructive"
+                              disabled
+                            >
+                              <AlertCircle className="h-3 w-3" />
+                              Order Failed
+                            </Button>
                             {proposal.error && (
                               <p className="text-[10px] text-destructive">{proposal.error}</p>
                             )}
