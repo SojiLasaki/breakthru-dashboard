@@ -353,10 +353,9 @@ export default function AskAiPage() {
 
       if (!active) return;
 
-      const backendModels = modelsResult.data.filter(model => model.active !== false);
       const fallbackModels = modelsResult.data.filter(model => model.provider === 'langgraph');
       const resolvedModels = modelsResult.source === 'backend'
-        ? (backendModels.length > 0 ? backendModels : modelsResult.data)
+        ? (modelsResult.data.length > 0 ? modelsResult.data : [getDefaultModel(modelsResult.data)])
         : (fallbackModels.length > 0 ? fallbackModels : [getDefaultModel(modelsResult.data)]);
 
       setModelEndpoints(resolvedModels);

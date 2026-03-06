@@ -357,7 +357,7 @@ export const streamFelixChat = async (
     return { answer: refusal, proposals: [] };
   }
 
-  const backendProviders = new Set(['langgraph', 'openai', 'ollama', 'vllm', 'llamacpp', 'local']);
+  const backendProviders = new Set(['langgraph', 'openai', 'openrouter', 'ollama', 'vllm', 'llamacpp', 'local']);
   if (backendProviders.has(provider)) {
     try {
       const { data } = await api.post('/ai/chat/', {
@@ -523,6 +523,11 @@ export const getActiveModelEndpoints = async (): Promise<EndpointResult<FelixMod
 };
 
 export const getDefaultModel = (options: FelixModelEndpoint[]): FelixModelEndpoint => {
+  const preferredProvider = ['langgraph', 'openai'];
+  for (const provider of preferredProvider) {
+    const preferred = options.find(option => option.provider === provider);
+    if (preferred) return preferred;
+  }
   return options.find(option => option.active) || options[0] || FALLBACK_MODELS[0];
 };
 
