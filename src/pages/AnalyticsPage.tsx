@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { isInSameStation } from '@/lib/stationFilter';
 import { ticketApi, type Ticket } from '@/services/ticketApi';
 import { technicianApi, type Technician } from '@/services/technicianApi';
 import { diagnosticsApi, type Diagnostic } from '@/services/diagnosticsApi';
@@ -64,7 +65,7 @@ const GRANULARITY_OPTIONS = [
 ] as const;
 
 export default function AnalyticsPage() {
-  const { isRole } = useAuth();
+  const { user, isRole } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
@@ -73,7 +74,8 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month' | 'year'>('day');
 
-  const isAdmin = isRole('admin');
+  // Admins and office staff can see analytics
+  const isAnalyticsUser = isRole('admin', 'office');
 
   useEffect(() => {
     Promise.all([
@@ -93,8 +95,47 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const data: AnalyticsPoint[] = useMemo(() => {
+  // Scope technicians to the logged-in user's station; if we can't resolve a station match,
+  // fall back to all technicians so charts never stay empty just because of mapping.
+  const techsInStation = useMemo(() => {
+    if (!technicians.length) return technicians;
+    if (!user) return technicians;
+    const scoped = technicians.filter((t) => isInSameStation(t as { station?: string | null }, user));
+    return scoped.length ? scoped : technicians;
+  }, [technicians, user]);
+
+  // Scope tickets to those handled by technicians in the same station (when station info is available).
+  const ticketsInStation = useMemo(() => {
     if (!tickets.length) return [];
+    if (!techsInStation.length) return tickets;
+
+    const idSet = new Set<string>();
+    const nameSet = new Set<string>();
+
+    techsInStation.forEach((t) => {
+      idSet.add(String(t.id));
+      const name =
+        `${t.first_name_display || t.first_name || ''} ${t.last_name_display || t.last_name || ''}`
+          .trim()
+          .toLowerCase();
+      if (name) nameSet.add(name);
+    });
+
+    return tickets.filter((t) => {
+      // Always keep completely unassigned tickets
+      const hasAssignment = t.assigned_technician_id != null || (t.assigned_technician || t.assigned_to);
+      if (!hasAssignment) return true;
+
+      const idOk =
+        t.assigned_technician_id != null && idSet.has(String(t.assigned_technician_id));
+      const nameKey = (t.assigned_technician || t.assigned_to || '').trim().toLowerCase();
+      const nameOk = !!nameKey && nameSet.has(nameKey);
+      return idOk || nameOk;
+    });
+  }, [tickets, techsInStation]);
+
+  const data: AnalyticsPoint[] = useMemo(() => {
+    if (!ticketsInStation.length) return [];
 
     const today = new Date();
 
@@ -111,7 +152,7 @@ export default function AnalyticsPage() {
         high: 0,
       }));
 
-      tickets.forEach((t) => {
+      ticketsInStation.forEach((t) => {
         const created = new Date(t.created_at || t.updated_at || '');
         if (Number.isNaN(created.getTime()) || created < start || created >= end) return;
         const hour = created.getHours();
@@ -135,7 +176,7 @@ export default function AnalyticsPage() {
 
       const byTs = new Map<number, AnalyticsPoint>();
 
-      tickets.forEach((t) => {
+      ticketsInStation.forEach((t) => {
         const created = startOfDay(new Date(t.created_at || t.updated_at || ''));
         if (Number.isNaN(created.getTime()) || created < start || created > todayDay) return;
         const ts = created.getTime();
@@ -174,7 +215,7 @@ export default function AnalyticsPage() {
     const startMonth = startOfMonth(addMonths(today, -11));
     const byMonth = new Map<number, AnalyticsPoint>();
 
-    tickets.forEach((t) => {
+    ticketsInStation.forEach((t) => {
       const created = new Date(t.created_at || t.updated_at || '');
       if (Number.isNaN(created.getTime()) || created < startMonth || created > today) return;
       const m = startOfMonth(created);
@@ -209,14 +250,35 @@ export default function AnalyticsPage() {
     }
 
     return yearly;
-  }, [tickets, granularity]);
+  }, [ticketsInStation, granularity]);
 
-  // Technician workload by status
+  // Technician workload by status (station-scoped + time-filtered)
   const technicianWorkload = useMemo(() => {
+    if (!techsInStation.length || !ticketsInStation.length) return [];
+
+    const now = new Date();
+    let start: Date;
+    switch (granularity) {
+      case 'day':
+        start = startOfDay(now);
+        break;
+      case 'week':
+        start = subDays(startOfDay(now), 6);
+        break;
+      case 'month':
+        start = subDays(startOfDay(now), 29);
+        break;
+      case 'year':
+        start = startOfMonth(addMonths(now, -11));
+        break;
+      default:
+        start = subDays(startOfDay(now), 29);
+    }
+
     const map = new Map<string, { technician_name: string; open: number; in_progress: number; completed: number }>();
 
     // Seed all technicians so even zero-workload techs show up
-    technicians.forEach((tech) => {
+    techsInStation.forEach((tech) => {
       const name =
         `${tech.first_name_display || tech.first_name || ''} ${tech.last_name_display || tech.last_name || ''}`.trim() ||
         tech.email_display ||
@@ -227,9 +289,21 @@ export default function AnalyticsPage() {
       }
     });
 
-    // Aggregate ticket workload per technician
-    tickets.forEach((t) => {
-      const techName = t.assigned_technician || 'Unassigned';
+    // Build a quick lookup from technician name to whether they are in station
+    const allowedNames = new Set(
+      Array.from(map.keys()).map((n) => n.trim().toLowerCase()),
+    );
+
+    // Aggregate ticket workload per technician, within time window and station
+    ticketsInStation.forEach((t) => {
+      const ts = new Date(t.created_at || t.updated_at || '');
+      if (Number.isNaN(ts.getTime()) || ts < start || ts > now) return;
+
+      const techNameRaw = t.assigned_technician || 'Unassigned';
+      const techKey = techNameRaw.trim().toLowerCase();
+      if (techKey !== 'unassigned' && !allowedNames.has(techKey)) return;
+
+      const techName = techNameRaw || 'Unassigned';
       if (!map.has(techName)) {
         map.set(techName, { technician_name: techName, open: 0, in_progress: 0, completed: 0 });
       }
@@ -242,7 +316,7 @@ export default function AnalyticsPage() {
     return Array.from(map.values()).sort(
       (a, b) => b.open + b.in_progress + b.completed - (a.open + a.in_progress + a.completed),
     );
-  }, [tickets, technicians]);
+  }, [ticketsInStation, techsInStation, granularity]);
 
   // Average repair time (from predicted / estimated minutes)
   const avgRepairTimeData = useMemo(() => {
@@ -251,7 +325,7 @@ export default function AnalyticsPage() {
     const start = subDays(today, days - 1);
     const buckets = new Map<number, { date: string; totalHours: number; n: number }>();
 
-    tickets.forEach((t) => {
+    ticketsInStation.forEach((t) => {
       const created = new Date(t.created_at || '');
       if (Number.isNaN(created.getTime()) || created < start || created > today) return;
 
@@ -301,7 +375,7 @@ export default function AnalyticsPage() {
         date: v.date,
         avg_hours: v.n > 0 ? v.totalHours / v.n : 0,
       }));
-  }, [tickets, granularity]);
+  }, [ticketsInStation, granularity]);
 
   // Most common engine issues (by diagnostics.specialization)
   const engineIssuePieData = useMemo(() => {
@@ -340,7 +414,7 @@ export default function AnalyticsPage() {
 
   // Maintenance cost breakdown from technician hourly rate + part resale prices
   const maintenanceCostData = useMemo(() => {
-    if (!tickets.length) return [];
+    if (!ticketsInStation.length) return [];
 
     const now = new Date();
     let start: Date;
@@ -381,7 +455,7 @@ export default function AnalyticsPage() {
     let partsCost = 0;
     let laborCost = 0;
 
-    tickets.forEach((ticket) => {
+    ticketsInStation.forEach((ticket) => {
       const created = new Date(ticket.created_at || ticket.updated_at || '');
       if (Number.isNaN(created.getTime()) || created < start || created > now) return;
       // Labor: use predicted / estimated minutes, fall back to actual if needed
@@ -430,11 +504,11 @@ export default function AnalyticsPage() {
       { cost_category: 'Parts', cost_total: partsCost },
       { cost_category: 'Labor', cost_total: laborCost },
     ].filter((b) => b.cost_total > 0);
-  }, [tickets, technicians, parts, granularity]);
+  }, [ticketsInStation, technicians, parts, granularity]);
 
   // Parts usage forecast derived from tickets + parts used
   const partsUsageForecastData = useMemo(() => {
-    if (!tickets.length) return [];
+    if (!ticketsInStation.length) return [];
     const map = new Map<number, { date: string; historical_usage: number }>();
 
     const now = new Date();
@@ -456,7 +530,7 @@ export default function AnalyticsPage() {
         start = subDays(startOfDay(now), 29);
     }
 
-    tickets.forEach((t) => {
+    ticketsInStation.forEach((t) => {
       if (!Array.isArray(t.parts) || t.parts.length === 0) return;
       const tsDate = startOfDay(new Date(t.updated_at || t.created_at || ''));
       if (Number.isNaN(tsDate.getTime()) || tsDate < start || tsDate > now) return;
@@ -485,11 +559,11 @@ export default function AnalyticsPage() {
       ...p,
       forecast_usage: p.historical_usage,
     }));
-  }, [tickets, granularity]);
+  }, [ticketsInStation, granularity]);
 
   // Engine model issue distribution derived from tickets + parts used
   const engineModelIssueData = useMemo(() => {
-    if (!tickets.length || !parts.length) return [];
+    if (!ticketsInStation.length || !parts.length) return [];
 
     const now = new Date();
     let start: Date;
@@ -519,7 +593,7 @@ export default function AnalyticsPage() {
     });
 
     const map = new Map<string, number>();
-    tickets.forEach((t) => {
+    ticketsInStation.forEach((t) => {
       if (!Array.isArray(t.parts) || t.parts.length === 0) return;
       const created = new Date(t.created_at || t.updated_at || '');
       if (Number.isNaN(created.getTime()) || created < start || created > now) return;
@@ -550,7 +624,7 @@ export default function AnalyticsPage() {
   }, [tickets, parts, granularity]);
 
 
-  if (!isAdmin) {
+  if (!isAnalyticsUser) {
     return (
       <div className="py-10 text-center text-muted-foreground text-sm">
         Admin analytics are only available to administrators.

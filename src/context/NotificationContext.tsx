@@ -15,6 +15,7 @@ interface NotificationContextType {
   markAllRead: () => void;
   markRead: (id: string) => void;
   addNotification: (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
+  clearAll: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -45,6 +46,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }, []);
 
+  const clearAll = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // Simulate polling for new notifications
@@ -56,7 +61,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   }, [addNotification]);
 
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, markAllRead, markRead, addNotification }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, markAllRead, markRead, addNotification, clearAll }}>
       {children}
     </NotificationContext.Provider>
   );

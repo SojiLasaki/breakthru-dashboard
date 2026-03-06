@@ -28,6 +28,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import DiagnosticsPage from "@/pages/DiagnosticsPage";
 import AssetsPage from "@/pages/AssetsPage";
 import TransactionsPage from "@/pages/TransactionsPage";
+import NotificationsPage from "@/pages/NotificationsPage";
 import AskAiPage from "@/pages/AskAiPage";
 import SettingsPage from "@/pages/SettingsPage";
 import StaffPage from "@/pages/StaffPage";
@@ -105,6 +106,7 @@ function ProtectedRoutes() {
         <Route path="/logs"         element={<LogsPage />} />
         <Route path="/analytics"    element={guard(isAdmin, <AnalyticsPage />)} />
         <Route path="/schedules"    element={<SchedulesPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
 
         <Route path="/components"  element={<ComponentsPage />} />
         <Route path="/parts"       element={<PartsPage />} />

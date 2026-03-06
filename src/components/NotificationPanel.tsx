@@ -2,6 +2,7 @@ import { useNotifications } from '@/context/NotificationContext';
 import { Bell, X, Check, Ticket, Package, Bot, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const icons = {
   ticket: Ticket,
@@ -15,7 +16,8 @@ interface Props {
 }
 
 export default function NotificationPanel({ onClose }: Props) {
-  const { notifications, markAllRead, markRead } = useNotifications();
+  const { notifications, markRead } = useNotifications();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -27,8 +29,16 @@ export default function NotificationPanel({ onClose }: Props) {
             <span className="font-semibold text-sm">Notifications</span>
           </div>
           <div className="flex gap-1">
-            <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs h-7 px-2 text-muted-foreground">
-              Mark all read
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                onClose();
+                navigate('/notifications');
+              }}
+              className="text-xs h-7 px-2 text-muted-foreground"
+            >
+              View all
             </Button>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
               <X className="h-4 w-4" />
