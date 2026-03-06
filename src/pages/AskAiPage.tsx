@@ -22,6 +22,9 @@ import {
   Share2,
   CheckCircle2,
   XCircle,
+  Edit2,
+  MessageSquarePlus,
+  PanelLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context';
 import { useFelixChatContext, type FelixChatMessage } from '@/context/FelixChatContext';
+import { ChatSessionPanel } from '@/components/felix/ChatSessionPanel';
 import { isTicketAssignedToUser } from '@/lib/ticketIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { useFelixChat } from '@/hooks/useFelixChat';
@@ -272,10 +276,14 @@ export default function AskAiPage() {
     removeFromHistory,
     shareConversation,
     loadSharedConversation,
+    sessions,
+    activeSessionId,
+    startNewChat,
   } = useFelixChatContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [diagnosticReportId, setDiagnosticReportId] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [sessionPanelOpen, setSessionPanelOpen] = useState(false);
   const [sharedLinkInput, setSharedLinkInput] = useState('');
   const [input, setInput] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -843,6 +851,12 @@ export default function AskAiPage() {
         if (ticketUuid) {
           navigate(`/tickets/${ticketUuid}`);
         }
+      } else if (updated.action_type === 'update_ticket' && updated.status === 'executed') {
+        const ticketRef = String(updated.payload?.ticket_id || updated.payload?.ticket_ref || '').trim();
+        toast({
+          title: 'Ticket updated',
+          description: ticketRef ? `Updated ${ticketRef}.` : 'Ticket update executed successfully.',
+        });
       } else {
         toast({ title: 'Proposal approved', description: 'Action executed successfully.' });
       }
@@ -883,15 +897,45 @@ export default function AskAiPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] -m-4 sm:-m-6">
-      {messages.length > 0 && (
-        <div className="flex items-center justify-end gap-1 px-4 py-2 border-b border-border bg-card flex-shrink-0">
+      {/* Chat Session Panel */}
+      <ChatSessionPanel open={sessionPanelOpen} onOpenChange={setSessionPanelOpen} />
+
+      {/* Header with session controls - always visible */}
+      <div className="flex items-center justify-between gap-1 px-4 py-2 border-b border-border bg-card flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs text-muted-foreground"
+            onClick={() => setSessionPanelOpen(true)}
+          >
+            <PanelLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sessions</span>
+            {sessions.length > 0 && (
+              <span className="text-[10px] bg-muted rounded-full px-1.5 py-0.5">
+                {sessions.length}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs text-primary hover:text-primary"
+            onClick={startNewChat}
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New Chat</span>
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-1">
           {isTechnician && (
             <>
               <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
                     <History className="h-3.5 w-3.5" />
-                    History
+                    <span className="hidden sm:inline">History</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 max-h-[320px] overflow-y-auto p-0" align="end">
@@ -985,109 +1029,36 @@ export default function AskAiPage() {
                 }}
               >
                 <Share2 className="h-3.5 w-3.5" />
-                Share
+                <span className="hidden sm:inline">Share</span>
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
-            onClick={() => {
-              if (messages.length > 0) addToHistory(messages);
-              setMessages([]);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Clear chat
-          </Button>
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
+              onClick={startNewChat}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Clear</span>
+            </Button>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-full w-full max-w-3xl mx-auto gap-6 text-center py-8">
-            {isTechnician && history.length > 0 && (
-              <div className="flex justify-end w-full max-w-2xl -mt-2 mb-2">
-                <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
-                      <History className="h-3.5 w-3.5" />
-                      Chat history
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 max-h-[320px] overflow-y-auto p-0" align="end">
-                    <div className="p-2 border-b border-border font-medium text-sm">Chat history</div>
-                    <ul className="p-2 space-y-1">
-                      {history.map((entry) => (
-                        <li key={entry.id} className="flex items-center gap-2 group">
-                          <button
-                            type="button"
-                            className="flex-1 text-left text-sm truncate rounded px-2 py-1.5 hover:bg-accent"
-                            onClick={() => {
-                              loadFromHistory(entry.id);
-                              setHistoryOpen(false);
-                            }}
-                          >
-                            {entry.title}
-                          </button>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {new Date(entry.createdAt).toLocaleDateString()}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                            onClick={() => removeFromHistory(entry.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="p-2 border-t border-border space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">Open shared conversation</div>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Paste shared link or ID"
-                          value={sharedLinkInput}
-                          onChange={(e) => setSharedLinkInput(e.target.value)}
-                          className="h-8 text-xs"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 shrink-0"
-                          onClick={() => {
-                            const raw = sharedLinkInput.trim();
-                            let shareId = raw;
-                            if (raw.includes('shared=')) {
-                              try {
-                                const url = new URL(raw.startsWith('http') ? raw : `https://x?${raw.split('?')[1] || ''}`);
-                                shareId = url.searchParams.get('shared') || raw;
-                              } catch {
-                                const q = raw.includes('?') ? raw.split('?')[1] : raw;
-                                shareId = new URLSearchParams(q).get('shared') || raw;
-                              }
-                            }
-                            if (shareId) {
-                              const shared = loadSharedConversation(shareId);
-                              if (shared?.length) {
-                                setMessages(shared);
-                                setHistoryOpen(false);
-                                setSharedLinkInput('');
-                                toast({ title: 'Shared conversation loaded' });
-                              } else {
-                                toast({ title: 'Invalid or expired link', variant: 'destructive' });
-                              }
-                            }
-                          }}
-                        >
-                          Open
-                        </Button>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+            {/* Session info hint when user has sessions */}
+            {sessions.length > 1 && (
+              <div className="text-xs text-muted-foreground">
+                <button
+                  className="hover:text-foreground underline underline-offset-2"
+                  onClick={() => setSessionPanelOpen(true)}
+                >
+                  {sessions.length} chat sessions saved
+                </button>
               </div>
             )}
             <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -1314,7 +1285,7 @@ export default function AskAiPage() {
                               disabled={isBusy}
                             >
                               {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                              Confirm
+                              {isBusy ? 'Creating...' : 'Confirm'}
                             </Button>
                             <Button
                               size="sm"
@@ -1326,6 +1297,197 @@ export default function AskAiPage() {
                               <XCircle className="h-3 w-3" />
                               Reject
                             </Button>
+                          </div>
+                        ) : proposal.status === 'executed' ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 bg-muted/50 cursor-default"
+                              disabled
+                            >
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                              Ticket Created
+                            </Button>
+                            {(proposal.result?.local_ticket_uuid || proposal.result?.local_ticket_id) && (
+                              <Button
+                                size="sm"
+                                variant="link"
+                                className="h-7 text-[11px] gap-1 text-primary"
+                                onClick={() => {
+                                  const ticketUuid = String(proposal.result?.local_ticket_uuid || '').trim();
+                                  const ticketRef = String(proposal.result?.local_ticket_id || '').trim();
+                                  if (ticketUuid) {
+                                    navigate(`/tickets/${ticketUuid}`);
+                                  } else if (ticketRef) {
+                                    toast({
+                                      title: 'Ticket Reference',
+                                      description: `Ticket ${ticketRef} was created but navigation is not available.`,
+                                    });
+                                  }
+                                }}
+                              >
+                                <Eye className="h-3 w-3" />
+                                {String(proposal.result?.local_ticket_id || 'View Ticket')}
+                              </Button>
+                            )}
+                          </div>
+                        ) : proposal.status === 'rejected' ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 bg-muted/50 cursor-default text-muted-foreground"
+                              disabled
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Rejected
+                            </Button>
+                          </div>
+                        ) : proposal.status === 'failed' ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] gap-1 bg-destructive/10 cursor-default text-destructive"
+                                disabled
+                              >
+                                <AlertCircle className="h-3 w-3" />
+                                Failed
+                              </Button>
+                            </div>
+                            {proposal.error && (
+                              <p className="text-[10px] text-destructive">{proposal.error}</p>
+                            )}
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              {msg.role === 'assistant' && Array.isArray(msg.proposals) && msg.proposals
+                .filter(proposal => proposal.action_type === 'update_ticket')
+                .map(proposal => {
+                  const ticketRef = String(proposal.payload?.ticket_id || proposal.payload?.ticket_ref || '').trim();
+                  const updateFields = proposal.payload?.updates && typeof proposal.payload.updates === 'object'
+                    ? proposal.payload.updates as Record<string, unknown>
+                    : {};
+                  const updateSummary = Object.entries(updateFields)
+                    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+                    .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${String(value)}`)
+                    .slice(0, 5);
+                  const reason = String(proposal.payload?.reason || '').trim();
+                  const isBusy = Boolean(proposalBusy[proposal.id]);
+                  const statusLabel = String(proposal.status || 'pending').replace(/_/g, ' ');
+                  return (
+                    <Card key={proposal.id} className="border-border bg-card/80">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Edit2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <p className="text-xs font-semibold truncate">
+                              Update Ticket {ticketRef || '(no reference)'}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] capitalize">{statusLabel}</Badge>
+                        </div>
+                        {reason && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{reason}</p>
+                        )}
+                        {updateSummary.length > 0 && (
+                          <div className="rounded-md border border-border bg-background p-2 space-y-1">
+                            <p className="text-[10px] font-medium text-muted-foreground">Proposed Changes</p>
+                            {updateSummary.map((change, idx) => (
+                              <p key={`${proposal.id}-change-${idx}`} className="text-[11px] text-foreground/90 capitalize">
+                                {change}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {proposal.status === 'pending' ? (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={() => handleProposalApprove(msg.id, proposal.id)}
+                              disabled={isBusy}
+                            >
+                              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                              {isBusy ? 'Updating...' : 'Apply Update'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={() => handleProposalReject(msg.id, proposal.id)}
+                              disabled={isBusy}
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Reject
+                            </Button>
+                          </div>
+                        ) : proposal.status === 'executed' ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 bg-muted/50 cursor-default"
+                              disabled
+                            >
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                              Ticket Updated
+                            </Button>
+                            {(proposal.result?.local_ticket_uuid || ticketRef) && (
+                              <Button
+                                size="sm"
+                                variant="link"
+                                className="h-7 text-[11px] gap-1 text-primary"
+                                onClick={() => {
+                                  const ticketUuid = String(proposal.result?.local_ticket_uuid || '').trim();
+                                  if (ticketUuid) {
+                                    navigate(`/tickets/${ticketUuid}`);
+                                  } else if (ticketRef) {
+                                    toast({
+                                      title: 'Ticket Updated',
+                                      description: `Ticket ${ticketRef} was updated successfully.`,
+                                    });
+                                  }
+                                }}
+                              >
+                                <Eye className="h-3 w-3" />
+                                {ticketRef || 'View Ticket'}
+                              </Button>
+                            )}
+                          </div>
+                        ) : proposal.status === 'rejected' ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 bg-muted/50 cursor-default text-muted-foreground"
+                              disabled
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Rejected
+                            </Button>
+                          </div>
+                        ) : proposal.status === 'failed' ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] gap-1 bg-destructive/10 cursor-default text-destructive"
+                                disabled
+                              >
+                                <AlertCircle className="h-3 w-3" />
+                                Failed
+                              </Button>
+                            </div>
+                            {proposal.error && (
+                              <p className="text-[10px] text-destructive">{proposal.error}</p>
+                            )}
                           </div>
                         ) : null}
                       </CardContent>

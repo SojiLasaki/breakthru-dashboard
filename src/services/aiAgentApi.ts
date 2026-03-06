@@ -58,7 +58,7 @@ export interface McpOAuthStartResult {
   hint?: string;
 }
 
-export type AgentActionType = 'create_ticket' | 'assign_employee' | 'order_part';
+export type AgentActionType = 'create_ticket' | 'update_ticket' | 'assign_employee' | 'order_part';
 export type AgentActionStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
 export interface AgentActionFilters {
   status?: AgentActionStatus;

@@ -57,11 +57,12 @@ export interface StreamFelixChatRequest {
 
 export interface FelixChatProposal {
   id: string;
-  action_type: 'create_ticket' | 'assign_employee' | 'order_part';
+  action_type: 'create_ticket' | 'update_ticket' | 'assign_employee' | 'order_part';
   status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
   payload: Record<string, unknown>;
   result?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  error?: string;
 }
 
 export interface StreamFelixChatResult {
