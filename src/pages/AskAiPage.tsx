@@ -305,6 +305,7 @@ export default function AskAiPage() {
 
   const [mcpAdapters, setMcpAdapters] = useState<McpAdapterOption[]>([]);
   const [activeConnectorIds, setActiveConnectorIds] = useState<string[]>([]);
+  const [lastTicketRef, setLastTicketRef] = useState<string>('');
   const intent: FelixIntent = 'qa';
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [proposalBusy, setProposalBusy] = useState<Record<string, boolean>>({});
@@ -681,10 +682,16 @@ export default function AskAiPage() {
       snippetsForContext = await fetchSnippets(text);
     }
 
-    const contextBlock = buildConsolidatedContext(snippetsForContext, {
+    let contextBlock = buildConsolidatedContext(snippetsForContext, {
       urls: combinedUrls,
       mentionedRefs,
     });
+    // Add last ticket reference to context for follow-up messages
+    if (lastTicketRef) {
+      contextBlock = contextBlock
+        ? `${contextBlock}\n\nLast referenced ticket: ${lastTicketRef}`
+        : `Last referenced ticket: ${lastTicketRef}`;
+    }
     const selectedDocs = documents
       .filter(doc => mentionedRefs.size === 0 || mentionedRefs.has(`doc:${doc.name}`))
       .map(doc => `doc:${doc.name}`);
@@ -824,6 +831,7 @@ export default function AskAiPage() {
     documents,
     diagnosticReportId,
     mcpAdapters,
+    lastTicketRef,
   ]);
 
   const updateProposalInMessage = useCallback((messageId: string, proposal: AgentActionProposal) => {
@@ -844,9 +852,13 @@ export default function AskAiPage() {
       if (updated.action_type === 'create_ticket' && updated.status === 'executed') {
         const ticketUuid = String(updated.result?.local_ticket_uuid || '').trim();
         const ticketRef = String(updated.result?.local_ticket_id || '').trim();
+        // Remember this ticket for follow-up messages
+        if (ticketRef) {
+          setLastTicketRef(ticketRef);
+        }
         toast({
           title: 'Ticket created',
-          description: ticketRef ? `Created ${ticketRef}.` : 'Ticket proposal executed successfully.',
+          description: ticketRef ? `Created ${ticketRef}. You can now refer to it in follow-up messages.` : 'Ticket proposal executed successfully.',
         });
         if (ticketUuid) {
           navigate(`/tickets/${ticketUuid}`);
