@@ -46,6 +46,7 @@ export interface StreamFelixChatRequest {
   provider?: string;
   model?: string;
   contextBlock?: string;
+  diagnosticReportId?: string;
   mcpAdapters?: string[];
   enabledConnectors?: string[];
   policyMode?: 'manual' | 'semi_auto' | 'auto';
@@ -365,6 +366,7 @@ export const streamFelixChat = async (
         messages: request.messages,
         context: {
           context_block: request.contextBlock || '',
+          diagnostic_report_id: request.diagnosticReportId || '',
           mcp_adapters: request.mcpAdapters || [],
           enabled_connectors: request.enabledConnectors || request.mcpAdapters || [],
           policy_mode: request.policyMode || 'manual',

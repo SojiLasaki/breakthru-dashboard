@@ -274,6 +274,7 @@ export default function AskAiPage() {
     loadSharedConversation,
   } = useFelixChatContext();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [diagnosticReportId, setDiagnosticReportId] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sharedLinkInput, setSharedLinkInput] = useState('');
   const [input, setInput] = useState('');
@@ -339,6 +340,16 @@ export default function AskAiPage() {
     setInput(prev => prev || q);
     const updated = new URLSearchParams(searchParams);
     updated.delete('q');
+    setSearchParams(updated, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const reportId = (searchParams.get('diagnostic_report_id') || searchParams.get('dr') || '').trim();
+    if (!reportId) return;
+    setDiagnosticReportId(prev => prev || reportId);
+    const updated = new URLSearchParams(searchParams);
+    updated.delete('diagnostic_report_id');
+    updated.delete('dr');
     setSearchParams(updated, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -673,6 +684,7 @@ export default function AskAiPage() {
       .filter(url => mentionedRefs.size === 0 || mentionedRefs.has(`url:${url}`))
       .map(url => `url:${url}`);
     const contextRefs = [
+      ...(diagnosticReportId ? [`diagnostic:${diagnosticReportId}`] : []),
       ...selectedDocs,
       ...selectedUrls,
       ...snippetsForContext.map(snippet => `snippet:${snippet.id}`),
@@ -737,6 +749,7 @@ export default function AskAiPage() {
           provider: inferred.provider,
           model: inferred.model,
           contextBlock,
+          diagnosticReportId,
           mcpAdapters: activeConnectorIds,
           enabledConnectors: activeConnectorIds,
           policyMode: inferred.policyMode,
@@ -801,6 +814,7 @@ export default function AskAiPage() {
     sendStream,
     toast,
     documents,
+    diagnosticReportId,
     mcpAdapters,
   ]);
 
@@ -1236,6 +1250,17 @@ export default function AskAiPage() {
                 .map(proposal => {
                   const ticketTitle = String(proposal.payload?.title || 'Proposed Service Ticket');
                   const ticketDescription = String(proposal.payload?.description || '');
+                  const diagnosticRef = String(proposal.payload?.diagnostic_report_id || '').trim();
+                  const diagnosticPayload = (
+                    proposal.payload?.diagnostic_payload && typeof proposal.payload.diagnostic_payload === 'object'
+                      ? proposal.payload.diagnostic_payload as Record<string, unknown>
+                      : {}
+                  );
+                  const diagnosticComponent = String(diagnosticPayload.component_name || '').trim();
+                  const diagnosticFault = String(diagnosticPayload.fault_code || '').trim();
+                  const diagnosticParts = Array.isArray(diagnosticPayload.part_names)
+                    ? diagnosticPayload.part_names.map(part => String(part || '').trim()).filter(Boolean).slice(0, 3)
+                    : [];
                   const checklistPreview = Array.isArray(proposal.payload?.checklist_preview)
                     ? proposal.payload.checklist_preview as string[]
                     : [];
@@ -1256,6 +1281,14 @@ export default function AskAiPage() {
                         </div>
                         {ticketDescription && (
                           <p className="text-[11px] text-muted-foreground line-clamp-2">{ticketDescription}</p>
+                        )}
+                        {(diagnosticRef || diagnosticComponent || diagnosticFault || diagnosticParts.length > 0) && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Diagnostic source
+                            {diagnosticRef ? ` ${diagnosticRef}` : ''}:
+                            {' '}
+                            {[diagnosticComponent, diagnosticFault, diagnosticParts.join(', ')].filter(Boolean).join(' · ') || 'structured report context'}
+                          </p>
                         )}
                         {missingFields.length > 0 && (
                           <p className="text-[11px] text-primary">
