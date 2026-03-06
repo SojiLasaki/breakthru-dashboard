@@ -43,6 +43,7 @@ export interface KnowledgeSnippet {
 
 export interface StreamFelixChatRequest {
   messages: FelixChatMessage[];
+  threadId?: string;
   provider?: string;
   model?: string;
   contextBlock?: string;
@@ -69,6 +70,7 @@ export interface StreamFelixChatResult {
   answer: string;
   proposals: FelixChatProposal[];
   telemetry?: Record<string, unknown>;
+  threadId?: string;
 }
 
 export interface StreamFelixChatHandlers {
@@ -78,6 +80,46 @@ export interface StreamFelixChatHandlers {
 export interface EndpointResult<T> {
   data: T;
   source: 'backend' | 'fallback';
+}
+
+export interface FelixThreadMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export interface FelixThreadSummary {
+  id: string;
+  title: string;
+  message_count: number;
+  is_shared: boolean;
+  last_message_preview: string;
+  last_message_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FelixThreadDetail extends FelixThreadSummary {
+  messages: FelixThreadMessage[];
+  shared_at?: string | null;
+}
+
+export interface FelixSharedThreadPayload {
+  id: string;
+  title: string;
+  shared_at?: string | null;
+  last_message_at?: string;
+  messages: FelixThreadMessage[];
+}
+
+export interface FelixThreadShareResult {
+  ok: boolean;
+  shareId: string;
+  threadId: string;
+  sharedApiPath?: string;
+  sharedApiUrl?: string;
 }
 
 export interface KnowledgeGraphUpsertPayload {
@@ -364,6 +406,7 @@ export const streamFelixChat = async (
     try {
       const { data } = await api.post('/ai/chat/', {
         query,
+        thread_id: request.threadId || undefined,
         messages: request.messages,
         context: {
           context_block: request.contextBlock || '',
@@ -388,8 +431,9 @@ export const streamFelixChat = async (
       const telemetry = data?.telemetry && typeof data.telemetry === 'object'
         ? data.telemetry as Record<string, unknown>
         : undefined;
+      const threadId = toNonEmptyString(data?.thread_id);
       if (answer) handlers.onDelta?.(answer, answer);
-      return { answer, proposals, telemetry };
+      return { answer, proposals, telemetry, threadId: threadId || undefined };
     } catch (error: unknown) {
       const message = extractApiErrorMessage(error, 'Chat request failed');
       const status = isAxiosError(error) ? error.response?.status : undefined;
@@ -468,6 +512,107 @@ export const streamFelixChat = async (
   }
 
   return { answer: fullText, proposals: [] };
+};
+
+const normalizeThreadMessage = (item: any): FelixThreadMessage | null => {
+  const id = toNonEmptyString(item?.id);
+  const role = toNonEmptyString(item?.role).toLowerCase();
+  const content = typeof item?.content === 'string' ? item.content : '';
+  if (!id || !role) return null;
+  if (!['user', 'assistant', 'system'].includes(role)) return null;
+  return {
+    id,
+    role: role as FelixThreadMessage['role'],
+    content,
+    metadata: isRecord(item?.metadata) ? item.metadata : {},
+    created_at: toNonEmptyString(item?.created_at) || undefined,
+  };
+};
+
+const normalizeThreadSummary = (item: any): FelixThreadSummary | null => {
+  const id = toNonEmptyString(item?.id);
+  if (!id) return null;
+  return {
+    id,
+    title: toNonEmptyString(item?.title) || 'New chat',
+    message_count: toFiniteInteger(item?.message_count) ?? 0,
+    is_shared: Boolean(item?.is_shared),
+    last_message_preview: toNonEmptyString(item?.last_message_preview),
+    last_message_at: toNonEmptyString(item?.last_message_at) || undefined,
+    created_at: toNonEmptyString(item?.created_at) || undefined,
+    updated_at: toNonEmptyString(item?.updated_at) || undefined,
+  };
+};
+
+const normalizeThreadDetail = (data: any): FelixThreadDetail => {
+  const summary = normalizeThreadSummary(data) || {
+    id: toNonEmptyString(data?.id) || '',
+    title: toNonEmptyString(data?.title) || 'New chat',
+    message_count: 0,
+    is_shared: Boolean(data?.is_shared),
+    last_message_preview: toNonEmptyString(data?.last_message_preview),
+    last_message_at: toNonEmptyString(data?.last_message_at) || undefined,
+    created_at: toNonEmptyString(data?.created_at) || undefined,
+    updated_at: toNonEmptyString(data?.updated_at) || undefined,
+  };
+  const rawMessages = Array.isArray(data?.messages) ? data.messages : [];
+  const messages = rawMessages.map(normalizeThreadMessage).filter((m): m is FelixThreadMessage => Boolean(m));
+  return {
+    ...summary,
+    messages,
+    shared_at: toNonEmptyString(data?.shared_at) || null,
+  };
+};
+
+export const listFelixThreads = async (): Promise<FelixThreadSummary[]> => {
+  const { data } = await api.get('/ai/chat_threads/');
+  const rows = unwrapData(data)
+    .map(normalizeThreadSummary)
+    .filter((row): row is FelixThreadSummary => Boolean(row));
+  return rows;
+};
+
+export const createFelixThread = async (title?: string): Promise<FelixThreadDetail> => {
+  const { data } = await api.post('/ai/chat_threads/', { title: title || 'New chat' });
+  return normalizeThreadDetail(data);
+};
+
+export const getFelixThread = async (threadId: string): Promise<FelixThreadDetail> => {
+  const { data } = await api.get(`/ai/chat_threads/${encodeURIComponent(threadId)}/`);
+  return normalizeThreadDetail(data);
+};
+
+export const updateFelixThread = async (threadId: string, payload: { title?: string }): Promise<FelixThreadDetail> => {
+  const { data } = await api.patch(`/ai/chat_threads/${encodeURIComponent(threadId)}/`, payload);
+  return normalizeThreadDetail(data);
+};
+
+export const deleteFelixThread = async (threadId: string): Promise<void> => {
+  await api.delete(`/ai/chat_threads/${encodeURIComponent(threadId)}/`);
+};
+
+export const shareFelixThread = async (threadId: string): Promise<FelixThreadShareResult> => {
+  const { data } = await api.post(`/ai/chat_threads/${encodeURIComponent(threadId)}/share/`);
+  return {
+    ok: Boolean(data?.ok),
+    shareId: toNonEmptyString(data?.share_id),
+    threadId: toNonEmptyString(data?.thread_id),
+    sharedApiPath: toNonEmptyString(data?.shared_api_path) || undefined,
+    sharedApiUrl: toNonEmptyString(data?.shared_api_url) || undefined,
+  };
+};
+
+export const getSharedFelixThread = async (shareId: string): Promise<FelixSharedThreadPayload> => {
+  const { data } = await api.get(`/ai/chat_threads/shared/${encodeURIComponent(shareId)}/`);
+  return {
+    id: toNonEmptyString(data?.id),
+    title: toNonEmptyString(data?.title) || 'Shared conversation',
+    shared_at: toNonEmptyString(data?.shared_at) || null,
+    last_message_at: toNonEmptyString(data?.last_message_at) || undefined,
+    messages: (Array.isArray(data?.messages) ? data.messages : [])
+      .map(normalizeThreadMessage)
+      .filter((row): row is FelixThreadMessage => Boolean(row)),
+  };
 };
 
 const normalizeModelEndpoints = (raw: unknown): FelixModelEndpoint[] => {
