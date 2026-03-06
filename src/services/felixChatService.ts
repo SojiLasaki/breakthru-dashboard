@@ -134,7 +134,7 @@ const FALLBACK_MODELS: FelixModelEndpoint[] = [
   { id: 'google:gemini-3-flash-preview', provider: 'google', model: 'gemini-3-flash-preview', label: 'Google · Gemini 3 Flash Preview' },
   { id: 'openai:gpt-4.1-mini', provider: 'openai', model: 'gpt-4.1-mini', label: 'OpenAI · GPT-4.1 Mini' },
   { id: 'anthropic:claude-3-5-sonnet-latest', provider: 'anthropic', model: 'claude-3-5-sonnet-latest', label: 'Anthropic · Claude 3.5 Sonnet' },
-  { id: 'ollama:llama3.1:8b', provider: 'ollama', model: 'llama3.1:8b', label: 'Ollama (Local) · Llama 3.1 8B' },
+  { id: 'ollama:qwen2.5:3b', provider: 'ollama', model: 'qwen2.5:3b', label: 'Ollama (Local) · Qwen2.5 3B' },
   { id: 'vllm:qwen2.5-7b-instruct', provider: 'vllm', model: 'Qwen/Qwen2.5-7B-Instruct', label: 'vLLM (Local) · Qwen2.5 7B' },
   { id: 'llamacpp:local-model', provider: 'llamacpp', model: 'local-model', label: 'llama.cpp (Local) · OpenAI-compatible' },
 ];
@@ -525,12 +525,14 @@ export const getActiveModelEndpoints = async (): Promise<EndpointResult<FelixMod
 };
 
 export const getDefaultModel = (options: FelixModelEndpoint[]): FelixModelEndpoint => {
+  const active = options.find(option => option.active);
+  if (active) return active;
   const preferredProvider = ['langgraph', 'openai'];
   for (const provider of preferredProvider) {
     const preferred = options.find(option => option.provider === provider);
     if (preferred) return preferred;
   }
-  return options.find(option => option.active) || options[0] || FALLBACK_MODELS[0];
+  return options[0] || FALLBACK_MODELS[0];
 };
 
 const normalizeMcpAdapters = (raw: unknown): McpAdapterOption[] => {
