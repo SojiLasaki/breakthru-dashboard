@@ -14,6 +14,8 @@ export interface Ticket {
   assigned_technician_last_name: string;
   title: string;
   customer: string;
+  /** Backend customer UUID/profile id — used to match tickets to logged-in customer */
+  customer_id?: string;
   city?: string;
   issue_description: string;
   specialization: string;
@@ -161,6 +163,13 @@ const normalizeTicket = (raw: any): Ticket => {
   const customerFullName = joinName(raw?.customer_first_name, raw?.customer_last_name);
   const rawCustomer = pick(customerFullName, raw?.customer_name, raw?.customer_display, raw?.customer);
   const customer = looksLikeUuid(rawCustomer) ? '' : rawCustomer;
+  const rawCustomerObj = raw?.customer;
+  const customerId =
+    raw?.customer_id != null ? String(raw.customer_id) :
+    typeof rawCustomerObj === 'object' && rawCustomerObj !== null && (rawCustomerObj as any)?.id != null
+      ? String((rawCustomerObj as any).id)
+      : typeof raw?.customer === 'string' && looksLikeUuid(raw.customer) ? raw.customer
+      : undefined;
 
   return {
     id,
@@ -177,6 +186,7 @@ const normalizeTicket = (raw: any): Ticket => {
     assigned_technician_last_name: pick(raw?.assigned_technician_last_name, assignedUser?.last_name),
     title: pick(raw?.title, raw?.summary),
     customer,
+    customer_id: customerId,
     city: pick(raw?.customer_city, raw?.city),
     issue_description: pick(raw?.issue_description, raw?.description),
     specialization: pick(raw?.specialization, raw?.category),

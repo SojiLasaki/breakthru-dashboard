@@ -85,6 +85,13 @@ const STARTERS = [
   'Explain how to replace fuel injectors',
 ];
 
+const CUSTOMER_STARTERS = [
+  'I have a question about my ticket',
+  'How do I check my ticket status?',
+  'What are your service hours?',
+  'I need help with my equipment',
+];
+
 const PRIORITY_ORDER: Record<number, number> = { 5: 0, 4: 1, 3: 2, 2: 3, 1: 4 };
 
 const SEVERITY_BADGE_CLASS: Record<number, string> = {
@@ -315,6 +322,7 @@ export default function AskAiPage() {
   const defaultModelEndpoint = getDefaultModel(availableModelEndpoints);
   const resourceMentions = buildResourceMentions(documents, contextUrls);
   const isTechnician = isRole ? isRole('technician') : user?.role === 'technician';
+  const isCustomer = isRole ? isRole('customer') : user?.role === 'customer';
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1094,9 +1102,13 @@ export default function AskAiPage() {
               <Sparkles className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold mb-1">Hi, I'm Fix-it Felix</h2>
+              <h2 className="text-lg font-semibold mb-1">
+                {isCustomer ? 'Support' : "Hi, I'm Fix-it Felix"}
+              </h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Your breakthru AI assistant. Ask about diagnostics, parts, and procedures, or attach visuals and context files.
+                {isCustomer
+                  ? "Get help with your tickets and equipment. Ask a question or describe your issue below."
+                  : "Your breakthru AI assistant. Ask about diagnostics, parts, and procedures, or attach visuals and context files."}
               </p>
             </div>
 
@@ -1185,7 +1197,7 @@ export default function AskAiPage() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
-              {STARTERS.map(starter => (
+              {(isCustomer ? CUSTOMER_STARTERS : STARTERS).map(starter => (
                 <button
                   key={starter}
                   onClick={() => { setInput(starter); textareaRef.current?.focus(); }}

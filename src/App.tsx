@@ -94,8 +94,8 @@ function ProtectedRoutes() {
         {/* Assets and Diagnostics are customer-only */}
         <Route path="/assets" element={guard(isCustomer, <AssetsPage />)} />
         <Route path="/manuals" element={guard(isAdminOrStaff, <ManualsPage />)} />
-        {/* Fix-it Felix is technician-only; non-tech users should never hit this route */}
-        <Route path="/ask-ai" element={<Navigate to="/" replace />} />
+        {/* Support chat for customers; redirect others */}
+        <Route path="/ask-ai" element={isCustomer ? <AskAiPage /> : <Navigate to="/" replace />} />
 
         <Route path="/customers"    element={<CustomersPage />} />
         <Route path="/orders"       element={<OrdersPage />} />

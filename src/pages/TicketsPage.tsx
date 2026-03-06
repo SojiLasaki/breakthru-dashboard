@@ -71,24 +71,27 @@ export default function TicketsPage() {
 
   const scopeLabel = isTech
     ? `Showing your tickets (assigned to or created by ${fullName || user?.username || ''})`
-    : isCustomer ? 'Showing your submitted tickets'
+    : isCustomer
+    ? 'Showing your submitted tickets'
+    : isAdmin
+    ? 'Showing all tickets (admin / staff)'
     : 'Showing all tickets';
 
   useEffect(() => {
     ticketApi.getAll().then(all => {
-      let scoped = all;
-      if (user) {
-        if (isTech) {
-          // Technicians see tickets assigned to them OR created by them
-          scoped = all.filter(t => isTicketAssignedToUser(t, user) || isTicketCreatedByUser(t, user));
-        } else if (isCustomer) {
-          const created = all.filter(t => isTicketCreatedByUser(t, user));
-          scoped = created.length ? created : all;
-        }
+      let scoped: Ticket[];
+      if (isTech && user) {
+        // Technicians see tickets assigned to them OR created by them
+        scoped = all.filter(t => isTicketAssignedToUser(t, user) || isTicketCreatedByUser(t, user));
+      } else if (isCustomer && user) {
+        scoped = all.filter(t => isTicketCreatedByUser(t, user));
+      } else {
+        // Admin and office staff see all tickets
+        scoped = all;
       }
       setTickets(scoped);
     }).catch(() => ticketApi.getAll().then(setTickets)).finally(() => setLoading(false));
-  }, [isTech, isCustomer, fullName, user]);
+  }, [isTech, isCustomer, isAdmin, user]);
 
   const filtered = useMemo(() =>
     tickets

@@ -56,7 +56,7 @@ const toId = (v: unknown): string => {
 };
 
 const userIdentityIds = (user: User | null | undefined): string[] =>
-  uniqueNonEmpty([toId(user?.id), toId(user?.technician_profile_id)]);
+  uniqueNonEmpty([toId(user?.id), toId(user?.technician_profile_id), toId((user as any)?.profile_id)]);
 
 const looksLikeUuid = (s: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
 
@@ -82,6 +82,12 @@ export const isTicketAssignedToUser = (ticket: Ticket, user: User | null | undef
   return intersects(ticketAssignedKeys(ticket), userIdentityKeys(user));
 };
 
-export const isTicketCreatedByUser = (ticket: Ticket, user: User | null | undefined): boolean =>
-  intersects(ticketCreatedByKeys(ticket), userIdentityKeys(user));
+export const isTicketCreatedByUser = (ticket: Ticket, user: User | null | undefined): boolean => {
+  // Match by customer_id when backend links tickets via UUID (most reliable for customers)
+  const ticketCustomerId = ticket.customer_id ? toId(ticket.customer_id) : '';
+  const userIds = userIdentityIds(user);
+  if (ticketCustomerId && userIds.length && userIds.includes(ticketCustomerId)) return true;
+  // Fallback: match by created_by / customer display name
+  return intersects(ticketCreatedByKeys(ticket), userIdentityKeys(user));
+};
 

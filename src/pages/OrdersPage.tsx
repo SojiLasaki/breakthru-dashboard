@@ -55,8 +55,15 @@ export default function OrdersPage() {
   };
 
   const filtered = orders.filter(o => {
-    const matchSearch = !search || o.order_number.toLowerCase().includes(search.toLowerCase()) || o.item_name.toLowerCase().includes(search.toLowerCase()) || o.requested_by.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || o.status === statusFilter;
+    const q = search.toLowerCase();
+    const matchSearch =
+      !search ||
+      (o.order_number ?? '').toLowerCase().includes(q) ||
+      (o.item_name ?? '').toLowerCase().includes(q) ||
+      (o.requested_by ?? '').toLowerCase().includes(q);
+
+    const statusNorm = (o.status ?? '').toLowerCase();
+    const matchStatus = statusFilter === 'all' || statusNorm === statusFilter;
     return matchSearch && matchStatus;
   });
 
@@ -122,7 +129,8 @@ export default function OrdersPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">No orders found</td></tr>
               ) : filtered.map((o, i) => {
-                const cfg = STATUS_CONFIG[o.status];
+                const statusKey = (o.status ?? '').toLowerCase();
+                const cfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.pending;
                 return (
                   <tr
                     key={o.id}

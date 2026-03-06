@@ -40,6 +40,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Operations',
     items: [
+      { to: '/tickets',      label: 'Tickets',      icon: Ticket },
       { to: '/customers',    label: 'Customers',    icon: User },
       { to: '/technicians',  label: 'Technicians',  icon: Users },
       { to: '/staff',        label: 'Staff',        icon: Users },
@@ -129,7 +130,7 @@ const CUSTOMER_NAV: NavGroup[] = [
   {
     label: 'Help',
     items: [
-      { to: '/manuals', label: 'Support', icon: HeadphonesIcon },
+      { to: '/ask-ai', label: 'Support Chat', icon: Sparkles },
     ],
   },
 ];
