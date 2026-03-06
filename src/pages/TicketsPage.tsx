@@ -70,7 +70,7 @@ export default function TicketsPage() {
   const isCustomer  = isRole('customer');
 
   const scopeLabel = isTech
-    ? `Showing tickets assigned to you (${fullName || user?.username || ''})`
+    ? `Showing your tickets (assigned to or created by ${fullName || user?.username || ''})`
     : isCustomer ? 'Showing your submitted tickets'
     : 'Showing all tickets';
 
@@ -79,8 +79,8 @@ export default function TicketsPage() {
       let scoped = all;
       if (user) {
         if (isTech) {
-          // Technicians should see ONLY tickets assigned to them
-          scoped = all.filter(t => isTicketAssignedToUser(t, user));
+          // Technicians see tickets assigned to them OR created by them
+          scoped = all.filter(t => isTicketAssignedToUser(t, user) || isTicketCreatedByUser(t, user));
         } else if (isCustomer) {
           const created = all.filter(t => isTicketCreatedByUser(t, user));
           scoped = created.length ? created : all;
