@@ -19,6 +19,8 @@ export interface User {
   phone?: string;
   status?: string;
   station_name?: string;
+  /** Station UUID from API when backend sends station id (for filtering by station) */
+  station?: string;
   /** Station city from API (station_city) — use for Location display */
   station_city?: string;
   /** Station state from API (station_state) */
@@ -209,6 +211,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toNonEmptyString((payload as any)?.station_display) ||
       toNonEmptyString(((payload as any)?.station && typeof (payload as any)?.station === 'object') ? (payload as any).station.name : '');
 
+    const stationIdRaw =
+      (stationNameObj && typeof stationNameObj === 'object' && (stationNameObj as any).id) ? (stationNameObj as any).id
+      : (base as any).station && typeof (base as any).station === 'string' ? (base as any).station
+      : (payload as any)?.station && typeof (payload as any).station === 'string' ? (payload as any).station
+      : (payload as any)?.station?.id;
+    const stationId = typeof stationIdRaw === 'string' && stationIdRaw.trim() ? stationIdRaw.trim() : '';
+
     // Location: backend may set user.location to \"STATE, CITY\" derived from station.
     // We try to extract structured city/state from that, but still respect explicit fields.
     const locationRaw =
@@ -301,6 +310,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...(phone && { phone }),
       ...(status && { status }),
       ...(stationName && { station_name: stationName }),
+      ...(stationId && { station: stationId }),
       ...(stationCity && { station_city: stationCity }),
       ...(stationState && { station_state: stationState }),
       ...(city && { city }),
