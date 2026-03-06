@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { getDisplayFullName } from '@/lib/displayUser';
-import { useEffect, useState } from 'react';
+import { isInSameStation } from '@/lib/stationFilter';
+import { useEffect, useState, useMemo } from 'react';
 import { ticketApi, Ticket } from '@/services/ticketApi';
 import { technicianApi, Technician } from '@/services/technicianApi';
 import { orderApi, Order } from '@/services/orderApi';
@@ -37,6 +38,12 @@ export default function OverviewPage() {
     ? allTickets.filter(t => isTicketAssignedToUser(t, user))
     : allTickets.filter(t => isTicketCreatedByUser(t, user));
 
+  // For admin/staff: only show technicians (and stats) for the logged-in user's station
+  const techniciansInStation = useMemo(() => {
+    if (!isAdminOrStaff || !user) return technicians;
+    return technicians.filter(t => isInSameStation(t, user));
+  }, [technicians, user, isAdminOrStaff]);
+
   useEffect(() => {
     if (user) fetchProfile();
   }, [user?.id, fetchProfile]);
@@ -56,7 +63,7 @@ export default function OverviewPage() {
 
   const openTickets = tickets.filter(t => ['open', 'pending', 'assigned'].includes(t.status)).length;
   const urgentTickets = tickets.filter(t => t.priority >= 4).length;
-  const availableTechs = technicians.filter(t => t.status === 'available').length;
+  const availableTechs = techniciansInStation.filter(t => t.status === 'available').length;
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
   const completedTickets = tickets.filter(t => t.status === 'completed').length;
   const inProgressTickets = tickets.filter(t => t.status === 'in_progress').length;
@@ -66,7 +73,7 @@ export default function OverviewPage() {
         { label: 'Available Techs', value: availableTechs, icon: Users,        color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10' },
         { label: 'Pending Orders',  value: pendingOrders,  icon: ShoppingCart,  color: 'text-[hsl(var(--warning))]', bg: 'bg-[hsl(var(--warning))]/10' },
         { label: 'Customers',       value: customers.length, icon: User,      color: 'text-[hsl(var(--info))]',    bg: 'bg-[hsl(var(--info))]/10' },
-        { label: 'Technicians',     value: technicians.length, icon: Wrench, color: 'text-primary',               bg: 'bg-primary/10' },
+        { label: 'Technicians',     value: techniciansInStation.length, icon: Wrench, color: 'text-primary',               bg: 'bg-primary/10' },
       ]
     : isTech
     ? [
@@ -168,9 +175,9 @@ export default function OverviewPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {technicians.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground text-sm">No technicians</p>
-              ) : technicians.slice(0, 5).map((t, i) => (
+              {techniciansInStation.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground text-sm">No technicians in your station</p>
+              ) : techniciansInStation.slice(0, 5).map((t, i) => (
                 <div key={t.id} className={`flex items-center justify-between px-4 py-2.5 ${i % 2 === 1 ? 'bg-muted/20' : ''} hover:bg-accent/30 transition-colors cursor-pointer`} onClick={() => navigate(`/technicians/${t.id}`)}>
                   <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">

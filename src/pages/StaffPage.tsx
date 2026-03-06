@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { staffApi, StaffProfile } from '@/services/staffApi';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import { isInSameStation } from '@/lib/stationFilter';
 import { useTheme } from '@/context/ThemeContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -74,16 +75,18 @@ export default function StaffPage() {
   const filtered = staff.filter(s => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
-      s.first_name.toLowerCase().includes(q) ||
-      s.last_name.toLowerCase().includes(q) ||
-      s.email.toLowerCase().includes(q) ||
-      s.username.toLowerCase().includes(q);
+      (s.first_name ?? '').toLowerCase().includes(q) ||
+      (s.last_name ?? '').toLowerCase().includes(q) ||
+      (s.email ?? '').toLowerCase().includes(q) ||
+      (s.username ?? '').toLowerCase().includes(q);
     const matchRole = filterRole === 'all' || s.role === filterRole;
-    return matchSearch && matchRole;
+    const matchStation = isInSameStation(s, user);
+    return matchSearch && matchRole && matchStation;
   });
 
   const [stations, setStations] = useState<{ id: string; name: string }[]>([]);
-  const activeCount = staff.filter(s => s.status).length;
+  const staffInStation = staff.filter(s => isInSameStation(s, user));
+  const activeCount = staffInStation.filter(s => s.status).length;
 
   const STATUS_CONFIG = {
     active:   { label: 'Active', class: 'text-green-400 bg-green-400/10 border border-green-400/20', dot: 'bg-green-400' },
@@ -147,7 +150,7 @@ export default function StaffPage() {
         <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-foreground" />
           <div>
-            <p className="text-lg font-bold">{staff.length}</p>
+            <p className="text-lg font-bold">{staffInStation.length}</p>
             <p className="text-xs text-muted-foreground">Total Staff</p>
           </div>
         </div>
@@ -162,7 +165,7 @@ export default function StaffPage() {
           <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
             <div>
-              <p className="text-lg font-bold">{staff.filter(s => s.role === 'admin').length}</p>
+              <p className="text-lg font-bold">{staffInStation.filter(s => s.role === 'admin').length}</p>
               <p className="text-xs text-muted-foreground">Admins</p>
             </div>
           </div>
@@ -171,7 +174,7 @@ export default function StaffPage() {
           <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-400" />
             <div>
-              <p className="text-lg font-bold">{staff.filter(s => s.role === 'office').length}</p>
+              <p className="text-lg font-bold">{staffInStation.filter(s => s.role === 'office').length}</p>
               <p className="text-xs text-muted-foreground">Office Staff</p>
             </div>
           </div>

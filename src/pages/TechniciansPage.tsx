@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { technicianApi, Technician } from '@/services/technicianApi';
 // import { stationApi } from '@/services/stationApi';
 import { useAuth } from '@/context/AuthContext';
+import { isInSameStation } from '@/lib/stationFilter';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -54,7 +55,7 @@ const EMPTY_FORM = {
 
 export default function TechniciansPage() {
   const navigate = useNavigate();
-  const { isRole } = useAuth();
+  const { user, isRole } = useAuth();
   const { defaultView } = useTheme();
   const [techs, StaffProfilechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +87,8 @@ export default function TechniciansPage() {
   //   const matchExpertise = filterExpertise === 'all' || t.expertise === filterExpertise;
   //   return matchSearch && matchSpec && matchExpertise;
   // });
-  const filtered = techs.filter(t => {
+  const techsInStation = isAdmin && user ? techs.filter(t => isInSameStation(t, user)) : techs;
+  const filtered = techsInStation.filter(t => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
       (t.first_name ?? '').toLowerCase().includes(q) ||
@@ -95,12 +97,12 @@ export default function TechniciansPage() {
       (t.city ?? '').toLowerCase().includes(q) ||
       (t.status ?? '').toLowerCase().includes(q) ||
       (t.expertise ?? '').toLowerCase().includes(q);
-  
+
     const specNorm = (t.specialization ?? '').toLowerCase();
     const expertiseNorm = (t.expertise ?? '').toLowerCase();
     const matchSpec = filterSpec === 'all' || specNorm === filterSpec;
     const matchExpertise = filterExpertise === 'all' || expertiseNorm === filterExpertise;
-  
+
     return matchSearch && matchSpec && matchExpertise;
   });
 
@@ -165,7 +167,7 @@ export default function TechniciansPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 flex-shrink-0">
         {(Object.keys(TECHNICIAN_STATUS) as Array<keyof typeof TECHNICIAN_STATUS>).map(status => {
-          const count = techs.filter(t => (t.status ?? '').toLowerCase() === status).length;
+          const count = techsInStation.filter(t => (t.status ?? '').toLowerCase() === status).length;
           const dotClass = STATUS_DOT[status] ?? 'bg-muted-foreground';
           const label = TECHNICIAN_STATUS[status];
           return (
