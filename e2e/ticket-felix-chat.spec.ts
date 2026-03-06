@@ -155,10 +155,8 @@ test.describe('Ticket Felix Chat - Ask Fix-it Felix Feature', () => {
     const chatHeader = page.locator('text=Ask Fix-it Felix');
     await expect(chatHeader.first()).toBeVisible({ timeout: 5000 });
 
-    // The close button (X) is a small button near the header, not the send button
-    // Look for a button with size h-8 w-8 that contains an SVG (the X icon)
-    // It should be in the header area, which is the first flex container
-    const closeBtn = page.locator('.fixed.inset-y-0.right-0 button.h-8.w-8').first();
+    // Click the close button using data-testid for reliable targeting
+    const closeBtn = page.locator('[data-testid="felix-chat-close"]');
     await closeBtn.click();
 
     // Verify panel is closed - header should no longer be visible

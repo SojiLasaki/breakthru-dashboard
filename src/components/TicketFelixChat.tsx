@@ -309,7 +309,7 @@ export default function TicketFelixChat({
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} data-testid="felix-chat-close">
             <X className="h-4 w-4" />
           </Button>
         </div>
