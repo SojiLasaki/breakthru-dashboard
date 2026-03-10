@@ -30,7 +30,13 @@ const normalizeSpecialization = (value: unknown): string => {
   return ALLOWED_SPECIALIZATIONS.includes(specialization as (typeof ALLOWED_SPECIALIZATIONS)[number]) ? specialization : 'engine';
 };
 
-const clampSeverityOrPriority = (value: unknown, fallback: number): number => {
+const clampPriority = (value: unknown, fallback: number): number => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(5, Math.max(1, Math.round(numeric)));
+};
+
+const clampSeverity = (value: unknown, fallback: number): number => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Math.min(4, Math.max(1, Math.round(numeric)));
@@ -78,20 +84,34 @@ export default function TicketsPage() {
     : 'Showing all tickets';
 
   useEffect(() => {
-    ticketApi.getAll().then(all => {
-      let scoped: Ticket[];
-      if (isTech && user) {
-        // Technicians see tickets assigned to them OR created by them
-        scoped = all.filter(t => isTicketAssignedToUser(t, user) || isTicketCreatedByUser(t, user));
-      } else if (isCustomer && user) {
-        scoped = all.filter(t => isTicketCreatedByUser(t, user));
-      } else {
-        // Admin and office staff see all tickets
-        scoped = all;
-      }
-      setTickets(scoped);
-    }).catch(() => ticketApi.getAll().then(setTickets)).finally(() => setLoading(false));
-  }, [isTech, isCustomer, isAdmin, user]);
+    let cancelled = false;
+    setLoading(true);
+    ticketApi.getAll()
+      .then(all => {
+        if (cancelled) return;
+        let scoped: Ticket[];
+        if (isTech && user) {
+          // Technicians see tickets assigned to them OR created by them
+          scoped = all.filter(t => isTicketAssignedToUser(t, user) || isTicketCreatedByUser(t, user));
+        } else if (isCustomer && user) {
+          scoped = all.filter(t => isTicketCreatedByUser(t, user));
+        } else {
+          // Admin and office staff see all tickets
+          scoped = all;
+        }
+        setTickets(scoped);
+      })
+      .catch(() => {
+        if (!cancelled) setTickets([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isTech, isCustomer, user]);
 
   const filtered = useMemo(() =>
     tickets
@@ -137,13 +157,28 @@ export default function TicketsPage() {
     if (!selected) return;
     setSaving(true);
     try {
+      const nextStatus = normalizeTicketStatus(editForm.status ?? selected.status);
+      const nextPriority = clampPriority(editForm.priority ?? selected.priority, selected.priority || 2);
+      const nextDescription = String(editForm.description ?? selected.description ?? '');
+      const nextAssignedTo = String(editForm.assigned_to ?? selected.assigned_to ?? '').trim();
+
       const updatePayload: Partial<Ticket> = {
-        status: normalizeTicketStatus(editForm.status ?? selected.status),
-        priority: clampSeverityOrPriority(editForm.priority ?? selected.priority, selected.priority || 2),
-        description: String(editForm.description ?? selected.description ?? ''),
+        status: nextStatus,
+        priority: nextPriority,
+        description: nextDescription,
       };
+
       const updated = await ticketApi.update(selected.id, updatePayload);
-      const merged = { ...selected, ...updated } as Ticket;
+      const merged = {
+        ...selected,
+        ...updated,
+        status: nextStatus,
+        priority: nextPriority,
+        description: nextDescription,
+        assigned_to: nextAssignedTo || updated.assigned_to || selected.assigned_to,
+        assigned_technician: nextAssignedTo || updated.assigned_technician || selected.assigned_technician,
+      } as Ticket;
+
       setTickets(prev => prev.map(t => t.id === merged.id ? merged : t));
       setSelected(merged);
       setEditing(false);
@@ -161,20 +196,30 @@ export default function TicketsPage() {
     try {
       const title = String(newTicket.title || '').trim();
       const issueDescription = String(newTicket.issue_description || newTicket.description || '').trim();
+      const customerName = String(newTicket.customer || (isCustomer ? fullName || user?.username || '' : '')).trim();
+      const assignedTo = String(newTicket.assigned_to || '').trim();
       const created = await ticketApi.create({
         title,
         issue_description: issueDescription,
         description: issueDescription,
         status: 'pending',
         specialization: normalizeSpecialization(newTicket.specialization),
-        priority: clampSeverityOrPriority(newTicket.priority, 2),
-        severity: clampSeverityOrPriority(newTicket.severity, 2),
+        priority: clampPriority(newTicket.priority, 2),
+        severity: clampSeverity(newTicket.severity, 2),
         created_by: fullName || user?.username || '',
       });
-      setTickets(prev => [created, ...prev]);
+
+      const createdTicket = {
+        ...created,
+        customer: created.customer || customerName,
+        assigned_to: created.assigned_to || assignedTo,
+        assigned_technician: created.assigned_technician || assignedTo,
+      } as Ticket;
+
+      setTickets(prev => [createdTicket, ...prev]);
       setAddOpen(false);
       setNewTicket({ ...BLANK_TICKET });
-      toast({ title: 'Ticket created', description: `${created.ticket_id} has been created.` });
+      toast({ title: 'Ticket created', description: `${createdTicket.ticket_id} has been created.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to create ticket.', variant: 'destructive' });
     } finally {
@@ -351,6 +396,7 @@ export default function TicketsPage() {
                             <SelectItem value="2">Medium</SelectItem>
                             <SelectItem value="3">High</SelectItem>
                             <SelectItem value="4">Severe</SelectItem>
+                            <SelectItem value="5">Critical</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -461,6 +507,7 @@ export default function TicketsPage() {
                     <SelectItem value="2">Medium</SelectItem>
                     <SelectItem value="3">High</SelectItem>
                     <SelectItem value="4">Severe</SelectItem>
+                    <SelectItem value="5">Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
