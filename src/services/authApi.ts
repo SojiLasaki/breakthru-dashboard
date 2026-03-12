@@ -10,7 +10,7 @@ import { User } from '@/context/AuthContext';
 export const authApi = {
   login: async (username: string, password: string): Promise<unknown> => {
     try {
-      const { data } = await api.post('/auth/login/', { username, password });
+      const { data } = await api.post('/api/auth/login/', { username, password });
       return data;
     } catch (err: unknown) {
       console.error('[authApi] Login failed:', err);
