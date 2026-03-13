@@ -29,16 +29,20 @@
 
 import axios from 'axios';
 
-const defaultApiBase = (() => {
-  // Many Django dev setups whitelist `127.0.0.1` but not `localhost` in `ALLOWED_HOSTS`.
-  // When the frontend runs on `localhost`, prefer hitting the backend via `127.0.0.1` to avoid 400s.
-  if (typeof window === 'undefined') return 'http://127.0.0.1:8000/api';
-  const host = window.location.hostname || '127.0.0.1';
-  const apiHost = host === 'localhost' ? '127.0.0.1' : host;
-  return `http://${apiHost}:8000/api`;
-})();
+// const defaultApiBase = (() => {
+//   // Many Django dev setups whitelist `127.0.0.1` but not `localhost` in `ALLOWED_HOSTS`.
+//   // When the frontend runs on `localhost`, prefer hitting the backend via `127.0.0.1` to avoid 400s.
+//   if (typeof window === 'undefined') return 'http://127.0.0.1:8000/api';
+//   const host = window.location.hostname || '127.0.0.1';
+//   const apiHost = host === 'localhost' ? '127.0.0.1' : host;
+//   return `http://${apiHost}:8000/api`;
+// })();
+
+const defaultApiBase = 'https://breakthru-backend.onrender.com/api';
+
 
 export const api = axios.create({
+  // baseURL: import.meta.env.VITE_API_URL || defaultApiBase,
   baseURL: import.meta.env.VITE_API_URL || defaultApiBase,
   headers: {
     'Content-Type': 'application/json',
